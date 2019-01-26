@@ -461,6 +461,7 @@ public class CentrifugeClient {
     func scheduleDisconnect(reason: String, reconnect: Bool) {
         let previousStatus = self.status
         self.status = .disconnected
+        self.client = nil
 
         for (_, resolveFunc) in self.opCallbacks {
             resolveFunc(resolveData(error: CentrifugeError.disconnected, reply: nil))
