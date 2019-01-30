@@ -1,9 +1,3 @@
-
-struct disconnectOptions: Decodable {
-    var reason: String
-    var reconnect: Bool
-}
-
 //
 //  Helpers.swift
 //  SwiftCentrifuge
@@ -11,6 +5,14 @@ struct disconnectOptions: Decodable {
 //  Created by Alexander Emelin on 05/01/2019.
 //  Copyright © 2019 Alexander Emelin. All rights reserved.
 //
+
+import Foundation
+import SwiftProtobuf
+
+struct disconnectOptions: Decodable {
+    var reason: String
+    var reconnect: Bool
+}
 
 
 struct resolveData {
