@@ -60,7 +60,7 @@ public struct CentrifugeSubscribeSuccessEvent {
 
 public struct CentrifugeUnsubscribeEvent {}
 
-public protocol CentrifugeClientDelegate {
+public protocol CentrifugeClientDelegate: class {
     func onConnect(_ c: CentrifugeClient, _ e: CentrifugeConnectEvent)
     func onDisconnect(_ c: CentrifugeClient, _ e: CentrifugeDisconnectEvent)
     func onPrivateSub(_ c: CentrifugeClient, _ e: CentrifugePrivateSubEvent, completion: (_ token: String) -> ())
