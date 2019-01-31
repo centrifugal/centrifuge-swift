@@ -26,6 +26,8 @@ public struct CentrifugeClientConfig {
     var maxReconnectDelay = 20.0
     var privateChannelPrefix = "$"
     var pingInterval = 25.0
+
+    public init() {}
 }
 
 public enum CentrifugeClientStatus {
@@ -37,7 +39,7 @@ public enum CentrifugeClientStatus {
 public class CentrifugeClient {
     var conn: WebSocket?
     var token: String?
-    var client: String?
+    public var client: String?
     var commandId: UInt32 = 0
     var commandIdLock: NSLock = NSLock()
     var url: String
@@ -58,7 +60,7 @@ public class CentrifugeClient {
     var syncQueue: DispatchQueue
     var connecting = false
 
-    init(url: String, config: CentrifugeClientConfig, delegate: CentrifugeClientDelegate, delegateQueue: OperationQueue? = nil) {
+    public init(url: String, config: CentrifugeClientConfig, delegate: CentrifugeClientDelegate, delegateQueue: OperationQueue? = nil) {
         self.url = url
         
         // iOS client work only over Protobuf protocol.
