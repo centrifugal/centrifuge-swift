@@ -26,6 +26,8 @@ public struct CentrifugeClientConfig {
     var maxReconnectDelay = 20.0
     var privateChannelPrefix = "$"
     var pingInterval = 25.0
+
+    public init() {}
 }
 
 public enum CentrifugeClientStatus {
@@ -60,8 +62,9 @@ public class CentrifugeClient {
     fileprivate var disconnectOpts: disconnectOptions?
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var connecting = false
+    fileprivate var connecting = false
 
-    init(url: String, config: CentrifugeClientConfig, delegate: CentrifugeClientDelegate, delegateQueue: OperationQueue? = nil) {
+    public init(url: String, config: CentrifugeClientConfig, delegate: CentrifugeClientDelegate? = nil, delegateQueue: OperationQueue? = nil) {
         self.url = url
         
         // iOS client work only over Protobuf protocol.
@@ -104,7 +107,7 @@ public class CentrifugeClient {
         guard let client = self.client else { completion(""); return }
         self.delegateQueue.addOperation { [weak self] in
             guard let strongSelf = self else { return }
-            strongSelf.delegate.onPrivateSub(
+            strongSelf.delegate?.onPrivateSub(
                 strongSelf,
                 CentrifugePrivateSubEvent(client: client, channel: channel)
             ) {[weak self] token in
@@ -282,7 +285,7 @@ public class CentrifugeClient {
         } else if push.type == Proto_PushType.message {
             let message = try Proto_Message(serializedData: push.data)
             self.delegateQueue.addOperation {
-                self.delegate.onMessage(self, CentrifugeMessageEvent(data: message.data))
+                self.delegate?.onMessage(self, CentrifugeMessageEvent(data: message.data))
             }
         }
     }
@@ -367,7 +370,7 @@ public class CentrifugeClient {
     func startConnectionRefresh(ttl: UInt32) {
         let refreshTask = DispatchWorkItem {
             self.delegateQueue.addOperation {
-                self.delegate.onRefresh(self, CentrifugeRefreshEvent()) {[weak self] token in
+                self.delegate?.onRefresh(self, CentrifugeRefreshEvent()) {[weak self] token in
                     guard let strongSelf = self else { return }
                     if token == "" {
                         return
@@ -410,7 +413,7 @@ public class CentrifugeClient {
                         strongSelf.client = result.client
                         strongSelf.delegateQueue.addOperation { [weak self] in
                             guard let strongSelf = self else { return }
-                            strongSelf.delegate.onConnect(strongSelf, CentrifugeConnectEvent(client: result.client))
+                            strongSelf.delegate?.onConnect(strongSelf, CentrifugeConnectEvent(client: result.client))
                         }
                         for (_, cb) in strongSelf.connectCallbacks {
                             cb(nil)
@@ -425,7 +428,7 @@ public class CentrifugeClient {
                         if code == 109 {
                             strongSelf.delegateQueue.addOperation { [weak self] in
                                 guard let strongSelf = self else { return }
-                                strongSelf.delegate.onRefresh(strongSelf, CentrifugeRefreshEvent()) {[weak self] token in
+                                strongSelf.delegate?.onRefresh(strongSelf, CentrifugeRefreshEvent()) {[weak self] token in
                                     guard let strongSelf = self else { return }
                                     if token != "" {
                                         strongSelf.token = token
@@ -499,7 +502,7 @@ public class CentrifugeClient {
         if previousStatus == .new || previousStatus == .connected  {
             self.delegateQueue.addOperation { [weak self] in
                 guard let strongSelf = self else { return }
-                strongSelf.delegate.onDisconnect(
+                strongSelf.delegate?.onDisconnect(
                     strongSelf,
                     CentrifugeDisconnectEvent(reason: reason, reconnect: reconnect)
                 )
