@@ -9,58 +9,58 @@
 import Foundation
 
 public struct CentrifugeConnectEvent{
-    var client: String
+    public var client: String
 }
 
 public struct CentrifugeDisconnectEvent{
-    var reason: String
-    var reconnect: Bool
+    public var reason: String
+    public var reconnect: Bool
 }
 
 public struct CentrifugeRefreshEvent{}
 
 public struct CentrifugeJoinEvent {
-    var client: String
-    var user: String
-    var connInfo: Data
-    var chanInfo: Data
+    public var client: String
+    public var user: String
+    public var connInfo: Data
+    public var chanInfo: Data
 }
 
 public struct CentrifugeLeaveEvent {
-    var client: String
-    var user: String
-    var connInfo: Data
-    var chanInfo: Data
+    public var client: String
+    public var user: String
+    public var connInfo: Data
+    public var chanInfo: Data
 }
 
 public struct CentrifugeMessageEvent {
-    var data: Data
+    public var data: Data
 }
 
 public struct CentrifugePublishEvent {
-    var uid: String
-    var data: Data
+    public var uid: String
+    public var data: Data
     var info: Proto_ClientInfo?
 }
 
 public struct CentrifugePrivateSubEvent {
-    var client: String
-    var channel: String
+    public var client: String
+    public var channel: String
 }
 
 public struct CentrifugeSubscribeErrorEvent {
-    var code: UInt32
-    var message: String
+    public var code: UInt32
+    public var message: String
 }
 
 public struct CentrifugeSubscribeSuccessEvent {
-    var resubscribe = false
-    var recovered = false
+    public var resubscribe = false
+    public var recovered = false
 }
 
 public struct CentrifugeUnsubscribeEvent {}
 
-public protocol CentrifugeClientDelegate {
+public protocol CentrifugeClientDelegate: class {
     func onConnect(_ c: CentrifugeClient, _ e: CentrifugeConnectEvent)
     func onDisconnect(_ c: CentrifugeClient, _ e: CentrifugeDisconnectEvent)
     func onPrivateSub(_ c: CentrifugeClient, _ e: CentrifugePrivateSubEvent, completion: (_ token: String) -> ())
