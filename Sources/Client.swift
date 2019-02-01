@@ -39,7 +39,7 @@ public enum CentrifugeClientStatus {
 public class CentrifugeClient {
     var conn: WebSocket?
     var token: String?
-    public var client: String?
+    var client: String?
     var commandId: UInt32 = 0
     var commandIdLock: NSLock = NSLock()
     var url: String
