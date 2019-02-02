@@ -17,6 +17,7 @@ class ViewController: UIViewController {
 	
 	private var client: CentrifugeClient?
 	private var sub: CentrifugeSubscription?
+	private var isConnected: Bool = false
 	
 	override func viewDidLoad() {
         super.viewDidLoad()
@@ -40,12 +41,11 @@ class ViewController: UIViewController {
 	}
 	
 	@IBAction func connect(_ sender: Any) {
-		guard let status = self.client?.status else {return}
-		if status == .new || status == .disconnected {
+		if self.isConnected {
+			self.client?.disconnect()
+		} else {
 			self.client?.connect()
 			self.subscribe()
-		} else {
-			self.client?.disconnect()
 		}
 	}
 	
@@ -69,6 +69,7 @@ class ViewController: UIViewController {
 
 extension ViewController: CentrifugeClientDelegate {
 	func onConnect(_ c: CentrifugeClient, _ e: CentrifugeConnectEvent) {
+		self.isConnected = true
 		print("connected with id", e.client)
 		DispatchQueue.main.async { [weak self] in
 			self?.connectionStatus.text = "Connected"
@@ -77,6 +78,7 @@ extension ViewController: CentrifugeClientDelegate {
 	}
 	
 	func onDisconnect(_ c: CentrifugeClient, _ e: CentrifugeDisconnectEvent) {
+		self.isConnected = false
 		print("disconnected", e.reason, "reconnect", e.reconnect)
 		DispatchQueue.main.async { [weak self] in
 			self?.connectionStatus.text = "Disconnected"
