@@ -53,14 +53,14 @@ public class CentrifugeClient {
     fileprivate var client: String?
     fileprivate var commandId: UInt32 = 0
     fileprivate var commandIdLock: NSLock = NSLock()
-    fileprivate var opCallbacks: [UInt32: ((resolveData) -> ())] = [:]
+    fileprivate var opCallbacks: [UInt32: ((CentrifugeResolveData) -> ())] = [:]
     fileprivate var connectCallbacks: [String: ((Error?) -> ())] = [:]
     fileprivate var subscriptionsLock = NSLock()
     fileprivate var subscriptions = [CentrifugeSubscription]()
     fileprivate var needReconnect = true
     fileprivate var numReconnectAttempts = 0
     fileprivate var pingTimer: DispatchSourceTimer?
-    fileprivate var disconnectOpts: disconnectOptions?
+    fileprivate var disconnectOpts: CentrifugeDisconnectOptions?
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var connecting = false
 
@@ -200,6 +200,31 @@ public class CentrifugeClient {
         }
     }
 	
+	
+	/**
+	Send RPC  command
+	- parameter data: Data
+	- parameter completion: Completion block
+	*/
+	public func rpc(data: Data, completion: @escaping (Data?, Error?)->()) {
+		self.workQueue.async { [weak self] in
+			guard let strongSelf = self else { return }
+			strongSelf.waitForConnect(completion: { [weak self] error in
+				guard let strongSelf = self else { return }
+				if let err = error {
+					completion(nil, err)
+					return
+				}
+				do {
+					let result = try strongSelf.sendRPC(data: data)
+					completion(result.data, nil)
+				} catch {
+					completion(nil, error)
+				}
+			})
+		}
+	}
+	
 	/**
 	Resubscribe to all channels
 	*/
@@ -274,14 +299,14 @@ public class CentrifugeClient {
                 strongSelf.syncQueue.async { [weak self] in
                     guard let strongSelf = self else { return }
                     let decoder = JSONDecoder()
-                    let disconnect: disconnectOptions
+                    let disconnect: CentrifugeDisconnectOptions
                     do {
-                        disconnect = try decoder.decode(disconnectOptions.self, from: reason.data(using: .utf8)!)
+                        disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: reason.data(using: .utf8)!)
                     } catch {
                         if let d = strongSelf.disconnectOpts {
                             disconnect = d
                         } else {
-                            disconnect = disconnectOptions(reason: "connection closed", reconnect: true)
+                            disconnect = CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
                         }
                         strongSelf.disconnectOpts = nil
                     }
@@ -302,7 +327,7 @@ public class CentrifugeClient {
     }
 
 	/**
-	Connect from ws server
+	Disconnect from ws server
 	*/
     public func disconnect() {
         self.syncQueue.async { [weak self] in
@@ -379,7 +404,7 @@ internal extension CentrifugeClient {
 	}
 	
 	func close(reason: String, reconnect: Bool) {
-		self.disconnectOpts = disconnectOptions(reason: reason, reconnect: reconnect)
+		self.disconnectOpts = CentrifugeDisconnectOptions(reason: reason, reconnect: reconnect)
 		self.conn?.close()
 	}
 }
@@ -421,7 +446,7 @@ fileprivate extension CentrifugeClient {
 	
 	func sendCommand(command: Proto_Command) throws -> Proto_Reply {
 		let commands: [Proto_Command] = [command]
-		let data = try serializeCommands(commands: commands)
+		let data = try CentrifugeSerializer.serializeCommands(commands: commands)
 		self.conn?.send(data: data)
 		let reply = try self.waitForReply(id: command.id)
 		return reply
@@ -429,7 +454,7 @@ fileprivate extension CentrifugeClient {
 	
 	func sendCommandAsync(command: Proto_Command) throws {
 		let commands: [Proto_Command] = [command]
-		let data = try serializeCommands(commands: commands)
+		let data = try CentrifugeSerializer.serializeCommands(commands: commands)
 		self.conn?.send(data: data)
 	}
 	
@@ -451,7 +476,7 @@ fileprivate extension CentrifugeClient {
 			group.leave()
 		}
 		
-		func resolve(rep: resolveData) {
+		func resolve(rep: CentrifugeResolveData) {
 			if groupLeft {
 				return
 			}
@@ -540,25 +565,6 @@ fileprivate extension CentrifugeClient {
 					}
 				}
 			}
-		}
-	}
-	
-	func rpc(data: Data, completion: @escaping (Data?, Error?)->()) {
-		self.workQueue.async { [weak self] in
-			guard let strongSelf = self else { return }
-			strongSelf.waitForConnect(completion: { [weak self] error in
-				guard let strongSelf = self else { return }
-				if let err = error {
-					completion(nil, err)
-					return
-				}
-				do {
-					let result = try strongSelf.sendRPC(data: data)
-					completion(result.data, nil)
-				} catch {
-					completion(nil, error)
-				}
-			})
 		}
 	}
 	
@@ -660,10 +666,10 @@ fileprivate extension CentrifugeClient {
 	
 	func handleData(data: Data) {
 		do {
-			let replies = try deserializeCommands(data: data)
+			let replies = try CentrifugeSerializer.deserializeCommands(data: data)
 			for reply in replies {
 				if reply.id > 0 {
-					self.opCallbacks[reply.id]?(resolveData(error: nil, reply: reply))
+					self.opCallbacks[reply.id]?(CentrifugeResolveData(error: nil, reply: reply))
 				} else {
 					do {
 						try self.handleAsyncData(data: reply.result)
@@ -728,7 +734,7 @@ fileprivate extension CentrifugeClient {
 		self.client = nil
 		
 		for (_, resolveFunc) in self.opCallbacks {
-			resolveFunc(resolveData(error: CentrifugeError.disconnected, reply: nil))
+			resolveFunc(CentrifugeResolveData(error: CentrifugeError.disconnected, reply: nil))
 		}
 		self.opCallbacks = [:]
 		
