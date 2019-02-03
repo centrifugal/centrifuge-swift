@@ -97,30 +97,11 @@ public class CentrifugeClient {
             strongSelf.token = token
         }
     }
-
-	/**
-	Get session token for specific channel async
-	- parameter channel: String
-	- parameter completion: Completion handler block
-	*/
-    public func getSubscriptionToken(channel: String, completion: @escaping (String)->()) {
-        guard let client = self.client else { completion(""); return }
-        self.delegateQueue.addOperation { [weak self] in
-            guard let strongSelf = self else { return }
-            strongSelf.delegate?.onPrivateSub(
-                strongSelf,
-                CentrifugePrivateSubEvent(client: client, channel: channel)
-            ) {[weak self] token in
-                guard let _ = self else { return }
-                completion(token)
-            }
-        }
-    }
 	
 	/**
 	Refresh session token and reconnect
 	*/
-	func refreshWithToken(token: String) {
+	public func refreshWithToken(token: String) {
 		self.syncQueue.async { [weak self] in
 			if let strongSelf = self {
 				strongSelf.token = token
@@ -367,6 +348,20 @@ public class CentrifugeClient {
 }
 
 internal extension CentrifugeClient {
+	func getSubscriptionToken(channel: String, completion: @escaping (String)->()) {
+		guard let client = self.client else { completion(""); return }
+		self.delegateQueue.addOperation { [weak self] in
+			guard let strongSelf = self else { return }
+			strongSelf.delegate?.onPrivateSub(
+				strongSelf,
+				CentrifugePrivateSubEvent(client: client, channel: channel)
+			) {[weak self] token in
+				guard let _ = self else { return }
+				completion(token)
+			}
+		}
+	}
+	
 	func sendSubscribe(channel: String, token: String) throws -> Proto_SubscribeResult {
 		var params = Proto_SubscribeRequest()
 		params.channel = channel
