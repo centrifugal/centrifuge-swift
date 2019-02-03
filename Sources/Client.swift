@@ -97,29 +97,6 @@ public class CentrifugeClient {
             strongSelf.token = token
         }
     }
-	
-	/**
-	Refresh session token and reconnect
-	*/
-	public func refreshWithToken(token: String) {
-		self.syncQueue.async { [weak self] in
-			if let strongSelf = self {
-				strongSelf.token = token
-				strongSelf.workQueue.async { [weak self] in
-					if let strongSelf = self {
-						do {
-							let result = try strongSelf.sendRefresh(token: token)
-							if result.expires {
-								strongSelf.startConnectionRefresh(ttl: result.ttl)
-							}
-						} catch let error {
-							strongSelf.log(error)
-						}
-					}
-				}
-			}
-		}
-	}
 
 	/**
 	Publish message Data to channel
@@ -147,59 +124,28 @@ public class CentrifugeClient {
     }
 	
 	/**
-	Send presence event to channel
-	- parameter channel: String channel name
+	Send raw message to server
+	- parameter data: Data
 	- parameter completion: Completion block
 	*/
-    public func presence(channel: String, completion: @escaping ([String: CentrifugeClientInfo]?, Error?)->()) {
-        self.workQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
-            do {
-                let result = try strongSelf.sendPresence(channel: channel)
-                completion(result, nil)
-            } catch {
-                completion(nil, error)
-            }
-        }
-    }
-	
-	/**
-	Send presence stats event to channel
-	- parameter channel: String channel name
-	- parameter completion: Completion block
-	*/
-    public func presenceStats(channel: String, completion: @escaping (CentrifugePresenceStats?, Error?)->()) {
-        self.workQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
-            do {
-                let result = try strongSelf.sendPresenceStats(channel: channel)
-                completion(result, nil)
-            } catch {
-                completion(nil, error)
-            }
-        }
-    }
-
-	/**
-	Get messages history by specific channel
-	- parameter channel: String channel name
-	- parameter completion: Completion block
-	*/
-    public func history(channel: String, completion: @escaping ([CentrifugePublication]?, Error?)->()) {
-        self.workQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
-            do {
-                let result = try strongSelf.sendHistory(channel: channel)
-                completion(result, nil)
-            } catch {
-                completion(nil, error)
-            }
-        }
-    }
-	
+	public func send(data: Data, completion: @escaping (Error?)->()) {
+		self.workQueue.async { [weak self] in
+			guard let strongSelf = self else { return }
+			strongSelf.waitForConnect(completion: { [weak self] error in
+				guard let strongSelf = self else { return }
+				if let err = error {
+					completion(err)
+					return
+				}
+				do {
+					let _ = try strongSelf.sendSend(data: data)
+					completion(nil)
+				} catch {
+					completion(error)
+				}
+			})
+		}
+	}
 	
 	/**
 	Send RPC  command
@@ -224,17 +170,6 @@ public class CentrifugeClient {
 			})
 		}
 	}
-	
-	/**
-	Resubscribe to all channels
-	*/
-    public func resubscribe() {
-        subscriptionsLock.lock()
-        for sub in self.subscriptions {
-            sub.resubscribeIfNecessary()
-        }
-        subscriptionsLock.unlock()
-    }
 	
 	/**
 	Connect to ws server
@@ -351,28 +286,29 @@ public class CentrifugeClient {
         subscriptionsLock.unlock()
         return sub
     }
-
-	/**
-	Unsubscribe from specific channel
-	- parameter sub: CentrifugeSubscription
-	*/
-    public func unsubscribe(sub: CentrifugeSubscription) {
-        let channel = sub.channel
-        self.syncQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            if strongSelf.status == .connected {
-                strongSelf.workQueue.async { [weak self] in
-                    guard let strongSelf = self else { return }
-                    do {
-                        let _ = try strongSelf.sendUnsubscribe(channel: channel)
-                    } catch {}
-                }
-            }
-        }
-    }
 }
 
 internal extension CentrifugeClient {
+	func refreshWithToken(token: String) {
+		self.syncQueue.async { [weak self] in
+			if let strongSelf = self {
+				strongSelf.token = token
+				strongSelf.workQueue.async { [weak self] in
+					if let strongSelf = self {
+						do {
+							let result = try strongSelf.sendRefresh(token: token)
+							if result.expires {
+								strongSelf.startConnectionRefresh(ttl: result.ttl)
+							}
+						} catch let error {
+							strongSelf.log(error)
+						}
+					}
+				}
+			}
+		}
+	}
+	
 	func getSubscriptionToken(channel: String, completion: @escaping (String)->()) {
 		guard let client = self.client else { completion(""); return }
 		self.delegateQueue.addOperation { [weak self] in
@@ -385,6 +321,29 @@ internal extension CentrifugeClient {
 				completion(token)
 			}
 		}
+	}
+	
+	func unsubscribe(sub: CentrifugeSubscription) {
+		let channel = sub.channel
+		self.syncQueue.async { [weak self] in
+			guard let strongSelf = self else { return }
+			if strongSelf.status == .connected {
+				strongSelf.workQueue.async { [weak self] in
+					guard let strongSelf = self else { return }
+					do {
+						let _ = try strongSelf.sendUnsubscribe(channel: channel)
+					} catch {}
+				}
+			}
+		}
+	}
+	
+	func resubscribe() {
+		subscriptionsLock.lock()
+		for sub in self.subscriptions {
+			sub.resubscribeIfNecessary()
+		}
+		subscriptionsLock.unlock()
 	}
 	
 	func sendSubscribe(channel: String, token: String) throws -> Proto_SubscribeResult {
@@ -401,6 +360,45 @@ internal extension CentrifugeClient {
 		}
 		let result = try Proto_SubscribeResult(serializedData: reply.result)
 		return result
+	}
+	
+	func presence(channel: String, completion: @escaping ([String: CentrifugeClientInfo]?, Error?)->()) {
+		self.workQueue.async { [weak self] in
+			guard let strongSelf = self else { return }
+			guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
+			do {
+				let result = try strongSelf.sendPresence(channel: channel)
+				completion(result, nil)
+			} catch {
+				completion(nil, error)
+			}
+		}
+	}
+	
+	func presenceStats(channel: String, completion: @escaping (CentrifugePresenceStats?, Error?)->()) {
+		self.workQueue.async { [weak self] in
+			guard let strongSelf = self else { return }
+			guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
+			do {
+				let result = try strongSelf.sendPresenceStats(channel: channel)
+				completion(result, nil)
+			} catch {
+				completion(nil, error)
+			}
+		}
+	}
+	
+	func history(channel: String, completion: @escaping ([CentrifugePublication]?, Error?)->()) {
+		self.workQueue.async { [weak self] in
+			guard let strongSelf = self else { return }
+			guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
+			do {
+				let result = try strongSelf.sendHistory(channel: channel)
+				completion(result, nil)
+			} catch {
+				completion(nil, error)
+			}
+		}
 	}
 	
 	func close(reason: String, reconnect: Bool) {
@@ -565,25 +563,6 @@ fileprivate extension CentrifugeClient {
 					}
 				}
 			}
-		}
-	}
-	
-	func send(data: Data, completion: @escaping (Error?)->()) {
-		self.workQueue.async { [weak self] in
-			guard let strongSelf = self else { return }
-			strongSelf.waitForConnect(completion: { [weak self] error in
-				guard let strongSelf = self else { return }
-				if let err = error {
-					completion(err)
-					return
-				}
-				do {
-					let _ = try strongSelf.sendSend(data: data)
-					completion(nil)
-				} catch {
-					completion(error)
-				}
-			})
 		}
 	}
 	
