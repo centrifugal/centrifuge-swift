@@ -52,13 +52,12 @@ public class CentrifugeSubscription {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.waitForSubscribe(completion: {[weak self] error in
-                if let sub = self {
-                    if let err = error {
-                        completion(err)
-                        return
-                    }
-                    sub.centrifuge.publish(channel: sub.channel, data: data, completion: completion)
+                guard let strongSelf = self else { return }
+                if let err = error {
+                    completion(err)
+                    return
                 }
+                strongSelf.centrifuge.publish(channel: strongSelf.channel, data: data, completion: completion)
             })
         }
     }
@@ -109,47 +108,55 @@ public class CentrifugeSubscription {
     }
     
     func sendSubscribe(channel: String, token: String) {
-        do {
-            let result = try self.centrifuge.sendSubscribe(channel: self.channel, token: token)
-            self.isResubscribe = true
-            for (_, cb) in self.callbacks {
-                cb(nil)
-            }
-            self.callbacks = [:]
-            self.status = .subscribeSuccess
-            self.centrifuge.delegateQueue.addOperation {
-                self.delegate.onSubscribeSuccess(
-                    self,
-                    CentrifugeSubscribeSuccessEvent(resubscribe: self.isResubscribe, recovered: result.recovered)
-                )
-            }
-        } catch CentrifugeError.replyError(let code, let message) {
-            if code == 100 { // Internal error
-                self.centrifuge.syncQueue.async { [weak self] in
-                    self?.centrifuge.close(reason: "internal error", reconnect: true)
+        self.centrifuge.sendSubscribe(channel: self.channel, token: token, completion: { res, error in
+            if let err = error {
+                switch err {
+                case CentrifugeError.replyError(let code, let message):
+                    if code == 100 { // Internal error
+                        self.centrifuge.syncQueue.async { [weak self] in
+                            self?.centrifuge.close(reason: "internal error", reconnect: true)
+                        }
+                        return
+                    }
+                    self.syncQueue.async {
+                        self.status = .subscribeError
+                        self.centrifuge.delegateQueue.addOperation {
+                            self.delegate.onSubscribeError(self, CentrifugeSubscribeErrorEvent(code: code, message: message))
+                        }
+                        for (_, cb) in self.callbacks {
+                            cb(CentrifugeError.replyError(code: code, message: message))
+                        }
+                        self.callbacks = [:]
+                    }
+                case CentrifugeError.timeout:
+                    self.centrifuge.syncQueue.async { [weak self] in
+                        self?.centrifuge.close(reason: "timeout", reconnect: true)
+                    }
+                    return
+                default:
+                    self.centrifuge.syncQueue.async { [weak self] in
+                        self?.centrifuge.close(reason: "subscription error", reconnect: true)
+                    }
+                    return
                 }
-                return
             }
-            self.status = .subscribeError
-            self.centrifuge.delegateQueue.addOperation {
-                self.delegate.onSubscribeError(self, CentrifugeSubscribeErrorEvent(code: code, message: message))
+            if let result = res {
+                self.syncQueue.async {
+                    self.isResubscribe = true
+                    for (_, cb) in self.callbacks {
+                        cb(nil)
+                    }
+                    self.callbacks = [:]
+                    self.status = .subscribeSuccess
+                    self.centrifuge.delegateQueue.addOperation {
+                        self.delegate.onSubscribeSuccess(
+                            self,
+                            CentrifugeSubscribeSuccessEvent(resubscribe: self.isResubscribe, recovered: result.recovered)
+                        )
+                    }
+                }
             }
-            for (_, cb) in self.callbacks {
-                cb(CentrifugeError.replyError(code: code, message: message))
-            }
-            self.callbacks = [:]
-            return
-        } catch CentrifugeError.timeout {
-            self.centrifuge.syncQueue.async { [weak self] in
-                self?.centrifuge.close(reason: "timeout", reconnect: true)
-            }
-            return
-        } catch {
-            self.centrifuge.syncQueue.async { [weak self] in
-                self?.centrifuge.close(reason: "subscription error", reconnect: true)
-            }
-            return
-        }
+        })
     }
     
     func resubscribeIfNecessary() {
@@ -166,14 +173,14 @@ public class CentrifugeSubscription {
         if self.channel.hasPrefix(self.centrifuge.config.privateChannelPrefix) {
             self.centrifuge.getSubscriptionToken(channel: self.channel, completion: { [weak self] token in
                 guard let sub = self else { return }
-                sub.centrifuge.workQueue.async { [weak self] in
+                sub.syncQueue.async { [weak self] in
                     guard let sub = self else { return }
                     guard sub.status == .subscribing else { return }
                     sub.sendSubscribe(channel: sub.channel, token: token)
                 }
             })
         } else {
-            self.centrifuge.workQueue.async { [weak self] in
+            self.syncQueue.async { [weak self] in
                 guard let sub = self else { return }
                 guard sub.status == .subscribing else { return }
                 sub.sendSubscribe(channel: sub.channel, token: "")
@@ -224,8 +231,8 @@ public class CentrifugeSubscription {
             
             let resolveFunc = resolve
             strongSelf.callbacks[uid] = resolveFunc
-            strongSelf.centrifuge.workQueue.asyncAfter(deadline: .now() + strongSelf.centrifuge.config.timeout, execute: timeoutTask)
-            
+            strongSelf.syncQueue.asyncAfter(deadline: .now() + strongSelf.centrifuge.config.timeout, execute: timeoutTask)
+
             strongSelf.centrifuge.workQueue.async { [weak self] in
                 guard let strongSelf = self else { return }
                 group.wait()
@@ -246,16 +253,20 @@ public class CentrifugeSubscription {
         }
     }
     
+    // Access must be serialized from outside.
     func moveToUnsubscribed() {
-        if self.status != .subscribeSuccess {
+        if self.status != .subscribeSuccess && self.status != .subscribeError {
             return
         }
         self.status = .unsubscribed
-        self.centrifuge.delegateQueue.addOperation {
-            self.delegate.onUnsubscribe(
-                self,
-                CentrifugeUnsubscribeEvent()
-            )
+        if self.status == .subscribeSuccess {
+            // Only call unsubscribe event if Subscription wass successfully subscribed.
+            self.centrifuge.delegateQueue.addOperation {
+                self.delegate.onUnsubscribe(
+                    self,
+                    CentrifugeUnsubscribeEvent()
+                )
+            }
         }
     }
     
