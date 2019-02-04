@@ -106,9 +106,9 @@ public class CentrifugeSubscription {
             })
         }
     }
-    
+
     func sendSubscribe(channel: String, token: String) {
-        self.centrifuge.sendSubscribe(channel: self.channel, token: token, completion: { res, error in
+        self.centrifuge.subscribe(channel: self.channel, token: token, completion: { res, error in
             if let err = error {
                 switch err {
                 case CentrifugeError.replyError(let code, let message):
