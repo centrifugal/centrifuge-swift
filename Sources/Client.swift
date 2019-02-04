@@ -320,15 +320,22 @@ internal extension CentrifugeClient {
     }
     
     func getSubscriptionToken(channel: String, completion: @escaping (String)->()) {
-        guard let client = self.client else { completion(""); return }
-        self.delegateQueue.addOperation { [weak self] in
+        self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            strongSelf.delegate?.onPrivateSub(
-                strongSelf,
-                CentrifugePrivateSubEvent(client: client, channel: channel)
-            ) {[weak self] token in
-                guard let _ = self else { return }
-                completion(token)
+            guard let client = strongSelf.client else { completion(""); return }
+            strongSelf.delegateQueue.addOperation { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.delegate?.onPrivateSub(
+                    strongSelf,
+                    CentrifugePrivateSubEvent(client: client, channel: channel)
+                ) {[weak self] token in
+                    guard let strongSelf = self else { return }
+                    strongSelf.syncQueue.async { [weak self] in
+                        guard let strongSelf = self else { return }
+                        guard strongSelf.client == client else { return }
+                        completion(token)
+                    }
+                }
             }
         }
     }
