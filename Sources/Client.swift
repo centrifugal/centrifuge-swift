@@ -26,7 +26,7 @@ public struct CentrifugeClientConfig {
     var maxReconnectDelay = 20.0
     var privateChannelPrefix = "$"
     var pingInterval = 25.0
-
+    
     public init() {}
 }
 
@@ -37,15 +37,15 @@ public enum CentrifugeClientStatus {
 }
 
 public class CentrifugeClient {
-	public weak var delegate: CentrifugeClientDelegate?
-	
+    public weak var delegate: CentrifugeClientDelegate?
+    
     //MARK -
     fileprivate(set) var url: String
     fileprivate(set) var workQueue: DispatchQueue
     fileprivate(set) var delegateQueue: OperationQueue
     fileprivate(set) var syncQueue: DispatchQueue
     fileprivate(set) var config: CentrifugeClientConfig
-	
+    
     //MARK -
     fileprivate(set) var status: CentrifugeClientStatus = .new
     fileprivate var conn: WebSocket?
@@ -63,7 +63,7 @@ public class CentrifugeClient {
     fileprivate var disconnectOpts: CentrifugeDisconnectOptions?
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var connecting = false
-
+    
     public init(url: String, config: CentrifugeClientConfig, delegate: CentrifugeClientDelegate? = nil, delegateQueue: OperationQueue? = nil) {
         self.url = url
         
@@ -71,7 +71,7 @@ public class CentrifugeClient {
         if self.url.range(of: "format=protobuf") == nil {
             self.url += "?format=protobuf"
         }
-
+        
         self.config = config
         self.delegate = delegate
         
@@ -86,24 +86,24 @@ public class CentrifugeClient {
             self.delegateQueue.maxConcurrentOperationCount = 1
         }
     }
-
-	/**
-	Set connection JWT
-	- parameter token: String
-	*/
+    
+    /**
+     Set connection JWT
+     - parameter token: String
+     */
     public func setToken(_ token: String) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.token = token
         }
     }
-
-	/**
-	Publish message Data to channel
-	- parameter channel: String channel name
-	- parameter data: Data message data
-	- parameter completion: Completion block
-	*/
+    
+    /**
+     Publish message Data to channel
+     - parameter channel: String channel name
+     - parameter data: Data message data
+     - parameter completion: Completion block
+     */
     public func publish(channel: String, data: Data, completion: @escaping (Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -119,14 +119,14 @@ public class CentrifugeClient {
             })
         }
     }
-	
-	/**
-	Send raw message to server
-	- parameter data: Data
-	- parameter completion: Completion block
-	*/
+    
+    /**
+     Send raw message to server
+     - parameter data: Data
+     - parameter completion: Completion block
+     */
     public func send(data: Data, completion: @escaping (Error?)->()) {
-        self.workQueue.async { [weak self] in
+        self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.waitForConnect(completion: { [weak self] error in
                 guard let strongSelf = self else { return }
@@ -138,14 +138,14 @@ public class CentrifugeClient {
             })
         }
     }
-	
-	/**
-	Send RPC  command
-	- parameter data: Data
-	- parameter completion: Completion block
-	*/
+    
+    /**
+     Send RPC  command
+     - parameter data: Data
+     - parameter completion: Completion block
+     */
     public func rpc(data: Data, completion: @escaping (Data?, Error?)->()) {
-        self.workQueue.async { [weak self] in
+        self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.waitForConnect(completion: { [weak self] error in
                 guard let strongSelf = self else { return }
@@ -163,10 +163,10 @@ public class CentrifugeClient {
             })
         }
     }
-
-	/**
-	Connect to server
-	*/
+    
+    /**
+     Connect to server
+     */
     public func connect() {
         self.syncQueue.async{ [weak self] in
             guard let strongSelf = self else { return }
@@ -266,10 +266,10 @@ public class CentrifugeClient {
             strongSelf.conn = ws
         }
     }
-
-	/**
-	Disconnect from server
-	*/
+    
+    /**
+     Disconnect from server
+     */
     public func disconnect() {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -277,13 +277,13 @@ public class CentrifugeClient {
             strongSelf.close(reason: "clean disconnect", reconnect: false)
         }
     }
-
-	/**
-	Create subscription object to specific channel with delegate
-	- parameter channel: String
-	- parameter delegate: CentrifugeSubscriptionDelegate
-	- returns: CentrifugeSubscription
-	*/
+    
+    /**
+     Create subscription object to specific channel with delegate
+     - parameter channel: String
+     - parameter delegate: CentrifugeSubscriptionDelegate
+     - returns: CentrifugeSubscription
+     */
     public func newSubscription(channel: String, delegate: CentrifugeSubscriptionDelegate) throws -> CentrifugeSubscription {
         subscriptionsLock.lock()
         guard self.subscriptions.filter({ $0.channel == channel }).count == 0 else { throw CentrifugeError.duplicateSub }
@@ -295,12 +295,12 @@ public class CentrifugeClient {
 }
 
 internal extension CentrifugeClient {
-
+    
     func refreshWithToken(token: String) {
         self.syncQueue.async { [weak self] in
             if let strongSelf = self {
                 strongSelf.token = token
-                strongSelf.workQueue.async { [weak self] in
+                strongSelf.syncQueue.async { [weak self] in
                     if let strongSelf = self {
                         strongSelf.sendRefresh(token: token, completion: { result, error in
                             if let _ = error {
@@ -318,36 +318,34 @@ internal extension CentrifugeClient {
             }
         }
     }
-	
-	func getSubscriptionToken(channel: String, completion: @escaping (String)->()) {
-		guard let client = self.client else { completion(""); return }
-		self.delegateQueue.addOperation { [weak self] in
-			guard let strongSelf = self else { return }
-			strongSelf.delegate?.onPrivateSub(
-				strongSelf,
-				CentrifugePrivateSubEvent(client: client, channel: channel)
-			) {[weak self] token in
-				guard let _ = self else { return }
-				completion(token)
-			}
-		}
-	}
-	
+    
+    func getSubscriptionToken(channel: String, completion: @escaping (String)->()) {
+        guard let client = self.client else { completion(""); return }
+        self.delegateQueue.addOperation { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.delegate?.onPrivateSub(
+                strongSelf,
+                CentrifugePrivateSubEvent(client: client, channel: channel)
+            ) {[weak self] token in
+                guard let _ = self else { return }
+                completion(token)
+            }
+        }
+    }
+    
     func unsubscribe(sub: CentrifugeSubscription) {
         let channel = sub.channel
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             if strongSelf.status == .connected {
-                strongSelf.workQueue.async { [weak self] in
-                    guard let strongSelf = self else { return }
-                    strongSelf.sendUnsubscribe(channel: channel, completion: { res, error in
-                        // Nothing to do here, we unsubscribed anyway.
-                    })
-                }
+                guard let strongSelf = self else { return }
+                strongSelf.sendUnsubscribe(channel: channel, completion: { res, error in
+                    // Nothing to do here, we unsubscribed anyway.
+                })
             }
         }
     }
-	
+    
     func resubscribe() {
         subscriptionsLock.lock()
         for sub in self.subscriptions {
@@ -359,41 +357,41 @@ internal extension CentrifugeClient {
     func subscribe(channel: String, token: String, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
         self.sendSubscribe(channel: channel, token: token, completion: completion)
     }
-
+    
     func presence(channel: String, completion: @escaping ([String: CentrifugeClientInfo]?, Error?)->()) {
-        self.workQueue.async { [weak self] in
+        self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
             strongSelf.sendPresence(channel: channel, completion: completion)
         }
     }
-	
+    
     func presenceStats(channel: String, completion: @escaping (CentrifugePresenceStats?, Error?)->()) {
-        self.workQueue.async { [weak self] in
+        self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
             strongSelf.sendPresenceStats(channel: channel, completion: completion)
         }
     }
-	
+    
     func history(channel: String, completion: @escaping ([CentrifugePublication]?, Error?)->()) {
-        self.workQueue.async { [weak self] in
+        self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
             strongSelf.sendHistory(channel: channel, completion: completion)
         }
     }
-	
-	func close(reason: String, reconnect: Bool) {
-		self.disconnectOpts = CentrifugeDisconnectOptions(reason: reason, reconnect: reconnect)
-		self.conn?.close()
-	}
+    
+    func close(reason: String, reconnect: Bool) {
+        self.disconnectOpts = CentrifugeDisconnectOptions(reason: reason, reconnect: reconnect)
+        self.conn?.close()
+    }
 }
 
 fileprivate extension CentrifugeClient {
-	func log(_ items: Any) {
-	    print("CentrifugeClient: \n \(items)")
-	}
+    func log(_ items: Any) {
+        print("CentrifugeClient: \n \(items)")
+    }
 }
 
 fileprivate extension CentrifugeClient {
@@ -404,7 +402,7 @@ fileprivate extension CentrifugeClient {
         self.commandIdLock.unlock()
         return cid
     }
-
+    
     func newCommand(method: Proto_MethodType, params: Data) -> Proto_Command {
         var command = Proto_Command()
         let nextId = self.nextCommandId()
@@ -413,7 +411,7 @@ fileprivate extension CentrifugeClient {
         command.params = params
         return command
     }
-		
+    
     func sendCommand(command: Proto_Command, completion: @escaping (Proto_Reply?, Error?)->()) {
         self.syncQueue.async {
             let commands: [Proto_Command] = [command]
@@ -427,13 +425,13 @@ fileprivate extension CentrifugeClient {
             }
         }
     }
-
+    
     func sendCommandAsync(command: Proto_Command) throws {
         let commands: [Proto_Command] = [command]
         let data = try CentrifugeSerializer.serializeCommands(commands: commands)
         self.conn?.send(data: data)
     }
-	
+    
     func waitForReply(id: UInt32, completion: @escaping (Proto_Reply?, Error?)->()) {
         let group = DispatchGroup()
         group.enter()
@@ -451,7 +449,7 @@ fileprivate extension CentrifugeClient {
             groupLeft = true
             group.leave()
         }
-
+        
         func resolve(rep: CentrifugeResolveData) {
             if groupLeft {
                 return
@@ -468,7 +466,7 @@ fileprivate extension CentrifugeClient {
         let resolveFunc = resolve
         self.opCallbacks[id] = resolveFunc
         self.syncQueue.asyncAfter(deadline: .now() + self.config.timeout, execute: timeoutTask)
-
+        
         // wait for resolve or timeout
         self.workQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -488,7 +486,7 @@ fileprivate extension CentrifugeClient {
             }
         }
     }
-	
+    
     func waitForConnect(completion: @escaping (Error?)->()) {
         let strongSelf = self
         if !strongSelf.needReconnect {
@@ -531,7 +529,7 @@ fileprivate extension CentrifugeClient {
         let resolveFunc = resolve
         strongSelf.connectCallbacks[uid] = resolveFunc
         strongSelf.syncQueue.asyncAfter(deadline: .now() + strongSelf.config.timeout, execute: timeoutTask)
-
+        
         strongSelf.workQueue.async { [weak self] in
             guard let client = self else { return }
             group.wait()
@@ -548,7 +546,7 @@ fileprivate extension CentrifugeClient {
             }
         }
     }
-	
+    
     func scheduleReconnect() {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -569,7 +567,7 @@ fileprivate extension CentrifugeClient {
             })
         }
     }
-	
+    
     func handleAsyncData(data: Data) throws {
         let push = try Proto_Push(serializedData: data)
         let channel = push.channel
@@ -630,7 +628,7 @@ fileprivate extension CentrifugeClient {
             }
         }
     }
-	
+    
     func handleData(data: Data) {
         do {
             let replies = try CentrifugeSerializer.deserializeCommands(data: data)
@@ -647,7 +645,7 @@ fileprivate extension CentrifugeClient {
             return
         }
     }
-	
+    
     func startPing() {
         if self.config.pingInterval == 0 {
             return
@@ -679,11 +677,11 @@ fileprivate extension CentrifugeClient {
         self.pingTimer?.schedule(deadline: .now() + self.config.pingInterval, repeating: self.config.pingInterval)
         self.pingTimer?.resume()
     }
-	
-	func stopPing() {
-		self.pingTimer?.cancel()
-	}
-	
+    
+    func stopPing() {
+        self.pingTimer?.cancel()
+    }
+    
     func startConnectionRefresh(ttl: UInt32) {
         let refreshTask = DispatchWorkItem {
             self.delegateQueue.addOperation {
@@ -699,51 +697,51 @@ fileprivate extension CentrifugeClient {
         self.workQueue.asyncAfter(deadline: .now() + Double(ttl), execute: refreshTask)
         self.refreshTask = refreshTask
     }
-
+    
     func stopConnectionRefresh() {
         self.refreshTask?.cancel()
     }
-	
-	func scheduleDisconnect(reason: String, reconnect: Bool) {
-		let previousStatus = self.status
-		self.status = .disconnected
-		self.client = nil
-		
-		for (_, resolveFunc) in self.opCallbacks {
-			resolveFunc(CentrifugeResolveData(error: CentrifugeError.disconnected, reply: nil))
-		}
-		self.opCallbacks = [:]
-		
-		for (_, resolveFunc) in self.connectCallbacks {
-			resolveFunc(CentrifugeError.disconnected)
-		}
-		self.connectCallbacks = [:]
-		
-		subscriptionsLock.lock()
-		for sub in self.subscriptions {
-			sub.unsubscribeOnDisconnect()
-		}
-		subscriptionsLock.unlock()
-		
-		self.stopPing()
-		
-		self.stopConnectionRefresh()
-		
-		if previousStatus == .new || previousStatus == .connected  {
-			self.delegateQueue.addOperation { [weak self] in
-				guard let strongSelf = self else { return }
-				strongSelf.delegate?.onDisconnect(
-					strongSelf,
-					CentrifugeDisconnectEvent(reason: reason, reconnect: reconnect)
-				)
-			}
-		}
-		
-		if reconnect {
-			self.scheduleReconnect()
-		}
-	}
-
+    
+    func scheduleDisconnect(reason: String, reconnect: Bool) {
+        let previousStatus = self.status
+        self.status = .disconnected
+        self.client = nil
+        
+        for (_, resolveFunc) in self.opCallbacks {
+            resolveFunc(CentrifugeResolveData(error: CentrifugeError.disconnected, reply: nil))
+        }
+        self.opCallbacks = [:]
+        
+        for (_, resolveFunc) in self.connectCallbacks {
+            resolveFunc(CentrifugeError.disconnected)
+        }
+        self.connectCallbacks = [:]
+        
+        subscriptionsLock.lock()
+        for sub in self.subscriptions {
+            sub.unsubscribeOnDisconnect()
+        }
+        subscriptionsLock.unlock()
+        
+        self.stopPing()
+        
+        self.stopConnectionRefresh()
+        
+        if previousStatus == .new || previousStatus == .connected  {
+            self.delegateQueue.addOperation { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.delegate?.onDisconnect(
+                    strongSelf,
+                    CentrifugeDisconnectEvent(reason: reason, reconnect: reconnect)
+                )
+            }
+        }
+        
+        if reconnect {
+            self.scheduleReconnect()
+        }
+    }
+    
     func sendConnect(completion: @escaping (Proto_ConnectResult?, Error?)->()) {
         var params = Proto_ConnectRequest()
         if self.token != nil {
@@ -805,7 +803,7 @@ fileprivate extension CentrifugeClient {
             completion(nil, error)
         }
     }
-        
+    
     func sendUnsubscribe(channel: String, completion: @escaping (Proto_UnsubscribeResult?, Error?)->()) {
         var params = Proto_UnsubscribeRequest()
         params.channel = channel
@@ -835,7 +833,7 @@ fileprivate extension CentrifugeClient {
             completion(nil, error)
         }
     }
-
+    
     func sendSubscribe(channel: String, token: String, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
         var params = Proto_SubscribeRequest()
         params.channel = channel
@@ -933,7 +931,7 @@ fileprivate extension CentrifugeClient {
             completion(nil, error)
         }
     }
-
+    
     func sendPresence(channel: String, completion: @escaping ([String:CentrifugeClientInfo]?, Error?)->()) {
         var params = Proto_PresenceRequest()
         params.channel = channel
@@ -967,7 +965,7 @@ fileprivate extension CentrifugeClient {
             completion(nil, error)
         }
     }
-
+    
     func sendPresenceStats(channel: String, completion: @escaping (CentrifugePresenceStats?, Error?)->()) {
         var params = Proto_PresenceStatsRequest()
         params.channel = channel
@@ -998,7 +996,7 @@ fileprivate extension CentrifugeClient {
             completion(nil, error)
         }
     }
-
+    
     func sendRPC(data: Data, completion: @escaping (Proto_RPCResult?, Error?)->()) {
         var params = Proto_RPCRequest()
         params.data = data
@@ -1028,7 +1026,7 @@ fileprivate extension CentrifugeClient {
             completion(nil, error)
         }
     }
-
+    
     func sendSend(data: Data, completion: @escaping (Error?)->()) {
         var params = Proto_SendRequest()
         params.data = data

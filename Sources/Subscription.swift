@@ -24,7 +24,7 @@ public class CentrifugeSubscription {
     var callbacks: [String: ((Error?) -> ())] = [:]
     var delegate: CentrifugeSubscriptionDelegate
     var syncQueue: DispatchQueue
-
+    
     init(centrifuge: CentrifugeClient, channel: String, delegate: CentrifugeSubscriptionDelegate) {
         self.centrifuge = centrifuge
         self.channel = channel
@@ -47,7 +47,7 @@ public class CentrifugeSubscription {
             strongSelf.resubscribe()
         }
     }
-
+    
     public func publish(data: Data, completion: @escaping (Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -61,7 +61,7 @@ public class CentrifugeSubscription {
             })
         }
     }
-
+    
     public func presence(completion: @escaping ([String: CentrifugeClientInfo]?, Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -76,7 +76,7 @@ public class CentrifugeSubscription {
             })
         }
     }
-
+    
     public func presenceStats(completion: @escaping (CentrifugePresenceStats?, Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -91,7 +91,7 @@ public class CentrifugeSubscription {
             })
         }
     }
-
+    
     public func history(completion: @escaping ([CentrifugePublication]?, Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -106,7 +106,7 @@ public class CentrifugeSubscription {
             })
         }
     }
-
+    
     func sendSubscribe(channel: String, token: String) {
         self.centrifuge.subscribe(channel: self.channel, token: token, completion: { res, error in
             if let err = error {
@@ -168,7 +168,7 @@ public class CentrifugeSubscription {
             }
         }
     }
-
+    
     func resubscribe() {
         if self.channel.hasPrefix(self.centrifuge.config.privateChannelPrefix) {
             self.centrifuge.getSubscriptionToken(channel: self.channel, completion: { [weak self] token in
@@ -187,7 +187,7 @@ public class CentrifugeSubscription {
             }
         }
     }
-
+    
     func waitForSubscribe(completion: @escaping (Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -203,7 +203,7 @@ public class CentrifugeSubscription {
             let uid = UUID().uuidString
             let group = DispatchGroup()
             group.enter()
-
+            
             var groupLeft = false
             var timedOut = false
             var opError: Error? = nil
@@ -232,7 +232,7 @@ public class CentrifugeSubscription {
             let resolveFunc = resolve
             strongSelf.callbacks[uid] = resolveFunc
             strongSelf.syncQueue.asyncAfter(deadline: .now() + strongSelf.centrifuge.config.timeout, execute: timeoutTask)
-
+            
             strongSelf.centrifuge.workQueue.async { [weak self] in
                 guard let strongSelf = self else { return }
                 group.wait()
@@ -276,7 +276,7 @@ public class CentrifugeSubscription {
             strongSelf.moveToUnsubscribed()
         }
     }
-
+    
     public func unsubscribe() {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
