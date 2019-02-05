@@ -19,13 +19,13 @@ public enum CentrifugeError: Error {
 }
 
 public struct CentrifugeClientConfig {
-    var timeout = 5.0
-    var debug = false
-    var headers = [String:String]()
-    var tlsSkipVerify = false
-    var maxReconnectDelay = 20.0
-    var privateChannelPrefix = "$"
-    var pingInterval = 25.0
+    public var timeout = 5.0
+    public var debug = false
+    public var headers = [String:String]()
+    public var tlsSkipVerify = false
+    public var maxReconnectDelay = 20.0
+    public var privateChannelPrefix = "$"
+    public var pingInterval = 25.0
     
     public init() {}
 }
