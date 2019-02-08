@@ -1,14 +1,18 @@
 # SwiftCentrifuge
 
-This library is a **work in progress**.
-
 SwiftCentrifuge is a Websocket client for Centrifugo and Centrifuge library. This client uses Protobuf protocol for client-server communication.
 
-This library runs all operations in its own queues and provides necessary callbacks so you don't need to worry about managing concurrency yourself.
+SwiftCentrifuge runs all operations in its own queues and provides necessary callbacks so you don't need to worry about managing concurrency yourself.
 
-# Installation
+## Status of library
 
-## CocoaPods
+This library is feature rich and supports almost all Centrifuge/Centrifugo features (see feature matrix below). But it's very young and still at active development. Any help and feedback is very appreciated to make it production ready.
+
+## Installation
+
+There are several convenient ways.
+
+### CocoaPods
 
 To integrate SwiftCentrifuge into your Xcode project using CocoaPods, specify it in your `Podfile`:
 
@@ -16,11 +20,11 @@ To integrate SwiftCentrifuge into your Xcode project using CocoaPods, specify it
 pod 'SwiftCentrifuge'
 ```
 
-## Carthage
+### Carthage
 
-Add the line `github "centrifugal/centrifuge-swift"` to your `Cartfile`.
+Add the line `github "centrifugal/centrifuge-swift"` to your `Cartfile`. Then run `carthage update`.
 
-## Manual
+### Manual
 
 Clone the repo and drag files from `Sources` folder into your Xcode project.
 
@@ -36,11 +40,11 @@ This library depends on two libraries:
 - iOS 9.0
 - Xcode 10.0
 
-# Getting Started
+## Getting Started
 
 An [example app](Demo) is included demonstrating basic client functionality.
 
-## Basic usage
+### Basic usage
 
 Connect to server based on Centrifuge library:
 
@@ -105,11 +109,7 @@ do {
 }
 ```
 
-# License
-
-SwiftCentrifuge is available under the MIT license. See LICENSE for details.
-
-# Feature matrix
+## Feature matrix
 
 - [ ] connect to server using JSON protocol format
 - [x] connect to server using Protobuf protocol format
@@ -131,3 +131,7 @@ SwiftCentrifuge is available under the MIT license. See LICENSE for details.
 - [ ] support private channel subscription JWT refresh
 - [x] ping/pong to find broken connection
 - [ ] support message recovery mechanism
+
+## License
+
+SwiftCentrifuge is available under the MIT license. See LICENSE for details.
