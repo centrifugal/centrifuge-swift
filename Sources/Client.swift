@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import SwiftWebSocket
+import Starscream
 import SwiftProtobuf
 
 public enum CentrifugeError: Error {
@@ -179,10 +179,9 @@ public class CentrifugeClient {
             }
             let ws = WebSocket(request: request)
             if strongSelf.config.tlsSkipVerify {
-                ws.allowSelfSignedSSL = true
+                ws.disableSSLCertValidation = true
             }
-            ws.binaryType = .nsData
-            ws.event.open = {
+            ws.onConnect = {
                 strongSelf.syncQueue.async { [weak self] in
                     guard let strongSelf = self else { return }
                     strongSelf.sendConnect(completion: { [weak self] res, error in
@@ -234,36 +233,39 @@ public class CentrifugeClient {
                     })
                 }
             }
-            ws.event.close = { [weak self] code, reason, clean in
+            ws.onDisconnect = { [weak self] (error: Error?) in
                 guard let strongSelf = self else { return }
                 strongSelf.syncQueue.async { [weak self] in
                     guard let strongSelf = self else { return }
                     strongSelf.connecting = false
                     let decoder = JSONDecoder()
-                    let disconnect: CentrifugeDisconnectOptions
-                    do {
-                        disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: reason.data(using: .utf8)!)
-                    } catch {
+                    var disconnect: CentrifugeDisconnectOptions = CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
+                    if let err = error as? WSError {
+                        do {
+                            disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: err.message.data(using: .utf8)!)
+                        } catch {
+                            if let d = strongSelf.disconnectOpts {
+                                disconnect = d
+                            }
+                        }
+                    } else {
                         if let d = strongSelf.disconnectOpts {
                             disconnect = d
-                        } else {
-                            disconnect = CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
                         }
-                        strongSelf.disconnectOpts = nil
                     }
+                    strongSelf.disconnectOpts = nil
                     strongSelf.scheduleDisconnect(reason: disconnect.reason, reconnect: disconnect.reconnect)
                 }
             }
-            ws.event.message = { [weak self] message in
+            ws.onData = { [weak self] data in
                 guard let strongSelf = self else { return }
                 strongSelf.syncQueue.async { [weak self] in
                     guard let strongSelf = self else { return }
-                    if let data = message as? NSData {
-                        strongSelf.handleData(data: data as Data)
-                    }
+                    strongSelf.handleData(data: data as Data)
                 }
             }
             strongSelf.conn = ws
+            strongSelf.conn?.connect()
         }
     }
     
@@ -391,7 +393,7 @@ internal extension CentrifugeClient {
     
     func close(reason: String, reconnect: Bool) {
         self.disconnectOpts = CentrifugeDisconnectOptions(reason: reason, reconnect: reconnect)
-        self.conn?.close()
+        self.conn?.disconnect()
     }
 }
 
@@ -424,7 +426,7 @@ fileprivate extension CentrifugeClient {
             let commands: [Proto_Command] = [command]
             do {
                 let data = try CentrifugeSerializer.serializeCommands(commands: commands)
-                self.conn?.send(data: data)
+                self.conn?.write(data: data)
                 self.waitForReply(id: command.id, completion: completion)
             } catch {
                 completion(nil, error)
@@ -436,7 +438,7 @@ fileprivate extension CentrifugeClient {
     func sendCommandAsync(command: Proto_Command) throws {
         let commands: [Proto_Command] = [command]
         let data = try CentrifugeSerializer.serializeCommands(commands: commands)
-        self.conn?.send(data: data)
+        self.conn?.write(data: data)
     }
     
     func waitForReply(id: UInt32, completion: @escaping (Proto_Reply?, Error?)->()) {
@@ -566,7 +568,7 @@ fileprivate extension CentrifugeClient {
                 strongSelf.syncQueue.async { [weak self] in
                     guard let strongSelf = self else { return }
                     if strongSelf.needReconnect {
-                        strongSelf.conn?.open()
+                        strongSelf.conn?.connect()
                     } else {
                         strongSelf.connecting = false
                     }
