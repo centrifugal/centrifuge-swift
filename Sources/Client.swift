@@ -240,23 +240,20 @@ public class CentrifugeClient {
                     strongSelf.connecting = false
                     let decoder = JSONDecoder()
                     var disconnect: CentrifugeDisconnectOptions = CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
-                    if let err = error {
-                        switch err {
-                        case is WSError:
-                            do {
-                                disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: (err as! WSError).message.data(using: .utf8)!)
-                            } catch {
-                                
-                            }
-                        default:
+                    if let err = error as? WSError {
+                        do {
+                            disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: err.message.data(using: .utf8)!)
+                        } catch {
                             if let d = strongSelf.disconnectOpts {
                                 disconnect = d
-                            } else {
-                                disconnect = CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
                             }
-                            strongSelf.disconnectOpts = nil
+                        }
+                    } else {
+                        if let d = strongSelf.disconnectOpts {
+                            disconnect = d
                         }
                     }
+                    strongSelf.disconnectOpts = nil
                     strongSelf.scheduleDisconnect(reason: disconnect.reason, reconnect: disconnect.reconnect)
                 }
             }
