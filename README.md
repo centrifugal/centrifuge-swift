@@ -28,8 +28,8 @@ Clone the repo and drag files from `Sources` folder into your Xcode project.
 
 This library depends on two libraries:
 
-- SwiftProtobuf
-- SwiftWebSocket
+- [SwiftProtobuf](https://github.com/apple/swift-protobuf)
+- [Starscream](https://github.com/daltoniam/Starscream)
 
 ## Requirements
 

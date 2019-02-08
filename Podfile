@@ -5,7 +5,7 @@ use_frameworks!
 
 def pods
     pod 'SwiftProtobuf'
-    pod 'SwiftWebSocket'
+    pod 'Starscream'
 end
 
 target 'Demo' do
