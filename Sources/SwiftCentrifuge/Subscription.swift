@@ -17,7 +17,7 @@ public enum CentrifugeSubscriptionStatus {
 
 public class CentrifugeSubscription {
     var centrifuge: CentrifugeClient
-    var channel: String
+    public var channel: String
     var status: CentrifugeSubscriptionStatus = .unsubscribed
     var isResubscribe = false
     var needResubscribe = true

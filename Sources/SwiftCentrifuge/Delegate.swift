@@ -68,7 +68,7 @@ public protocol CentrifugeClientDelegate: class {
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent)
 }
 
-extension CentrifugeClientDelegate {
+public extension CentrifugeClientDelegate {
     func onConnect(_ client: CentrifugeClient, _ event: CentrifugeConnectEvent) {}
     func onDisconnect(_ client: CentrifugeClient, _ event: CentrifugeDisconnectEvent) {}
     func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: (_ token: String) -> ()) {
@@ -89,7 +89,7 @@ public protocol CentrifugeSubscriptionDelegate {
     func onUnsubscribe(_ sub: CentrifugeSubscription, _ event: CentrifugeUnsubscribeEvent)
 }
 
-extension CentrifugeSubscriptionDelegate {
+public extension CentrifugeSubscriptionDelegate {
     func onPublish(_ sub: CentrifugeSubscription, _ event: CentrifugePublishEvent) {}
     func onJoin(_ sub: CentrifugeSubscription, _ event: CentrifugeJoinEvent) {}
     func onLeave(_ sub: CentrifugeSubscription, _ event: CentrifugeLeaveEvent) {}
