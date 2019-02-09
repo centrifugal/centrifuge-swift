@@ -1,0 +1,6 @@
+framework module SwiftCentrifuge {
+  umbrella header "SwiftCentrifuge-umbrella.h"
+
+  export *
+  module * { export * }
+}
