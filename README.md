@@ -66,6 +66,8 @@ let client = CentrifugeClient(url: url, config: config, delegate: ClientDelegate
 client.connect()
 ```
 
+Note that *you must use* `?format=protobuf` in connection URL as this client communicates with Centrifugo/Centrifuge over Protobuf protocol.
+
 To connect to Centrifugo you need to additionally set connection JWT:
 
 ```swift

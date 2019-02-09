@@ -64,14 +64,15 @@ public class CentrifugeClient {
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var connecting = false
     
+    /// Initialize client.
+    ///
+    /// - Parameters:
+    ///   - url: protobuf URL endpoint of Centrifugo/Centrifuge.
+    ///   - config: config object.
+    ///   - delegate: delegate protocol implementation to react on client events.
+    ///   - delegateQueue: optional custom OperationQueue to execute client event callbacks.
     public init(url: String, config: CentrifugeClientConfig, delegate: CentrifugeClientDelegate? = nil, delegateQueue: OperationQueue? = nil) {
         self.url = url
-        
-        // iOS client work only over Protobuf protocol.
-        if self.url.range(of: "format=protobuf") == nil {
-            self.url += "?format=protobuf"
-        }
-        
         self.config = config
         self.delegate = delegate
         
@@ -181,88 +182,26 @@ public class CentrifugeClient {
             if strongSelf.config.tlsSkipVerify {
                 ws.disableSSLCertValidation = true
             }
-            ws.onConnect = {
-                strongSelf.syncQueue.async { [weak self] in
-                    guard let strongSelf = self else { return }
-                    strongSelf.sendConnect(completion: { [weak self] res, error in
-                        guard let strongSelf = self else { return }
-                        if let err = error {
-                            switch err {
-                            case CentrifugeError.replyError(let code, let message):
-                                if code == 109 {
-                                    strongSelf.delegateQueue.addOperation { [weak self] in
-                                        guard let strongSelf = self else { return }
-                                        strongSelf.delegate?.onRefresh(strongSelf, CentrifugeRefreshEvent()) {[weak self] token in
-                                            guard let strongSelf = self else { return }
-                                            if token != "" {
-                                                strongSelf.token = token
-                                            }
-                                            strongSelf.close(reason: message, reconnect: true)
-                                            return
-                                        }
-                                    }
-                                } else {
-                                    strongSelf.close(reason: "connect error", reconnect: true)
-                                    return
-                                }
-                            default:
-                                strongSelf.close(reason: "connect error", reconnect: true)
-                                return
-                            }
-                        }
-                        
-                        if let result = res {
-                            strongSelf.connecting = false
-                            strongSelf.status = .connected
-                            strongSelf.numReconnectAttempts = 0
-                            strongSelf.client = result.client
-                            strongSelf.delegateQueue.addOperation { [weak self] in
-                                guard let strongSelf = self else { return }
-                                strongSelf.delegate?.onConnect(strongSelf, CentrifugeConnectEvent(client: result.client))
-                            }
-                            for (_, cb) in strongSelf.connectCallbacks {
-                                cb(nil)
-                            }
-                            strongSelf.connectCallbacks = [:]
-                            strongSelf.resubscribe()
-                            strongSelf.startPing()
-                            if result.expires {
-                                strongSelf.startConnectionRefresh(ttl: result.ttl)
-                            }
-                        }
-                    })
-                }
+            ws.onConnect = { [weak self] in
+                guard let strongSelf = self else { return }
+                strongSelf.onOpen()
             }
             ws.onDisconnect = { [weak self] (error: Error?) in
                 guard let strongSelf = self else { return }
-                strongSelf.syncQueue.async { [weak self] in
-                    guard let strongSelf = self else { return }
-                    strongSelf.connecting = false
-                    let decoder = JSONDecoder()
-                    var disconnect: CentrifugeDisconnectOptions = CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
-                    if let err = error as? WSError {
-                        do {
-                            disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: err.message.data(using: .utf8)!)
-                        } catch {
-                            if let d = strongSelf.disconnectOpts {
-                                disconnect = d
-                            }
-                        }
-                    } else {
-                        if let d = strongSelf.disconnectOpts {
-                            disconnect = d
-                        }
-                    }
-                    strongSelf.disconnectOpts = nil
-                    strongSelf.scheduleDisconnect(reason: disconnect.reason, reconnect: disconnect.reconnect)
+                let decoder = JSONDecoder()
+                var serverDisconnect: CentrifugeDisconnectOptions?
+                if let err = error as? WSError {
+                    do {
+                        let disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: err.message.data(using: .utf8)!)
+                        serverDisconnect = disconnect
+                    } catch {}
                 }
+                strongSelf.onClose(serverDisconnect: serverDisconnect)
+                
             }
             ws.onData = { [weak self] data in
                 guard let strongSelf = self else { return }
-                strongSelf.syncQueue.async { [weak self] in
-                    guard let strongSelf = self else { return }
-                    strongSelf.handleData(data: data as Data)
-                }
+                strongSelf.onData(data: data)
             }
             strongSelf.conn = ws
             strongSelf.conn?.connect()
@@ -300,24 +239,19 @@ internal extension CentrifugeClient {
     
     func refreshWithToken(token: String) {
         self.syncQueue.async { [weak self] in
-            if let strongSelf = self {
-                strongSelf.token = token
-                strongSelf.syncQueue.async { [weak self] in
-                    if let strongSelf = self {
-                        strongSelf.sendRefresh(token: token, completion: { result, error in
-                            if let _ = error {
-                                strongSelf.close(reason: "refresh error", reconnect: true)
-                                return
-                            }
-                            if let res = result {
-                                if res.expires {
-                                    strongSelf.startConnectionRefresh(ttl: res.ttl)
-                                }
-                            }
-                        })
+            guard let strongSelf = self else { return }
+            strongSelf.token = token
+            strongSelf.sendRefresh(token: token, completion: { result, error in
+                if let _ = error {
+                    strongSelf.close(reason: "refresh error", reconnect: true)
+                    return
+                }
+                if let res = result {
+                    if res.expires {
+                        strongSelf.startConnectionRefresh(ttl: res.ttl)
                     }
                 }
-            }
+            })
         }
     }
     
@@ -404,6 +338,81 @@ fileprivate extension CentrifugeClient {
 }
 
 fileprivate extension CentrifugeClient {
+    func onOpen() {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.sendConnect(completion: { [weak self] res, error in
+                guard let strongSelf = self else { return }
+                if let err = error {
+                    switch err {
+                    case CentrifugeError.replyError(let code, let message):
+                        if code == 109 {
+                            strongSelf.delegateQueue.addOperation { [weak self] in
+                                guard let strongSelf = self else { return }
+                                strongSelf.delegate?.onRefresh(strongSelf, CentrifugeRefreshEvent()) {[weak self] token in
+                                    guard let strongSelf = self else { return }
+                                    if token != "" {
+                                        strongSelf.token = token
+                                    }
+                                    strongSelf.close(reason: message, reconnect: true)
+                                    return
+                                }
+                            }
+                        } else {
+                            strongSelf.close(reason: "connect error", reconnect: true)
+                            return
+                        }
+                    default:
+                        strongSelf.close(reason: "connect error", reconnect: true)
+                        return
+                    }
+                }
+                
+                if let result = res {
+                    strongSelf.connecting = false
+                    strongSelf.status = .connected
+                    strongSelf.numReconnectAttempts = 0
+                    strongSelf.client = result.client
+                    strongSelf.delegateQueue.addOperation { [weak self] in
+                        guard let strongSelf = self else { return }
+                        strongSelf.delegate?.onConnect(strongSelf, CentrifugeConnectEvent(client: result.client))
+                    }
+                    for (_, cb) in strongSelf.connectCallbacks {
+                        cb(nil)
+                    }
+                    strongSelf.connectCallbacks = [:]
+                    strongSelf.resubscribe()
+                    strongSelf.startPing()
+                    if result.expires {
+                        strongSelf.startConnectionRefresh(ttl: result.ttl)
+                    }
+                }
+            })
+        }
+    }
+    
+    func onData(data: Data) {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.handleData(data: data as Data)
+        }
+    }
+    
+    func onClose(serverDisconnect: CentrifugeDisconnectOptions?) {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            var disconnect: CentrifugeDisconnectOptions = CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
+            if let sd = serverDisconnect {
+                disconnect = sd
+            } else if let savedDisconnect = strongSelf.disconnectOpts {
+                disconnect = savedDisconnect
+            }
+            strongSelf.connecting = false
+            strongSelf.disconnectOpts = nil
+            strongSelf.scheduleDisconnect(reason: disconnect.reason, reconnect: disconnect.reconnect)
+        }
+    }
+    
     func nextCommandId() -> UInt32 {
         self.commandIdLock.lock()
         self.commandId += 1
