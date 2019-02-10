@@ -41,7 +41,6 @@
 		607FACD71AFB9204008FA782 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		607FACDA1AFB9204008FA782 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		607FACDC1AFB9204008FA782 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
-		607FACEA1AFB9204008FA782 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6A59E40ACE4BC1A2F26C5267 /* SwiftCentrifuge.podspec */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = SwiftCentrifuge.podspec; path = ../SwiftCentrifuge.podspec; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
 		A693B3EE25202E61981982E2 /* Pods-SwiftCentrifuge_Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SwiftCentrifuge_Tests.release.xcconfig"; path = "Pods/Target Support Files/Pods-SwiftCentrifuge_Tests/Pods-SwiftCentrifuge_Tests.release.xcconfig"; sourceTree = "<group>"; };
 		DE2E2C9F220FEAC4004541DE /* SwiftCentrifuge_Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SwiftCentrifuge_Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -96,7 +95,6 @@
 				607FACF51AFB993E008FA782 /* Podspec Metadata */,
 				607FACD21AFB9204008FA782 /* Example for SwiftCentrifuge */,
 				607FACE81AFB9204008FA782 /* Tests */,
-				DE2E2CA0220FEAC4004541DE /* SwiftCentrifuge_Tests */,
 				607FACD11AFB9204008FA782 /* Products */,
 				59ACD5ABAE3FB19BDFBBF159 /* Pods */,
 				0749E04CF9C31546C7DCE8D0 /* Frameworks */,
@@ -146,7 +144,7 @@
 		607FACE91AFB9204008FA782 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				607FACEA1AFB9204008FA782 /* Info.plist */,
+				DE2E2CA3220FEAC4004541DE /* Info.plist */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -159,14 +157,6 @@
 				2DA9DB6EEAF354323B2E91FC /* LICENSE */,
 			);
 			name = "Podspec Metadata";
-			sourceTree = "<group>";
-		};
-		DE2E2CA0220FEAC4004541DE /* SwiftCentrifuge_Tests */ = {
-			isa = PBXGroup;
-			children = (
-				DE2E2CA3220FEAC4004541DE /* Info.plist */,
-			);
-			path = SwiftCentrifuge_Tests;
 			sourceTree = "<group>";
 		};
 		DE7C1AA5220F0E1A0037AE1E /* SwiftCentrifugeTests */ = {
@@ -530,7 +520,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				INFOPLIST_FILE = SwiftCentrifuge_Tests/Info.plist;
+				INFOPLIST_FILE = Tests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -558,7 +548,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				INFOPLIST_FILE = SwiftCentrifuge_Tests/Info.plist;
+				INFOPLIST_FILE = Tests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MTL_FAST_MATH = YES;
