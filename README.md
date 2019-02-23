@@ -6,7 +6,7 @@ SwiftCentrifuge runs all operations in its own queues and provides necessary cal
 
 ## Status of library
 
-This library is feature rich and supports almost all Centrifuge/Centrifugo features (see feature matrix below). But it's very young and still at active development. Any help and feedback is very appreciated to make it production ready.
+This library is feature rich and supports almost all available Centrifuge/Centrifugo features (see matrix below). But it's very young and not tested in production application yet. Any help and feedback is very appreciated to make it production ready and update library status. Any report will give us an understanding that the library works, is useful and we should continue developing it. Please share your stories.
 
 ## Installation
 
