@@ -117,22 +117,28 @@ do {
 - [x] connect to server using Protobuf protocol format
 - [x] connect with JWT
 - [x] connect with custom header
-- [x] support automatic reconnect in case of errors, network problems etc
+- [x] automatic reconnect in case of errors, network problems etc
+- [x] exponential backoff for reconnect
 - [x] connect and disconnect events
 - [x] handle disconnect reason
 - [x] subscribe on channel and handle asynchronous Publications
 - [x] handle Join and Leave messages
 - [x] handle Unsubscribe notifications
-- [x] handle subscribe error
-- [x] support publish, unsubscribe, presence, presence stats and history methods
+- [x] reconnect on subscribe timeout
+- [x] publish method of Subscription
+- [x] unsubscribe method of Subscription
+- [x] presence method of Subscription
+- [x] presence stats method of Subscription
+- [x] history method of Subscription
 - [x] send asynchronous messages to server
 - [x] handle asynchronous messages from server
 - [x] send RPC commands
+- [x] publish to channel without being subscribed
 - [x] subscribe to private channels with JWT
-- [x] support connection JWT refresh
-- [ ] support private channel subscription JWT refresh
+- [x] connection JWT refresh
+- [ ] private channel subscription JWT refresh
 - [x] ping/pong to find broken connection
-- [ ] support message recovery mechanism
+- [ ] message recovery mechanism
 
 ## License
 
