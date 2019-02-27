@@ -6,7 +6,7 @@ SwiftCentrifuge runs all operations in its own queues and provides necessary cal
 
 ## Status of library
 
-This library is feature rich and supports almost all Centrifuge/Centrifugo features (see feature matrix below). But it's very young and still at active development. Any help and feedback is very appreciated to make it production ready.
+This library is feature rich and supports almost all available Centrifuge/Centrifugo features (see matrix below). But it's very young and not tested in production application yet. Any help and feedback is very appreciated to make it production ready and update library status. Any report will give us an understanding that the library works, is useful and we should continue developing it. Please share your stories.
 
 ## Installation
 
@@ -117,22 +117,28 @@ do {
 - [x] connect to server using Protobuf protocol format
 - [x] connect with JWT
 - [x] connect with custom header
-- [x] support automatic reconnect in case of errors, network problems etc
+- [x] automatic reconnect in case of errors, network problems etc
+- [x] exponential backoff for reconnect
 - [x] connect and disconnect events
 - [x] handle disconnect reason
 - [x] subscribe on channel and handle asynchronous Publications
 - [x] handle Join and Leave messages
 - [x] handle Unsubscribe notifications
-- [x] handle subscribe error
-- [x] support publish, unsubscribe, presence, presence stats and history methods
+- [x] reconnect on subscribe timeout
+- [x] publish method of Subscription
+- [x] unsubscribe method of Subscription
+- [x] presence method of Subscription
+- [x] presence stats method of Subscription
+- [x] history method of Subscription
 - [x] send asynchronous messages to server
 - [x] handle asynchronous messages from server
 - [x] send RPC commands
+- [x] publish to channel without being subscribed
 - [x] subscribe to private channels with JWT
-- [x] support connection JWT refresh
-- [ ] support private channel subscription JWT refresh
+- [x] connection JWT refresh
+- [ ] private channel subscription JWT refresh
 - [x] ping/pong to find broken connection
-- [ ] support message recovery mechanism
+- [ ] message recovery mechanism
 
 ## License
 
