@@ -137,6 +137,8 @@ do {
 - [x] subscribe to private channels with JWT
 - [x] connection JWT refresh
 - [ ] private channel subscription JWT refresh
+- [x] handle connection expired error
+- [ ] handle subscription expired error
 - [x] ping/pong to find broken connection
 - [ ] message recovery mechanism
 
