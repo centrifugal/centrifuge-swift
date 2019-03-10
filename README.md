@@ -142,6 +142,18 @@ do {
 - [x] ping/pong to find broken connection
 - [ ] message recovery mechanism
 
+## Release
+
+Bump version in `Centrifuge.podspec`
+
+Push to master and create new version tag.
+
+Then run:
+
+```
+pod trunk push SwiftCentrifuge.podspec
+```
+
 ## License
 
 SwiftCentrifuge is available under the MIT license. See LICENSE for details.
