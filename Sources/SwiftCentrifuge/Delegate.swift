@@ -63,18 +63,18 @@ public struct CentrifugeUnsubscribeEvent {}
 public protocol CentrifugeClientDelegate: class {
     func onConnect(_ client: CentrifugeClient, _ event: CentrifugeConnectEvent)
     func onDisconnect(_ client: CentrifugeClient, _ event: CentrifugeDisconnectEvent)
-    func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: (_ token: String) -> ())
-    func onRefresh(_ client: CentrifugeClient, _ event: CentrifugeRefreshEvent, completion: (_ token: String) -> ())
+    func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: @escaping (_ token: String) -> ())
+    func onRefresh(_ client: CentrifugeClient, _ event: CentrifugeRefreshEvent, completion: @escaping (_ token: String) -> ())
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent)
 }
 
 public extension CentrifugeClientDelegate {
     func onConnect(_ client: CentrifugeClient, _ event: CentrifugeConnectEvent) {}
     func onDisconnect(_ client: CentrifugeClient, _ event: CentrifugeDisconnectEvent) {}
-    func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: (_ token: String) -> ()) {
+    func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: @escaping (_ token: String) -> ()) {
         completion("")
     }
-    func onRefresh(_ client: CentrifugeClient, _ event: CentrifugeRefreshEvent, completion: (_ token: String) -> ()) {
+    func onRefresh(_ client: CentrifugeClient, _ event: CentrifugeRefreshEvent, completion: @escaping (_ token: String) -> ()) {
         completion("")
     }
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent) {}
