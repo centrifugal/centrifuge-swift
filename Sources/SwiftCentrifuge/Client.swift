@@ -600,7 +600,7 @@ fileprivate extension CentrifugeClient {
             let sub = subs[0]
             subscriptionsLock.unlock()
             self.delegateQueue.addOperation {
-                sub.delegate.onPublish(sub, CentrifugePublishEvent(uid: pub.uid, data: pub.data, info: pub.info))
+                sub.delegate?.onPublish(sub, CentrifugePublishEvent(uid: pub.uid, data: pub.data, info: pub.info))
             }
         } else if push.type == Proto_PushType.join {
             let join = try Proto_Join(serializedData: push.data)
@@ -613,7 +613,7 @@ fileprivate extension CentrifugeClient {
             let sub = subs[0]
             subscriptionsLock.unlock()
             self.delegateQueue.addOperation {
-                sub.delegate.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
+                sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
             }
         } else if push.type == Proto_PushType.leave {
             let leave = try Proto_Leave(serializedData: push.data)
@@ -626,7 +626,7 @@ fileprivate extension CentrifugeClient {
             let sub = subs[0]
             subscriptionsLock.unlock()
             self.delegateQueue.addOperation {
-                sub.delegate.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
+                sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
             }
         } else if push.type == Proto_PushType.unsub {
             let _ = try Proto_Unsub(serializedData: push.data)
