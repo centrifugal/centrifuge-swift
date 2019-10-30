@@ -258,8 +258,9 @@ public class CentrifugeSubscription {
         if self.status != .subscribeSuccess && self.status != .subscribeError {
             return
         }
+        let previousStatus = self.status
         self.status = .unsubscribed
-        if self.status == .subscribeSuccess {
+        if previousStatus == .subscribeSuccess {
             // Only call unsubscribe event if Subscription wass successfully subscribed.
             self.centrifuge.delegateQueue.addOperation {
                 self.delegate.onUnsubscribe(
