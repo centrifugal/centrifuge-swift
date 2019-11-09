@@ -226,11 +226,11 @@ public class CentrifugeClient {
      - returns: CentrifugeSubscription
      */
     public func newSubscription(channel: String, delegate: CentrifugeSubscriptionDelegate) throws -> CentrifugeSubscription {
+        defer { subscriptionsLock.unlock() }
         subscriptionsLock.lock()
         guard self.subscriptions.filter({ $0.channel == channel }).count == 0 else { throw CentrifugeError.duplicateSub }
         let sub = CentrifugeSubscription(centrifuge: self, channel: channel, delegate: delegate)
         self.subscriptions.append(sub)
-        subscriptionsLock.unlock()
         return sub
     }
 }
