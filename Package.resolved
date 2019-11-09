@@ -3,20 +3,29 @@
     "pins": [
       {
         "package": "Starscream",
-        "repositoryURL": "https://github.com/daltoniam/Starscream.git",
+        "repositoryURL": "https://github.com/daltoniam/Starscream",
         "state": {
           "branch": null,
-          "revision": "ebdc260ea64e68f7569c62e8744b5cd15d3a49d6",
-          "version": "3.0.6"
+          "revision": "e6b65c6d9077ea48b4a7bdda8994a1d3c6969c8d",
+          "version": "3.1.1"
+        }
+      },
+      {
+        "package": "swift-nio-zlib-support",
+        "repositoryURL": "https://github.com/apple/swift-nio-zlib-support.git",
+        "state": {
+          "branch": null,
+          "revision": "37760e9a52030bb9011972c5213c3350fa9d41fd",
+          "version": "1.0.0"
         }
       },
       {
         "package": "SwiftProtobuf",
-        "repositoryURL": "https://github.com/apple/swift-protobuf.git",
+        "repositoryURL": "https://github.com/apple/swift-protobuf",
         "state": {
           "branch": null,
-          "revision": "ab98c52b5166593ad1ae0df246463266df151cfa",
-          "version": "1.3.1"
+          "revision": "da75a93ac017534e0028e83c0e4fc4610d2acf48",
+          "version": "1.7.0"
         }
       }
     ]
