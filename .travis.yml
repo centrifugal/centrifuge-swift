@@ -11,5 +11,5 @@ before_install:
 - pod install --project-directory=Example --repo-update
 script:
 - xcrun swift test
-- set -o pipefail && xcodebuild -workspace Example/SwiftCentrifuge.xcworkspace -scheme SwiftCentrifuge-Example -destination "platform=iOS Simulator,OS=13.1,name=iPhone 7" -sdk iphonesimulator test ONLY_ACTIVE_ARCH=NO | xcpretty
+- set -o pipefail && xcodebuild -workspace Example/SwiftCentrifuge.xcworkspace -scheme SwiftCentrifuge-Example -destination "platform=iOS Simulator,OS=13.1,name=iPhone 11" -sdk iphonesimulator test ONLY_ACTIVE_ARCH=NO | xcpretty
 - pod lib lint
