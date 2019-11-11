@@ -22,7 +22,7 @@ public class CentrifugeSubscription {
     var isResubscribe = false
     var needResubscribe = true
     var callbacks: [String: ((Error?) -> ())] = [:]
-    var delegate: CentrifugeSubscriptionDelegate
+    weak var delegate: CentrifugeSubscriptionDelegate?
     var syncQueue: DispatchQueue
     
     init(centrifuge: CentrifugeClient, channel: String, delegate: CentrifugeSubscriptionDelegate) {
@@ -121,7 +121,7 @@ public class CentrifugeSubscription {
                     self.syncQueue.async {
                         self.status = .subscribeError
                         self.centrifuge.delegateQueue.addOperation {
-                            self.delegate.onSubscribeError(self, CentrifugeSubscribeErrorEvent(code: code, message: message))
+                            self.delegate?.onSubscribeError(self, CentrifugeSubscribeErrorEvent(code: code, message: message))
                         }
                         for (_, cb) in self.callbacks {
                             cb(CentrifugeError.replyError(code: code, message: message))
@@ -149,7 +149,7 @@ public class CentrifugeSubscription {
                     self.callbacks = [:]
                     self.status = .subscribeSuccess
                     self.centrifuge.delegateQueue.addOperation {
-                        self.delegate.onSubscribeSuccess(
+                        self.delegate?.onSubscribeSuccess(
                             self,
                             CentrifugeSubscribeSuccessEvent(resubscribe: self.isResubscribe, recovered: result.recovered)
                         )
@@ -263,7 +263,7 @@ public class CentrifugeSubscription {
         if previousStatus == .subscribeSuccess {
             // Only call unsubscribe event if Subscription wass successfully subscribed.
             self.centrifuge.delegateQueue.addOperation {
-                self.delegate.onUnsubscribe(
+                self.delegate?.onUnsubscribe(
                     self,
                     CentrifugeUnsubscribeEvent()
                 )

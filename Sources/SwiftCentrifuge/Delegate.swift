@@ -80,7 +80,7 @@ public extension CentrifugeClientDelegate {
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent) {}
 }
 
-public protocol CentrifugeSubscriptionDelegate {
+public protocol CentrifugeSubscriptionDelegate: class {
     func onPublish(_ sub: CentrifugeSubscription, _ event: CentrifugePublishEvent)
     func onJoin(_ sub: CentrifugeSubscription, _ event: CentrifugeJoinEvent)
     func onLeave(_ sub: CentrifugeSubscription, _ event: CentrifugeLeaveEvent)
