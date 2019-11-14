@@ -24,6 +24,10 @@ pod 'SwiftCentrifuge'
 
 Add the line `github "centrifugal/centrifuge-swift"` to your `Cartfile`. Then run `carthage update`.
 
+### Swift Package Manager
+
+SwiftCentrifuge is compatible with SPM. If you get a warning complaining about missing pc file, you may need to install `pkg-config`. On macOS, this can be achieved with `brew install pkg-config`.
+
 ### Manual
 
 Clone the repo and drag files from `Sources` folder into your Xcode project.
