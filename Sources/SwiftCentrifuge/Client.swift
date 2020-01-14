@@ -233,6 +233,34 @@ public class CentrifugeClient {
         self.subscriptions.append(sub)
         return sub
     }
+
+    /**
+     Try to get Subscription from internal client registry. Can return nil if Subscription
+     does not exist yet.
+     - parameter channel: String
+     - returns: CentrifugeSubscription?
+     */
+    public func getSubscription(channel: String) -> CentrifugeSubscription? {
+        defer { subscriptionsLock.unlock() }
+        subscriptionsLock.lock()
+        return self.subscriptions.first(where: { $0.channel == channel })
+    }
+
+    /**
+     * Say Client that Subscription should be removed from internal registry. Subscription will be
+     * automatically unsubscribed before removing.
+     - parameter channel: String
+     */
+    public func removeSubscription(channel: String) {
+        defer { subscriptionsLock.unlock() }
+        subscriptionsLock.lock()
+        self.subscriptions
+            .filter({ $0.channel == channel })
+            .forEach { (sub) in
+                sub.unsubscribe()
+            }
+        self.subscriptions.removeAll(where: { $0.channel == channel })
+    }
 }
 
 internal extension CentrifugeClient {
