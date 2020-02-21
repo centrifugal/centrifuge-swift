@@ -486,6 +486,7 @@ fileprivate extension CentrifugeClient {
             self?.connectCallbacks[uid] = nil
             completion(CentrifugeError.timeout)
         }
+        self.syncQueue.asyncAfter(deadline: .now() + self.config.timeout, execute: timeoutTask)
         
         self.connectCallbacks[uid] = { [weak self] error in
             timeoutTask.cancel()
