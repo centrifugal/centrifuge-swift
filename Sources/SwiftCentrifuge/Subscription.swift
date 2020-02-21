@@ -16,14 +16,15 @@ public enum CentrifugeSubscriptionStatus {
 }
 
 public class CentrifugeSubscription {
-    var centrifuge: CentrifugeClient
-    public var channel: String
+    
+    public let channel: String
+    let centrifuge: CentrifugeClient
     var status: CentrifugeSubscriptionStatus = .unsubscribed
     var isResubscribe = false
     var needResubscribe = true
     var callbacks: [String: ((Error?) -> ())] = [:]
     weak var delegate: CentrifugeSubscriptionDelegate?
-    var syncQueue: DispatchQueue
+    let syncQueue: DispatchQueue
     
     init(centrifuge: CentrifugeClient, channel: String, delegate: CentrifugeSubscriptionDelegate) {
         self.centrifuge = centrifuge
