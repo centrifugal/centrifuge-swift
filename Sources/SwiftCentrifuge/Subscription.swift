@@ -107,7 +107,7 @@ public class CentrifugeSubscription {
         }
     }
     
-    func sendSubscribe(channel: String, token: String) {
+    private func sendSubscribe(channel: String, token: String) {
         self.centrifuge.subscribe(channel: self.channel, token: token, completion: { res, error in
             if let err = error {
                 switch err {
@@ -188,7 +188,7 @@ public class CentrifugeSubscription {
         }
     }
     
-    func waitForSubscribe(completion: @escaping (Error?)->()) {
+    private func waitForSubscribe(completion: @escaping (Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             if !strongSelf.needResubscribe {
@@ -254,7 +254,7 @@ public class CentrifugeSubscription {
     }
     
     // Access must be serialized from outside.
-    func moveToUnsubscribed() {
+    private func moveToUnsubscribed() {
         if self.status != .subscribeSuccess && self.status != .subscribeError {
             return
         }
