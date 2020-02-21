@@ -450,121 +450,52 @@ fileprivate extension CentrifugeClient {
         self.conn?.write(data: data)
     }
     
-    func waitForReply(id: UInt32, completion: @escaping (Proto_Reply?, Error?)->()) {
-        let group = DispatchGroup()
-        group.enter()
-        
-        var reply: Proto_Reply = Proto_Reply()
-        var groupLeft = false
-        var timedOut = false
-        var opError: Error? = nil
-        
-        let timeoutTask = DispatchWorkItem {
-            if groupLeft {
-                return
-            }
-            timedOut = true
-            groupLeft = true
-            group.leave()
+    private func waitForReply(id: UInt32, completion: @escaping (Proto_Reply?, Error?)->()) {
+        let timeoutTask = DispatchWorkItem { [weak self] in
+            self?.opCallbacks[id] = nil
+            completion(nil, CentrifugeError.timeout)
         }
-        
-        func resolve(rep: CentrifugeResolveData) {
-            if groupLeft {
-                return
-            }
-            if let err = rep.error {
-                opError = err
-            } else if let r = rep.reply {
-                reply = r
-            }
-            timeoutTask.cancel()
-            groupLeft = true
-            group.leave()
-        }
-        let resolveFunc = resolve
-        self.opCallbacks[id] = resolveFunc
         self.syncQueue.asyncAfter(deadline: .now() + self.config.timeout, execute: timeoutTask)
         
-        // wait for resolve or timeout
-        self.workQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            group.wait()
-            strongSelf.syncQueue.async { [weak self] in
-                guard let strongSelf = self else { return }
-                strongSelf.opCallbacks.removeValue(forKey: id)
-                if let err = opError {
-                    completion(nil, err)
-                    return
-                }
-                if timedOut {
-                    completion(nil, CentrifugeError.timeout)
-                    return
-                }
-                completion(reply, nil)
+        self.opCallbacks[id] = { [weak self] rep in
+            timeoutTask.cancel()
+            
+            self?.opCallbacks[id] = nil
+
+            if let err = rep.error {
+                completion(nil, err)
+            } else {
+                completion(rep.reply, nil)
             }
         }
     }
     
     func waitForConnect(completion: @escaping (Error?)->()) {
-        let strongSelf = self
-        if !strongSelf.needReconnect {
+        if !self.needReconnect {
             completion(CentrifugeError.disconnected)
             return
         }
-        if strongSelf.status == .connected {
+        if self.status == .connected {
             completion(nil)
             return
         }
+        
         let uid = UUID().uuidString
-        let group = DispatchGroup()
-        group.enter()
         
-        var groupLeft = false
-        var timedOut = false
-        var opError: Error? = nil
-        
-        let timeoutTask = DispatchWorkItem {
-            if groupLeft {
-                return
-            }
-            timedOut = true
-            groupLeft = true
-            group.leave()
+        let timeoutTask = DispatchWorkItem { [weak self] in
+            self?.connectCallbacks[uid] = nil
+            completion(CentrifugeError.timeout)
         }
         
-        func resolve(error: Error?) {
-            if groupLeft {
-                return
-            }
-            if let err = error {
-                opError = err
-            }
+        self.connectCallbacks[uid] = { [weak self] error in
             timeoutTask.cancel()
-            groupLeft = true
-            group.leave()
-        }
-        
-        let resolveFunc = resolve
-        strongSelf.connectCallbacks[uid] = resolveFunc
-        strongSelf.syncQueue.asyncAfter(deadline: .now() + strongSelf.config.timeout, execute: timeoutTask)
-        
-        strongSelf.workQueue.async { [weak self] in
-            guard let client = self else { return }
-            group.wait()
-            client.syncQueue.async { [weak self] in
-                guard let strongSelf = self else { return }
-                strongSelf.connectCallbacks.removeValue(forKey: uid)
-                if let err = opError {
-                    completion(err)
-                }
-                if timedOut {
-                    completion(CentrifugeError.timeout)
-                }
-                completion(nil)
-            }
+            
+            self?.connectCallbacks[uid] = nil
+            
+            completion(error)
         }
     }
-    
+ 
     func scheduleReconnect() {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -712,6 +643,8 @@ fileprivate extension CentrifugeClient {
                 }
             }
         }
+        
+        // TODO may be dispatch this on sync Queue cause next it will run on delegateQueue. And after that we can eliminate workQueue
         self.workQueue.asyncAfter(deadline: .now() + Double(ttl), execute: refreshTask)
         self.refreshTask = refreshTask
     }
