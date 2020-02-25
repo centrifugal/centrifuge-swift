@@ -23,7 +23,7 @@ public class CentrifugeSubscription {
     var needResubscribe = true
     var callbacks: [String: ((Error?) -> ())] = [:]
     weak var delegate: CentrifugeSubscriptionDelegate?
-    var syncQueue: DispatchQueue
+    private let syncQueue: DispatchQueue
     
     init(centrifuge: CentrifugeClient, channel: String, delegate: CentrifugeSubscriptionDelegate) {
         self.centrifuge = centrifuge
@@ -123,10 +123,10 @@ public class CentrifugeSubscription {
                         self.centrifuge.delegateQueue.addOperation {
                             self.delegate?.onSubscribeError(self, CentrifugeSubscribeErrorEvent(code: code, message: message))
                         }
-                        for (_, cb) in self.callbacks {
+                        for cb in self.callbacks.values {
                             cb(CentrifugeError.replyError(code: code, message: message))
                         }
-                        self.callbacks = [:]
+                        self.callbacks.removeAll(keepingCapacity: true)
                     }
                 case CentrifugeError.timeout:
                     self.centrifuge.syncQueue.async { [weak self] in
@@ -143,10 +143,10 @@ public class CentrifugeSubscription {
             if let result = res {
                 self.syncQueue.async {
                     self.isResubscribe = true
-                    for (_, cb) in self.callbacks {
+                    for cb in self.callbacks.values {
                         cb(nil)
                     }
-                    self.callbacks = [:]
+                    self.callbacks.removeAll(keepingCapacity: true)
                     self.status = .subscribeSuccess
                     self.centrifuge.delegateQueue.addOperation {
                         self.delegate?.onSubscribeSuccess(
@@ -191,65 +191,31 @@ public class CentrifugeSubscription {
     func waitForSubscribe(completion: @escaping (Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            if !strongSelf.needResubscribe {
+            
+            guard !strongSelf.needResubscribe else {
                 completion(CentrifugeError.unsubscribed)
                 return
             }
-            var needWait = strongSelf.status == .subscribing || (strongSelf.status == .unsubscribed && strongSelf.needResubscribe)
-            if !needWait {
+            
+            let needWait = strongSelf.status == .subscribing || (strongSelf.status == .unsubscribed && strongSelf.needResubscribe)
+            guard !needWait else {
                 completion(nil)
                 return
             }
+            
             let uid = UUID().uuidString
-            let group = DispatchGroup()
-            group.enter()
             
-            var groupLeft = false
-            var timedOut = false
-            var opError: Error? = nil
-            
-            let timeoutTask = DispatchWorkItem {
-                if groupLeft {
-                    return
-                }
-                timedOut = true
-                groupLeft = true
-                group.leave()
+            let timeoutTask = DispatchWorkItem { [weak self] in
+                self?.callbacks[uid] = nil
+                completion(CentrifugeError.timeout)
             }
             
-            func resolve(error: Error?) {
-                if groupLeft {
-                    return
-                }
-                if let err = error {
-                    opError = err
-                }
+            strongSelf.callbacks[uid] = { error in
                 timeoutTask.cancel()
-                groupLeft = true
-                group.leave()
+                completion(error)
             }
             
-            let resolveFunc = resolve
-            strongSelf.callbacks[uid] = resolveFunc
             strongSelf.syncQueue.asyncAfter(deadline: .now() + strongSelf.centrifuge.config.timeout, execute: timeoutTask)
-            
-            strongSelf.centrifuge.workQueue.async { [weak self] in
-                guard let strongSelf = self else { return }
-                group.wait()
-                strongSelf.syncQueue.async { [weak self] in
-                    guard let strongSelf = self else { return }
-                    strongSelf.callbacks.removeValue(forKey: uid)
-                    if let err = opError {
-                        completion(err)
-                        return
-                    }
-                    if timedOut {
-                        completion(CentrifugeError.timeout)
-                        return
-                    }
-                    completion(nil)
-                }
-            }
         }
     }
     
