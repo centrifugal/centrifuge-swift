@@ -177,7 +177,7 @@ public class CentrifugeSubscription {
         }
     }
     
-    func waitForSubscribe(completion: @escaping (Error?)->()) {
+    private func waitForSubscribe(completion: @escaping (Error?) -> ()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self, let timeout = strongSelf.centrifuge?.config.timeout else { return }
             
@@ -209,7 +209,7 @@ public class CentrifugeSubscription {
     }
     
     // Access must be serialized from outside.
-    func moveToUnsubscribed() {
+    private func moveToUnsubscribed() {
         if self.status != .subscribeSuccess && self.status != .subscribeError {
             return
         }
