@@ -176,30 +176,9 @@ public class CentrifugeClient {
             for (key, value) in strongSelf.config.headers {
                 request.addValue(value, forHTTPHeaderField: key)
             }
-            let ws = WebSocket(request: request)
+            var ws = WebSocket(request: request)
             if strongSelf.config.tlsSkipVerify {
-                ws.disableSSLCertValidation = true
-            }
-            ws.onConnect = { [weak self] in
-                guard let strongSelf = self else { return }
-                strongSelf.onOpen()
-            }
-            ws.onDisconnect = { [weak self] (error: Error?) in
-                guard let strongSelf = self else { return }
-                let decoder = JSONDecoder()
-                var serverDisconnect: CentrifugeDisconnectOptions?
-                if let err = error as? WSError {
-                    do {
-                        let disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: err.message.data(using: .utf8)!)
-                        serverDisconnect = disconnect
-                    } catch {}
-                }
-                strongSelf.onClose(serverDisconnect: serverDisconnect)
-                
-            }
-            ws.onData = { [weak self] data in
-                guard let strongSelf = self else { return }
-                strongSelf.onData(data: data)
+                ws = WebSocket(request: request, certPinner: FoundationSecurity(allowSelfSigned: true))
             }
             strongSelf.conn = ws
             strongSelf.conn?.connect()
@@ -977,6 +956,31 @@ fileprivate extension CentrifugeClient {
             completion(nil)
         } catch {
             completion(error)
+        }
+    }
+}
+
+extension CentrifugeClient: WebSocketDelegate {
+    public func didReceive(event: WebSocketEvent, client _: WebSocket) {
+        switch event {
+            case .connected:
+                onOpen()
+            case .disconnected:
+                onClose(serverDisconnect: nil)
+            case let .binary(data):
+                onData(data: data)
+            case let .error(error):
+                let decoder = JSONDecoder()
+                var serverDisconnect: CentrifugeDisconnectOptions?
+                if let err = error as? WSError {
+                    do {
+                        let disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: err.message.data(using: .utf8)!)
+                        serverDisconnect = disconnect
+                    } catch {}
+                }
+                onClose(serverDisconnect: serverDisconnect)
+            default:
+                print(event)
         }
     }
 }

@@ -181,13 +181,17 @@ public class CentrifugeSubscription {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self, let timeout = strongSelf.centrifuge?.config.timeout else { return }
             
-            guard !strongSelf.needResubscribe else {
-                completion(CentrifugeError.unsubscribed)
-                return
-            }
+            
+            //commenting it since needResubscribe may be always true meaning resubscribe on reconnect
+//            guard !strongSelf.needResubscribe else {
+//                completion(CentrifugeError.unsubscribed)
+//                return
+//            }
             
             let needWait = strongSelf.status == .subscribing || (strongSelf.status == .unsubscribed && strongSelf.needResubscribe)
-            guard !needWait else {
+            
+            //changed condition here cause guard works in oposite way of if meaning when it's connected it will skip this completion(nil)
+            guard needWait else {
                 completion(nil)
                 return
             }

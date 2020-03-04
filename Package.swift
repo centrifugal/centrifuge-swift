@@ -8,8 +8,8 @@ let package = Package(
         .library(name: "SwiftCentrifuge", targets: ["SwiftCentrifuge"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/daltoniam/Starscream", from:"3.0.6"),
-        .package(url: "https://github.com/apple/swift-protobuf", from:"1.7.0")
+        .package(url: "https://github.com/daltoniam/Starscream", from:"4.0.0"),
+        .package(url: "https://github.com/apple/swift-protobuf", from:"1.8.0")
     ],
     targets: [
         .target(
