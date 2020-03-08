@@ -181,13 +181,13 @@ public class CentrifugeSubscription {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self, let timeout = strongSelf.centrifuge?.config.timeout else { return }
             
-            guard !strongSelf.needResubscribe else {
+            if !strongSelf.needResubscribe {
                 completion(CentrifugeError.unsubscribed)
                 return
             }
             
             let needWait = strongSelf.status == .subscribing || (strongSelf.status == .unsubscribed && strongSelf.needResubscribe)
-            guard !needWait else {
+            if !needWait {
                 completion(nil)
                 return
             }
