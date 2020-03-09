@@ -29,7 +29,7 @@ internal class CentrifugeSerializer {
         stream.close()
         return stream.property(forKey: .dataWrittenToMemoryStreamKey) as! Data
     }
-    
+
     class func deserializeCommands(data: Data) throws -> [Proto_Reply] {
         var commands = [Proto_Reply]()
         let stream = InputStream(data: data as Data)
