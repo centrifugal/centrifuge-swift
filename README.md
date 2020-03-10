@@ -144,6 +144,7 @@ do {
 - [x] handle connection expired error
 - [ ] handle subscription expired error
 - [x] ping/pong to find broken connection
+- [ ] server-side subscriptions
 - [ ] message recovery mechanism
 
 ## Release
