@@ -10,18 +10,17 @@ import Foundation
 import SwiftProtobuf
 
 public struct CentrifugePublication {
-    var uid: String
-    var data: Data
+    public var data: Data
 }
 
 public struct CentrifugeClientInfo {
-    var client: String
-    var user: String
-    var connInfo: Data
-    var chanInfo: Data
+    public var client: String
+    public var user: String
+    public var connInfo: Data
+    public var chanInfo: Data
 }
 
 public struct CentrifugePresenceStats {
-    var numClients: UInt32
-    var numUsers: UInt32
+    public var numClients: UInt32
+    public var numUsers: UInt32
 }
