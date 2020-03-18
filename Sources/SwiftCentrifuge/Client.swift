@@ -859,7 +859,7 @@ fileprivate extension CentrifugeClient {
                         let result = try Proto_HistoryResult(serializedData: rep.result)
                         var pubs = [CentrifugePublication]()
                         for pub in result.publications {
-                            pubs.append(CentrifugePublication(uid: pub.uid, data: pub.data))
+                            pubs.append(CentrifugePublication(data: pub.data))
                         }
                         completion(pubs, nil)
                     } catch {

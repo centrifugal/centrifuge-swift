@@ -149,7 +149,7 @@ do {
 
 ## Release
 
-Bump version in `Centrifuge.podspec`
+Bump version in `SwiftCentrifuge.podspec`
 
 Push to master and create new version tag.
 
