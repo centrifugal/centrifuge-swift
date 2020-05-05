@@ -18,6 +18,15 @@ public enum CentrifugeError: Error {
     case replyError(code: UInt32, message: String)
 }
 
+public struct StreamPosition {
+    public var Offset: UInt64 = 0
+    public var Epoch: String = ""
+    public var Seq: UInt32 = 0
+    public var Gen: UInt32 = 0
+
+    public init() {}
+}
+
 public struct CentrifugeClientConfig {
     public var timeout = 5.0
     public var debug = false
@@ -325,8 +334,8 @@ internal extension CentrifugeClient {
         subscriptionsLock.unlock()
     }
     
-    func subscribe(channel: String, token: String, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
-        self.sendSubscribe(channel: channel, token: token, completion: completion)
+    func subscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
+        self.sendSubscribe(channel: channel, token: token, isRecover: isRecover, streamPosition: streamPosition, completion: completion)
     }
     
     func presence(channel: String, completion: @escaping ([String: CentrifugeClientInfo]?, Error?)->()) {
@@ -805,9 +814,20 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendSubscribe(channel: String, token: String, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
+    private func sendSubscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
         var params = Proto_SubscribeRequest()
         params.channel = channel
+        if isRecover {
+            params.recover = true
+            params.epoch = streamPosition.Epoch
+            if (streamPosition.Gen > 0 || streamPosition.Seq > 0) {
+                params.gen = streamPosition.Gen
+                params.seq = streamPosition.Seq
+            } else {
+                params.offset = streamPosition.Offset
+            }
+        }
+
         if token != "" {
             params.token = token
         }
