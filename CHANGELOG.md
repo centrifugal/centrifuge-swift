@@ -1,3 +1,8 @@
+0.1.0
+=====
+
+* Update client.proto file. Update sendRPC method - [#33](https://github.com/centrifugal/centrifuge-swift/pull/33), thanks [@hitman1711](https://github.com/hitman1711)
+
 0.0.6
 =====
 
