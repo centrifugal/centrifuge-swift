@@ -138,12 +138,14 @@ public class CentrifugeClient {
         }
     }
     
+    
     /**
      Send RPC  command
+     - parameter method: String
      - parameter data: Data
      - parameter completion: Completion block
      */
-    public func rpc(data: Data, completion: @escaping (Data?, Error?)->()) {
+    public func rpc(method: String = "", data: Data, completion: @escaping (Data?, Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.waitForConnect(completion: { [weak self] error in
@@ -152,7 +154,7 @@ public class CentrifugeClient {
                     completion(nil, err)
                     return
                 }
-                strongSelf.sendRPC(data: data, completion: {result, error in
+                strongSelf.sendRPC(method: method, data: data, completion: {result, error in
                     if let err = error {
                         completion(nil, err)
                         return
@@ -937,9 +939,10 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendRPC(data: Data, completion: @escaping (Proto_RPCResult?, Error?)->()) {
+    private func sendRPC(method: String, data: Data, completion: @escaping (Proto_RPCResult?, Error?)->()) {
         var params = Proto_RPCRequest()
         params.data = data
+        params.method = method
         do {
             let paramsData = try params.serializedData()
             let command = newCommand(method: .rpc, params: paramsData)

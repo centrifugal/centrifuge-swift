@@ -43,6 +43,7 @@ enum PushType {
     LEAVE = 2;
     UNSUB = 3;
     MESSAGE = 4;
+    SUB = 5;
 }
 
 message Push {
@@ -64,6 +65,7 @@ message Publication {
     string uid = 3;
     bytes data = 4;
     ClientInfo info = 5;
+    uint64 offset = 6;
 }
 
 message Join {
@@ -78,6 +80,14 @@ message Unsub {
     bool resubscribe =1;
 }
 
+message Sub {
+    bool recoverable = 1;
+    uint32 seq = 2;
+    uint32 gen = 3;
+    string epoch = 4;
+    uint64 offset = 5;
+}
+
 message Message {
     bytes data = 1;
 }
@@ -85,6 +95,7 @@ message Message {
 message ConnectRequest {
     string token = 1;
     bytes data = 2;
+    map<string, SubscribeRequest> subs = 3;
 }
 
 message ConnectResult {
@@ -93,6 +104,7 @@ message ConnectResult {
     bool expires = 3;
     uint32 ttl = 4;
     bytes data = 5;
+    map<string, SubscribeResult> subs = 6;
 }
 
 message RefreshRequest {
@@ -113,6 +125,7 @@ message SubscribeRequest {
     uint32 seq = 4;
     uint32 gen = 5;
     string epoch = 6;
+    uint64 offset = 7;
 }
 
 message SubscribeResult {
@@ -124,6 +137,7 @@ message SubscribeResult {
     string epoch = 6;   
     repeated Publication publications = 7;
     bool recovered = 8;
+    uint64 offset = 9;
 }
 
 message SubRefreshRequest {
@@ -182,6 +196,7 @@ message PingResult {
 
 message RPCRequest{
     bytes data = 1;
+    string method = 2;
 }
 
 message RPCResult {
