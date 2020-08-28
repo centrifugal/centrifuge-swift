@@ -95,7 +95,7 @@ class ClientDelegate : NSObject, CentrifugeClientDelegate {
     }
 }
 
-class SubscriptionDelegate : NSObject, CentrifugeClientDelegate {
+class SubscriptionDelegate : NSObject, CentrifugeSubscriptionDelegate {
     func onPublish(_ s: CentrifugeSubscription, _ e: CentrifugePublishEvent) {
         let data = String(data: e.data, encoding: .utf8) ?? ""
         print("message from channel", s.channel, data)
