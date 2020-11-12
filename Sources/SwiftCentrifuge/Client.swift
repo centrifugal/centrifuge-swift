@@ -249,17 +249,17 @@ public class CentrifugeClient {
     /**
      * Say Client that Subscription should be removed from internal registry. Subscription will be
      * automatically unsubscribed before removing.
-     - parameter channel: String
+     - parameter sub: CentrifugeSubscription
      */
-    public func removeSubscription(channel: String) {
+    public func removeSubscription(_ sub: CentrifugeSubscription) {
         defer { subscriptionsLock.unlock() }
         subscriptionsLock.lock()
         self.subscriptions
-            .filter({ $0.channel == channel })
-            .forEach { (sub) in
+            .filter({ $0.channel == sub.channel })
+            .forEach { sub in
                 sub.unsubscribe()
             }
-        self.subscriptions.removeAll(where: { $0.channel == channel })
+        self.subscriptions.removeAll(where: { $0.channel == sub.channel })
     }
 }
 
