@@ -1,3 +1,13 @@
+0.2.0
+=====
+
+A couple of new methods added to Client.
+
+* `Client.getSubscription(channel: String) -> CentrifugeSubscription?` to get Subscription from internal client registry
+* `Client.removeSubscription(_ sub: CentrifugeSubscription)` to tell Client that Subscription should be removed from internal registry. Subscription will be automatically unsubscribed before removing.
+
+See more details in pull request [#36](https://github.com/centrifugal/centrifuge-swift/pull/36). In short, subscription removing can be helpful if you work with lots of short-living subscriptions to different channels to prevent unlimited internal Subscription registry growth.
+
 0.1.0
 =====
 
