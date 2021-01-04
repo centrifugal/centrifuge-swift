@@ -652,9 +652,10 @@ fileprivate extension CentrifugeClient {
     }
     
     private func startConnectionRefresh(ttl: UInt32) {
-        let refreshTask = DispatchWorkItem {
-            self.delegateQueue.addOperation {
-                self.delegate?.onRefresh(self, CentrifugeRefreshEvent()) {[weak self] token in
+        let refreshTask = DispatchWorkItem { [weak self] in
+            self?.delegateQueue.addOperation {
+                guard let strongSelf = self else { return }
+                strongSelf.delegate?.onRefresh(strongSelf, CentrifugeRefreshEvent()) { [weak self] token in
                     guard let strongSelf = self else { return }
                     if token == "" {
                         return
