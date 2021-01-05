@@ -1,3 +1,8 @@
+0.2.1
+=====
+
+* Fix refresh token task retain cycle [#38](https://github.com/centrifugal/centrifuge-swift/pull/38)
+
 0.2.0
 =====
 
