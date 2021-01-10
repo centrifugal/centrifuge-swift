@@ -3,15 +3,13 @@ syntax = "proto3";
 
 package proto;
 
-option java_package = "io.github.centrifugal.centrifuge.internal.protocol";
-
 message Error {
     uint32 code = 1;
     string message = 2;
 }
 
 enum MethodType {
-
+    
     CONNECT = 0;
     SUBSCRIBE = 1;
     UNSUBSCRIBE = 2;
@@ -39,7 +37,7 @@ message Reply {
 }
 
 enum PushType {
-
+    
     PUBLICATION = 0;
     JOIN = 1;
     LEAVE = 2;
@@ -136,7 +134,7 @@ message SubscribeResult {
     bool recoverable = 3;
     uint32 seq = 4;
     uint32 gen = 5;
-    string epoch = 6;
+    string epoch = 6;   
     repeated Publication publications = 7;
     bool recovered = 8;
     uint64 offset = 9;
@@ -161,6 +159,7 @@ message UnsubscribeResult {}
 message PublishRequest {
     string channel = 1;
     bytes data = 2;
+    map<string, SubscribeRequest> subs = 3;
 }
 
 message PublishResult {}
