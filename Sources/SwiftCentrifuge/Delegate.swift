@@ -40,7 +40,7 @@ public struct CentrifugeMessageEvent {
 public struct CentrifugePublishEvent {
     public var uid: String
     public var data: Data
-	public var offset: UInt64
+    public var offset: UInt64
     var info: Proto_ClientInfo?
 }
 
