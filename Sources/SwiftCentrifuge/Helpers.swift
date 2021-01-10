@@ -19,8 +19,13 @@ struct CentrifugeResolveData {
     var reply: Proto_Reply?
 }
 
-internal class CentrifugeSerializer {
-    class func serializeCommands(commands: [Proto_Command]) throws -> Data {
+struct StreamPosition {
+    var offset: UInt64 = 0
+    var epoch: String = ""
+}
+
+internal enum CentrifugeSerializer {
+    static func serializeCommands(commands: [Proto_Command]) throws -> Data {
         let stream = OutputStream.toMemory()
         stream.open()
         for command in commands {
@@ -30,7 +35,7 @@ internal class CentrifugeSerializer {
         return stream.property(forKey: .dataWrittenToMemoryStreamKey) as! Data
     }
     
-    class func deserializeCommands(data: Data) throws -> [Proto_Reply] {
+    static func deserializeCommands(data: Data) throws -> [Proto_Reply] {
         var commands = [Proto_Reply]()
         let stream = InputStream(data: data as Data)
         stream.open()
