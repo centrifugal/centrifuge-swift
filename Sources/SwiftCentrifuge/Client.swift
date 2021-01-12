@@ -527,9 +527,9 @@ fileprivate extension CentrifugeClient {
             guard let strongSelf = self else { return }
             strongSelf.connecting = true
             // TODO: add jitter here
-            let delay = min(pow(Double(strongSelf.numReconnectAttempts), 2), strongSelf.config.maxReconnectDelay)
+            let delay = 0.05 + min(pow(Double(strongSelf.numReconnectAttempts), 2), strongSelf.config.maxReconnectDelay)
             strongSelf.numReconnectAttempts += 1
-            strongSelf.syncQueue.asyncAfter(deadline: .now() +  delay, execute: { [weak self] in
+            strongSelf.syncQueue.asyncAfter(deadline: .now() + delay, execute: { [weak self] in
                 guard let strongSelf = self else { return }
                 strongSelf.syncQueue.async { [weak self] in
                     guard let strongSelf = self else { return }
