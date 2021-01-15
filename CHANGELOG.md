@@ -1,3 +1,8 @@
+0.2.2
+=====
+
+* Add initial WebSocket reconnection delay (mitigating issues with Starscream connect timeout). Thanks to Anton Selyanin.
+
 0.2.1
 =====
 
