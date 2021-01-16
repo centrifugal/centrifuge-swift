@@ -325,8 +325,8 @@ internal extension CentrifugeClient {
         subscriptionsLock.unlock()
     }
     
-    func subscribe(channel: String, token: String, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
-        self.sendSubscribe(channel: channel, token: token, completion: completion)
+    func subscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
+        self.sendSubscribe(channel: channel, token: token, isRecover: isRecover, streamPosition: streamPosition, completion: completion)
     }
     
     func presence(channel: String, completion: @escaping ([String: CentrifugeClientInfo]?, Error?)->()) {
@@ -429,12 +429,11 @@ fileprivate extension CentrifugeClient {
     func onClose(serverDisconnect: CentrifugeDisconnectOptions?) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            var disconnect: CentrifugeDisconnectOptions = CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
-            if let sd = serverDisconnect {
-                disconnect = sd
-            } else if let savedDisconnect = strongSelf.disconnectOpts {
-                disconnect = savedDisconnect
-            }
+
+            let disconnect: CentrifugeDisconnectOptions = serverDisconnect
+                ?? strongSelf.disconnectOpts
+                ?? CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
+
             strongSelf.connecting = false
             strongSelf.disconnectOpts = nil
             strongSelf.scheduleDisconnect(reason: disconnect.reason, reconnect: disconnect.reconnect)
@@ -557,8 +556,10 @@ fileprivate extension CentrifugeClient {
             let sub = subs[0]
             subscriptionsLock.unlock()
             self.delegateQueue.addOperation {
-                sub.delegate?.onPublish(sub, CentrifugePublishEvent(uid: pub.uid, data: pub.data, info: pub.info))
+                let event = CentrifugePublishEvent(uid: pub.uid, data: pub.data, offset: pub.offset, info: pub.info)
+                sub.delegate?.onPublish(sub, event)
             }
+            sub.setLastOffset(pub.offset)
         } else if push.type == Proto_PushType.join {
             let join = try Proto_Join(serializedData: push.data)
             subscriptionsLock.lock()
@@ -690,6 +691,9 @@ fileprivate extension CentrifugeClient {
         
         subscriptionsLock.lock()
         for sub in self.subscriptions {
+            if !reconnect {
+                sub.setNeedRecover(false)
+            }
             sub.unsubscribeOnDisconnect()
         }
         subscriptionsLock.unlock()
@@ -805,9 +809,15 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendSubscribe(channel: String, token: String, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
+    private func sendSubscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
         var params = Proto_SubscribeRequest()
         params.channel = channel
+        if isRecover {
+            params.recover = true
+            params.epoch = streamPosition.epoch
+            params.offset = streamPosition.offset
+        }
+
         if token != "" {
             params.token = token
         }
