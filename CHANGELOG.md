@@ -1,3 +1,8 @@
+0.3.0
+=====
+
+* Message recovery support for client-side subscriptions. See [#39](https://github.com/centrifugal/centrifuge-swift/pull/39). Thanks to Anton Selyanin.
+
 0.2.2
 =====
 
