@@ -70,7 +70,7 @@ let client = CentrifugeClient(url: url, config: config, delegate: ClientDelegate
 client.connect()
 ```
 
-Note that *you must use* `?format=protobuf` in connection URL as this client communicates with Centrifugo/Centrifuge over Protobuf protocol.
+Note that **you must use** `?format=protobuf` in connection URL as this client communicates with Centrifugo/Centrifuge over Protobuf protocol. While this client uses Protobuf binary protocol nothing stops you from sending JSON-encoded data over it.
 
 To connect to Centrifugo you need to additionally set connection JWT:
 
@@ -119,7 +119,7 @@ do {
 
 - [ ] connect to server using JSON protocol format
 - [x] connect to server using Protobuf protocol format
-- [x] connect with JWT
+- [x] connect with token (JWT)
 - [x] connect with custom header
 - [x] automatic reconnect in case of errors, network problems etc
 - [x] exponential backoff for reconnect
@@ -134,13 +134,17 @@ do {
 - [x] presence method of Subscription
 - [x] presence stats method of Subscription
 - [x] history method of Subscription
+- [x] top-level publish method
+- [ ] top-level presence method
+- [ ] top-level presence stats method
+- [ ] top-level history method
+- [ ] top-level unsubscribe method
 - [x] send asynchronous messages to server
 - [x] handle asynchronous messages from server
 - [x] send RPC commands
-- [x] publish to channel without being subscribed
-- [x] subscribe to private channels with JWT
+- [x] subscribe to private channels with token (JWT)
 - [x] connection JWT refresh
-- [ ] private channel subscription JWT refresh
+- [ ] private channel subscription token (JWT) refresh
 - [x] handle connection expired error
 - [ ] handle subscription expired error
 - [x] ping/pong to find broken connection
