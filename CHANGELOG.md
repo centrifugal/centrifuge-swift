@@ -1,3 +1,8 @@
+0.3.1
+=====
+
+* Fix internal error handling in subscription reply – now properly reconnect upon internal error received.
+
 0.3.0
 =====
 
