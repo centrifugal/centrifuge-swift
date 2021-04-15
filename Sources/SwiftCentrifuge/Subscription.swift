@@ -28,7 +28,7 @@ public class CentrifugeSubscription {
     private var needRecover: Bool = false
     private var lastEpoch: String = ""
 
-    weak var delegate: CentrifugeSubscriptionDelegate?
+    public weak var delegate: CentrifugeSubscriptionDelegate?
     
     private var callbacks: [String: ((Error?) -> ())] = [:]
     private let syncQueue: DispatchQueue
