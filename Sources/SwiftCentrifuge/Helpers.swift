@@ -16,7 +16,7 @@ struct CentrifugeDisconnectOptions: Decodable {
 
 struct CentrifugeResolveData {
     var error: Error?
-    var reply: Proto_Reply?
+    var reply: Protocol_Reply?
 }
 
 struct StreamPosition {
@@ -25,7 +25,7 @@ struct StreamPosition {
 }
 
 internal enum CentrifugeSerializer {
-    static func serializeCommands(commands: [Proto_Command]) throws -> Data {
+    static func serializeCommands(commands: [Protocol_Command]) throws -> Data {
         let stream = OutputStream.toMemory()
         stream.open()
         for command in commands {
@@ -35,13 +35,13 @@ internal enum CentrifugeSerializer {
         return stream.property(forKey: .dataWrittenToMemoryStreamKey) as! Data
     }
     
-    static func deserializeCommands(data: Data) throws -> [Proto_Reply] {
-        var commands = [Proto_Reply]()
+    static func deserializeCommands(data: Data) throws -> [Protocol_Reply] {
+        var commands = [Protocol_Reply]()
         let stream = InputStream(data: data as Data)
         stream.open()
         while true {
             do {
-                let res = try BinaryDelimited.parse(messageType: Proto_Reply.self, from: stream)
+                let res = try BinaryDelimited.parse(messageType: Protocol_Reply.self, from: stream)
                 commands.append(res)
             } catch BinaryDelimited.Error.truncated {
                 // End of stream

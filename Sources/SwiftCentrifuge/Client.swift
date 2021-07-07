@@ -339,7 +339,7 @@ internal extension CentrifugeClient {
         subscriptionsLock.unlock()
     }
     
-    func subscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
+    func subscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Protocol_SubscribeResult?, Error?)->()) {
         self.sendSubscribe(channel: channel, token: token, isRecover: isRecover, streamPosition: streamPosition, completion: completion)
     }
     
@@ -489,8 +489,8 @@ fileprivate extension CentrifugeClient {
         return cid
     }
     
-    private func newCommand(method: Proto_MethodType, params: Data) -> Proto_Command {
-        var command = Proto_Command()
+    private func newCommand(method: Protocol_Command.MethodType, params: Data) -> Protocol_Command {
+        var command = Protocol_Command()
         let nextId = self.nextCommandId()
         command.id = nextId
         command.method = method
@@ -498,9 +498,9 @@ fileprivate extension CentrifugeClient {
         return command
     }
     
-    private func sendCommand(command: Proto_Command, completion: @escaping (Proto_Reply?, Error?)->()) {
+    private func sendCommand(command: Protocol_Command, completion: @escaping (Protocol_Reply?, Error?)->()) {
         self.syncQueue.async {
-            let commands: [Proto_Command] = [command]
+            let commands: [Protocol_Command] = [command]
             do {
                 let data = try CentrifugeSerializer.serializeCommands(commands: commands)
                 self.conn?.write(data: data)
@@ -512,13 +512,13 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendCommandAsync(command: Proto_Command) throws {
-        let commands: [Proto_Command] = [command]
+    private func sendCommandAsync(command: Protocol_Command) throws {
+        let commands: [Protocol_Command] = [command]
         let data = try CentrifugeSerializer.serializeCommands(commands: commands)
         self.conn?.write(data: data)
     }
     
-    private func waitForReply(id: UInt32, completion: @escaping (Proto_Reply?, Error?)->()) {
+    private func waitForReply(id: UInt32, completion: @escaping (Protocol_Reply?, Error?)->()) {
         let timeoutTask = DispatchWorkItem { [weak self] in
             self?.opCallbacks[id] = nil
             completion(nil, CentrifugeError.timeout)
@@ -584,10 +584,10 @@ fileprivate extension CentrifugeClient {
     }
     
     private func handleAsyncData(data: Data) throws {
-        let push = try Proto_Push(serializedData: data)
+        let push = try Protocol_Push(serializedData: data)
         let channel = push.channel
-        if push.type == Proto_PushType.publication {
-            let pub = try Proto_Publication(serializedData: push.data)
+        if push.type == Protocol_Push.PushType.publication {
+            let pub = try Protocol_Publication(serializedData: push.data)
             subscriptionsLock.lock()
             let subs = self.subscriptions.filter({ $0.channel == channel })
             if subs.count == 0 {
@@ -616,8 +616,8 @@ fileprivate extension CentrifugeClient {
                 sub.delegate?.onPublish(sub, event)
             }
             sub.setLastOffset(pub.offset)
-        } else if push.type == Proto_PushType.join {
-            let join = try Proto_Join(serializedData: push.data)
+        } else if push.type == Protocol_Push.PushType.join {
+            let join = try Protocol_Join(serializedData: push.data)
             subscriptionsLock.lock()
             let subs = self.subscriptions.filter({ $0.channel == channel })
             if subs.count == 0 {
@@ -635,8 +635,8 @@ fileprivate extension CentrifugeClient {
             self.delegateQueue.addOperation {
                 sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
             }
-        } else if push.type == Proto_PushType.leave {
-            let leave = try Proto_Leave(serializedData: push.data)
+        } else if push.type == Protocol_Push.PushType.leave {
+            let leave = try Protocol_Leave(serializedData: push.data)
             subscriptionsLock.lock()
             let subs = self.subscriptions.filter({ $0.channel == channel })
             if subs.count == 0 {
@@ -654,8 +654,8 @@ fileprivate extension CentrifugeClient {
             self.delegateQueue.addOperation {
                 sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
             }
-        } else if push.type == Proto_PushType.unsub {
-            let _ = try Proto_Unsub(serializedData: push.data)
+        } else if push.type == Protocol_Push.PushType.unsubscribe {
+            let _ = try Protocol_Unsubscribe(serializedData: push.data)
             subscriptionsLock.lock()
             let subs = self.subscriptions.filter({ $0.channel == channel })
             if subs.count == 0 {
@@ -672,15 +672,15 @@ fileprivate extension CentrifugeClient {
             let sub = subs[0]
             subscriptionsLock.unlock()
             sub.unsubscribe()
-        } else if push.type == Proto_PushType.sub {
-            let sub = try Proto_Sub(serializedData: push.data)
+        } else if push.type == Protocol_Push.PushType.subscribe {
+            let sub = try Protocol_Subscribe(serializedData: push.data)
             self.serverSubs[channel] = serverSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
             self.delegateQueue.addOperation {
                 let event = CentrifugeServerSubscribeEvent(channel: channel, resubscribe: false, recovered: false)
                 self.delegate?.onSubscribe(self, event)
             }
-        } else if push.type == Proto_PushType.message {
-            let message = try Proto_Message(serializedData: push.data)
+        } else if push.type == Protocol_Push.PushType.message {
+            let message = try Protocol_Message(serializedData: push.data)
             self.delegateQueue.addOperation {
                 self.delegate?.onMessage(self, CentrifugeMessageEvent(data: message.data))
             }
@@ -705,7 +705,7 @@ fileprivate extension CentrifugeClient {
         self.pingTimer = DispatchSource.makeTimerSource()
         self.pingTimer?.setEventHandler { [weak self] in
             guard let strongSelf = self else { return }
-            let params = Proto_PingRequest()
+            let params = Protocol_PingRequest()
             do {
                 let paramsData = try params.serializedData()
                 let command = strongSelf.newCommand(method: .ping, params: paramsData)
@@ -803,8 +803,8 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendConnect(completion: @escaping (Proto_ConnectResult?, Error?)->()) {
-        var params = Proto_ConnectRequest()
+    private func sendConnect(completion: @escaping (Protocol_ConnectResult?, Error?)->()) {
+        var params = Protocol_ConnectRequest()
         if self.token != nil {
             params.token = self.token!
         }
@@ -814,9 +814,9 @@ fileprivate extension CentrifugeClient {
         params.name = self.config.name
         params.version = self.config.version
         if !self.serverSubs.isEmpty {
-            var subs = [String: Proto_SubscribeRequest]()
+            var subs = [String: Protocol_SubscribeRequest]()
             for (channel, serverSub) in self.serverSubs {
-                var subRequest = Proto_SubscribeRequest();
+                var subRequest = Protocol_SubscribeRequest();
                 subRequest.recover = serverSub.recoverable
                 subRequest.offset = serverSub.offset
                 subRequest.epoch = serverSub.epoch
@@ -839,7 +839,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_ConnectResult(serializedData: rep.result)
+                        let result = try Protocol_ConnectResult(serializedData: rep.result)
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -851,8 +851,8 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendRefresh(token: String, completion: @escaping (Proto_RefreshResult?, Error?)->()) {
-        var params = Proto_RefreshRequest()
+    private func sendRefresh(token: String, completion: @escaping (Protocol_RefreshResult?, Error?)->()) {
+        var params = Protocol_RefreshRequest()
         params.token = token
         do {
             let paramsData = try params.serializedData()
@@ -869,7 +869,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_RefreshResult(serializedData: rep.result)
+                        let result = try Protocol_RefreshResult(serializedData: rep.result)
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -881,8 +881,8 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendUnsubscribe(channel: String, completion: @escaping (Proto_UnsubscribeResult?, Error?)->()) {
-        var params = Proto_UnsubscribeRequest()
+    private func sendUnsubscribe(channel: String, completion: @escaping (Protocol_UnsubscribeResult?, Error?)->()) {
+        var params = Protocol_UnsubscribeRequest()
         params.channel = channel
         do {
             let paramsData = try params.serializedData()
@@ -899,7 +899,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_UnsubscribeResult(serializedData: rep.result)
+                        let result = try Protocol_UnsubscribeResult(serializedData: rep.result)
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -911,8 +911,8 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendSubscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Proto_SubscribeResult?, Error?)->()) {
-        var params = Proto_SubscribeRequest()
+    private func sendSubscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Protocol_SubscribeResult?, Error?)->()) {
+        var params = Protocol_SubscribeRequest()
         params.channel = channel
         if isRecover {
             params.recover = true
@@ -938,7 +938,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_SubscribeResult(serializedData: rep.result)
+                        let result = try Protocol_SubscribeResult(serializedData: rep.result)
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -950,8 +950,8 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendPublish(channel: String, data: Data, completion: @escaping (Proto_PublishResult?, Error?)->()) {
-        var params = Proto_PublishRequest()
+    private func sendPublish(channel: String, data: Data, completion: @escaping (Protocol_PublishResult?, Error?)->()) {
+        var params = Protocol_PublishRequest()
         params.channel = channel
         params.data = data
         do {
@@ -969,7 +969,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_PublishResult(serializedData: rep.result)
+                        let result = try Protocol_PublishResult(serializedData: rep.result)
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -982,7 +982,7 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendHistory(channel: String, completion: @escaping ([CentrifugePublication]?, Error?)->()) {
-        var params = Proto_HistoryRequest()
+        var params = Protocol_HistoryRequest()
         params.channel = channel
         do {
             let paramsData = try params.serializedData()
@@ -999,7 +999,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_HistoryResult(serializedData: rep.result)
+                        let result = try Protocol_HistoryResult(serializedData: rep.result)
                         var pubs = [CentrifugePublication]()
                         for pub in result.publications {
                             pubs.append(CentrifugePublication(offset: pub.offset, data: pub.data))
@@ -1016,7 +1016,7 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendPresence(channel: String, completion: @escaping ([String:CentrifugeClientInfo]?, Error?)->()) {
-        var params = Proto_PresenceRequest()
+        var params = Protocol_PresenceRequest()
         params.channel = channel
         do {
             let paramsData = try params.serializedData()
@@ -1033,7 +1033,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_PresenceResult(serializedData: rep.result)
+                        let result = try Protocol_PresenceResult(serializedData: rep.result)
                         var presence = [String: CentrifugeClientInfo]()
                         for (client, info) in result.presence {
                             presence[client] = CentrifugeClientInfo(client: info.client, user: info.user, connInfo: info.connInfo, chanInfo: info.chanInfo)
@@ -1050,7 +1050,7 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendPresenceStats(channel: String, completion: @escaping (CentrifugePresenceStats?, Error?)->()) {
-        var params = Proto_PresenceStatsRequest()
+        var params = Protocol_PresenceStatsRequest()
         params.channel = channel
         do {
             let paramsData = try params.serializedData()
@@ -1067,7 +1067,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_PresenceStatsResult(serializedData: rep.result)
+                        let result = try Protocol_PresenceStatsResult(serializedData: rep.result)
                         let stats = CentrifugePresenceStats(numClients: result.numClients, numUsers: result.numUsers)
                         completion(stats, nil)
                     } catch {
@@ -1080,8 +1080,8 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendRPC(method: String, data: Data, completion: @escaping (Proto_RPCResult?, Error?)->()) {
-        var params = Proto_RPCRequest()
+    private func sendRPC(method: String, data: Data, completion: @escaping (Protocol_RPCResult?, Error?)->()) {
+        var params = Protocol_RPCRequest()
         params.data = data
         params.method = method
         do {
@@ -1099,7 +1099,7 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Proto_RPCResult(serializedData: rep.result)
+                        let result = try Protocol_RPCResult(serializedData: rep.result)
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -1112,7 +1112,7 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendSend(data: Data, completion: @escaping (Error?)->()) {
-        var params = Proto_SendRequest()
+        var params = Protocol_SendRequest()
         params.data = data
         do {
             let paramsData = try params.serializedData()

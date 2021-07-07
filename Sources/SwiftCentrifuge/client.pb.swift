@@ -20,69 +20,99 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-enum Proto_MethodType: SwiftProtobuf.Enum {
-  typealias RawValue = Int
-  case connect // = 0
-  case subscribe // = 1
-  case unsubscribe // = 2
-  case publish // = 3
-  case presence // = 4
-  case presenceStats // = 5
-  case history // = 6
-  case ping // = 7
-  case send // = 8
-  case rpc // = 9
-  case refresh // = 10
-  case subRefresh // = 11
-  case UNRECOGNIZED(Int)
+struct Protocol_Error {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
 
-  init() {
-    self = .connect
-  }
+  var code: UInt32 = 0
 
-  init?(rawValue: Int) {
-    switch rawValue {
-    case 0: self = .connect
-    case 1: self = .subscribe
-    case 2: self = .unsubscribe
-    case 3: self = .publish
-    case 4: self = .presence
-    case 5: self = .presenceStats
-    case 6: self = .history
-    case 7: self = .ping
-    case 8: self = .send
-    case 9: self = .rpc
-    case 10: self = .refresh
-    case 11: self = .subRefresh
-    default: self = .UNRECOGNIZED(rawValue)
+  var message: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Protocol_Command {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var id: UInt32 = 0
+
+  var method: Protocol_Command.MethodType = .connect
+
+  var params: Data = Data()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  enum MethodType: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+    case connect // = 0
+    case subscribe // = 1
+    case unsubscribe // = 2
+    case publish // = 3
+    case presence // = 4
+    case presenceStats // = 5
+    case history // = 6
+    case ping // = 7
+    case send // = 8
+    case rpc // = 9
+    case refresh // = 10
+    case subRefresh // = 11
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .connect
     }
-  }
 
-  var rawValue: Int {
-    switch self {
-    case .connect: return 0
-    case .subscribe: return 1
-    case .unsubscribe: return 2
-    case .publish: return 3
-    case .presence: return 4
-    case .presenceStats: return 5
-    case .history: return 6
-    case .ping: return 7
-    case .send: return 8
-    case .rpc: return 9
-    case .refresh: return 10
-    case .subRefresh: return 11
-    case .UNRECOGNIZED(let i): return i
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .connect
+      case 1: self = .subscribe
+      case 2: self = .unsubscribe
+      case 3: self = .publish
+      case 4: self = .presence
+      case 5: self = .presenceStats
+      case 6: self = .history
+      case 7: self = .ping
+      case 8: self = .send
+      case 9: self = .rpc
+      case 10: self = .refresh
+      case 11: self = .subRefresh
+      default: self = .UNRECOGNIZED(rawValue)
+      }
     }
+
+    var rawValue: Int {
+      switch self {
+      case .connect: return 0
+      case .subscribe: return 1
+      case .unsubscribe: return 2
+      case .publish: return 3
+      case .presence: return 4
+      case .presenceStats: return 5
+      case .history: return 6
+      case .ping: return 7
+      case .send: return 8
+      case .rpc: return 9
+      case .refresh: return 10
+      case .subRefresh: return 11
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
   }
 
+  init() {}
 }
 
 #if swift(>=4.2)
 
-extension Proto_MethodType: CaseIterable {
+extension Protocol_Command.MethodType: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Proto_MethodType] = [
+  static var allCases: [Protocol_Command.MethodType] = [
     .connect,
     .subscribe,
     .unsubscribe,
@@ -100,101 +130,15 @@ extension Proto_MethodType: CaseIterable {
 
 #endif  // swift(>=4.2)
 
-enum Proto_PushType: SwiftProtobuf.Enum {
-  typealias RawValue = Int
-  case publication // = 0
-  case join // = 1
-  case leave // = 2
-  case unsub // = 3
-  case message // = 4
-  case sub // = 5
-  case UNRECOGNIZED(Int)
-
-  init() {
-    self = .publication
-  }
-
-  init?(rawValue: Int) {
-    switch rawValue {
-    case 0: self = .publication
-    case 1: self = .join
-    case 2: self = .leave
-    case 3: self = .unsub
-    case 4: self = .message
-    case 5: self = .sub
-    default: self = .UNRECOGNIZED(rawValue)
-    }
-  }
-
-  var rawValue: Int {
-    switch self {
-    case .publication: return 0
-    case .join: return 1
-    case .leave: return 2
-    case .unsub: return 3
-    case .message: return 4
-    case .sub: return 5
-    case .UNRECOGNIZED(let i): return i
-    }
-  }
-
-}
-
-#if swift(>=4.2)
-
-extension Proto_PushType: CaseIterable {
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Proto_PushType] = [
-    .publication,
-    .join,
-    .leave,
-    .unsub,
-    .message,
-    .sub,
-  ]
-}
-
-#endif  // swift(>=4.2)
-
-struct Proto_Error {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  var code: UInt32 = 0
-
-  var message: String = String()
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
-}
-
-struct Proto_Command {
+struct Protocol_Reply {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   var id: UInt32 = 0
 
-  var method: Proto_MethodType = .connect
-
-  var params: Data = Data()
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
-}
-
-struct Proto_Reply {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  var id: UInt32 = 0
-
-  var error: Proto_Error {
-    get {return _error ?? Proto_Error()}
+  var error: Protocol_Error {
+    get {return _error ?? Protocol_Error()}
     set {_error = newValue}
   }
   /// Returns true if `error` has been explicitly set.
@@ -208,15 +152,15 @@ struct Proto_Reply {
 
   init() {}
 
-  fileprivate var _error: Proto_Error? = nil
+  fileprivate var _error: Protocol_Error? = nil
 }
 
-struct Proto_Push {
+struct Protocol_Push {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var type: Proto_PushType = .publication
+  var type: Protocol_Push.PushType = .publication
 
   var channel: String = String()
 
@@ -224,10 +168,74 @@ struct Proto_Push {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
+  enum PushType: SwiftProtobuf.Enum {
+    typealias RawValue = Int
+    case publication // = 0
+    case join // = 1
+    case leave // = 2
+    case unsubscribe // = 3
+    case message // = 4
+    case subscribe // = 5
+    case connect // = 6
+    case disconnect // = 7
+    case UNRECOGNIZED(Int)
+
+    init() {
+      self = .publication
+    }
+
+    init?(rawValue: Int) {
+      switch rawValue {
+      case 0: self = .publication
+      case 1: self = .join
+      case 2: self = .leave
+      case 3: self = .unsubscribe
+      case 4: self = .message
+      case 5: self = .subscribe
+      case 6: self = .connect
+      case 7: self = .disconnect
+      default: self = .UNRECOGNIZED(rawValue)
+      }
+    }
+
+    var rawValue: Int {
+      switch self {
+      case .publication: return 0
+      case .join: return 1
+      case .leave: return 2
+      case .unsubscribe: return 3
+      case .message: return 4
+      case .subscribe: return 5
+      case .connect: return 6
+      case .disconnect: return 7
+      case .UNRECOGNIZED(let i): return i
+      }
+    }
+
+  }
+
   init() {}
 }
 
-struct Proto_ClientInfo {
+#if swift(>=4.2)
+
+extension Protocol_Push.PushType: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static var allCases: [Protocol_Push.PushType] = [
+    .publication,
+    .join,
+    .leave,
+    .unsubscribe,
+    .message,
+    .subscribe,
+    .connect,
+    .disconnect,
+  ]
+}
+
+#endif  // swift(>=4.2)
+
+struct Protocol_ClientInfo {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -245,7 +253,7 @@ struct Proto_ClientInfo {
   init() {}
 }
 
-struct Proto_Publication {
+struct Protocol_Publication {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -258,8 +266,8 @@ struct Proto_Publication {
 
   var data: Data = Data()
 
-  var info: Proto_ClientInfo {
-    get {return _info ?? Proto_ClientInfo()}
+  var info: Protocol_ClientInfo {
+    get {return _info ?? Protocol_ClientInfo()}
     set {_info = newValue}
   }
   /// Returns true if `info` has been explicitly set.
@@ -273,16 +281,16 @@ struct Proto_Publication {
 
   init() {}
 
-  fileprivate var _info: Proto_ClientInfo? = nil
+  fileprivate var _info: Protocol_ClientInfo? = nil
 }
 
-struct Proto_Join {
+struct Protocol_Join {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var info: Proto_ClientInfo {
-    get {return _info ?? Proto_ClientInfo()}
+  var info: Protocol_ClientInfo {
+    get {return _info ?? Protocol_ClientInfo()}
     set {_info = newValue}
   }
   /// Returns true if `info` has been explicitly set.
@@ -294,16 +302,16 @@ struct Proto_Join {
 
   init() {}
 
-  fileprivate var _info: Proto_ClientInfo? = nil
+  fileprivate var _info: Protocol_ClientInfo? = nil
 }
 
-struct Proto_Leave {
+struct Protocol_Leave {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var info: Proto_ClientInfo {
-    get {return _info ?? Proto_ClientInfo()}
+  var info: Protocol_ClientInfo {
+    get {return _info ?? Protocol_ClientInfo()}
     set {_info = newValue}
   }
   /// Returns true if `info` has been explicitly set.
@@ -315,10 +323,10 @@ struct Proto_Leave {
 
   init() {}
 
-  fileprivate var _info: Proto_ClientInfo? = nil
+  fileprivate var _info: Protocol_ClientInfo? = nil
 }
 
-struct Proto_Unsub {
+struct Protocol_Unsubscribe {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -330,7 +338,7 @@ struct Proto_Unsub {
   init() {}
 }
 
-struct Proto_Sub {
+struct Protocol_Subscribe {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -347,12 +355,14 @@ struct Proto_Sub {
 
   var positioned: Bool = false
 
+  var data: Data = Data()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
-struct Proto_Message {
+struct Protocol_Message {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -364,7 +374,41 @@ struct Proto_Message {
   init() {}
 }
 
-struct Proto_ConnectRequest {
+struct Protocol_Connect {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var client: String = String()
+
+  var version: String = String()
+
+  var data: Data = Data()
+
+  var subs: Dictionary<String,Protocol_SubscribeResult> = [:]
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Protocol_Disconnect {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var code: UInt32 = 0
+
+  var reason: String = String()
+
+  var reconnect: Bool = false
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Protocol_ConnectRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -373,7 +417,7 @@ struct Proto_ConnectRequest {
 
   var data: Data = Data()
 
-  var subs: Dictionary<String,Proto_SubscribeRequest> = [:]
+  var subs: Dictionary<String,Protocol_SubscribeRequest> = [:]
 
   var name: String = String()
 
@@ -384,7 +428,7 @@ struct Proto_ConnectRequest {
   init() {}
 }
 
-struct Proto_ConnectResult {
+struct Protocol_ConnectResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -399,14 +443,14 @@ struct Proto_ConnectResult {
 
   var data: Data = Data()
 
-  var subs: Dictionary<String,Proto_SubscribeResult> = [:]
+  var subs: Dictionary<String,Protocol_SubscribeResult> = [:]
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
-struct Proto_RefreshRequest {
+struct Protocol_RefreshRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -418,7 +462,7 @@ struct Proto_RefreshRequest {
   init() {}
 }
 
-struct Proto_RefreshResult {
+struct Protocol_RefreshResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -436,7 +480,7 @@ struct Proto_RefreshResult {
   init() {}
 }
 
-struct Proto_SubscribeRequest {
+struct Protocol_SubscribeRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -460,7 +504,7 @@ struct Proto_SubscribeRequest {
   init() {}
 }
 
-struct Proto_SubscribeResult {
+struct Protocol_SubscribeResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -477,7 +521,7 @@ struct Proto_SubscribeResult {
 
   var epoch: String = String()
 
-  var publications: [Proto_Publication] = []
+  var publications: [Protocol_Publication] = []
 
   var recovered: Bool = false
 
@@ -485,12 +529,14 @@ struct Proto_SubscribeResult {
 
   var positioned: Bool = false
 
+  var data: Data = Data()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
-struct Proto_SubRefreshRequest {
+struct Protocol_SubRefreshRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -504,7 +550,7 @@ struct Proto_SubRefreshRequest {
   init() {}
 }
 
-struct Proto_SubRefreshResult {
+struct Protocol_SubRefreshResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -518,7 +564,7 @@ struct Proto_SubRefreshResult {
   init() {}
 }
 
-struct Proto_UnsubscribeRequest {
+struct Protocol_UnsubscribeRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -530,7 +576,7 @@ struct Proto_UnsubscribeRequest {
   init() {}
 }
 
-struct Proto_UnsubscribeResult {
+struct Protocol_UnsubscribeResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -540,7 +586,7 @@ struct Proto_UnsubscribeResult {
   init() {}
 }
 
-struct Proto_PublishRequest {
+struct Protocol_PublishRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -554,7 +600,7 @@ struct Proto_PublishRequest {
   init() {}
 }
 
-struct Proto_PublishResult {
+struct Protocol_PublishResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -564,31 +610,7 @@ struct Proto_PublishResult {
   init() {}
 }
 
-struct Proto_PresenceRequest {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  var channel: String = String()
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
-}
-
-struct Proto_PresenceResult {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  var presence: Dictionary<String,Proto_ClientInfo> = [:]
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
-}
-
-struct Proto_PresenceStatsRequest {
+struct Protocol_PresenceRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -600,7 +622,31 @@ struct Proto_PresenceStatsRequest {
   init() {}
 }
 
-struct Proto_PresenceStatsResult {
+struct Protocol_PresenceResult {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var presence: Dictionary<String,Protocol_ClientInfo> = [:]
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Protocol_PresenceStatsRequest {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var channel: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Protocol_PresenceStatsResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -614,7 +660,7 @@ struct Proto_PresenceStatsResult {
   init() {}
 }
 
-struct Proto_HistoryRequest {
+struct Protocol_HistoryRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -636,12 +682,12 @@ struct Proto_HistoryRequest {
   init() {}
 }
 
-struct Proto_HistoryResult {
+struct Protocol_HistoryResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var publications: [Proto_Publication] = []
+  var publications: [Protocol_Publication] = []
 
   var epoch: String = String()
 
@@ -652,7 +698,7 @@ struct Proto_HistoryResult {
   init() {}
 }
 
-struct Proto_PingRequest {
+struct Protocol_PingRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -662,7 +708,7 @@ struct Proto_PingRequest {
   init() {}
 }
 
-struct Proto_PingResult {
+struct Protocol_PingResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -672,7 +718,7 @@ struct Proto_PingResult {
   init() {}
 }
 
-struct Proto_RPCRequest {
+struct Protocol_RPCRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -686,7 +732,7 @@ struct Proto_RPCRequest {
   init() {}
 }
 
-struct Proto_RPCResult {
+struct Protocol_RPCResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -698,7 +744,7 @@ struct Proto_RPCResult {
   init() {}
 }
 
-struct Proto_SendRequest {
+struct Protocol_SendRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -712,37 +758,9 @@ struct Proto_SendRequest {
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
-fileprivate let _protobuf_package = "proto"
+fileprivate let _protobuf_package = "protocol"
 
-extension Proto_MethodType: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "CONNECT"),
-    1: .same(proto: "SUBSCRIBE"),
-    2: .same(proto: "UNSUBSCRIBE"),
-    3: .same(proto: "PUBLISH"),
-    4: .same(proto: "PRESENCE"),
-    5: .same(proto: "PRESENCE_STATS"),
-    6: .same(proto: "HISTORY"),
-    7: .same(proto: "PING"),
-    8: .same(proto: "SEND"),
-    9: .same(proto: "RPC"),
-    10: .same(proto: "REFRESH"),
-    11: .same(proto: "SUB_REFRESH"),
-  ]
-}
-
-extension Proto_PushType: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "PUBLICATION"),
-    1: .same(proto: "JOIN"),
-    2: .same(proto: "LEAVE"),
-    3: .same(proto: "UNSUB"),
-    4: .same(proto: "MESSAGE"),
-    5: .same(proto: "SUB"),
-  ]
-}
-
-extension Proto_Error: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Error: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Error"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "code"),
@@ -772,7 +790,7 @@ extension Proto_Error: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Error, rhs: Proto_Error) -> Bool {
+  static func ==(lhs: Protocol_Error, rhs: Protocol_Error) -> Bool {
     if lhs.code != rhs.code {return false}
     if lhs.message != rhs.message {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -780,7 +798,7 @@ extension Proto_Error: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
   }
 }
 
-extension Proto_Command: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Command: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Command"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "id"),
@@ -815,7 +833,7 @@ extension Proto_Command: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementa
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Command, rhs: Proto_Command) -> Bool {
+  static func ==(lhs: Protocol_Command, rhs: Protocol_Command) -> Bool {
     if lhs.id != rhs.id {return false}
     if lhs.method != rhs.method {return false}
     if lhs.params != rhs.params {return false}
@@ -824,7 +842,24 @@ extension Proto_Command: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementa
   }
 }
 
-extension Proto_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Command.MethodType: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "CONNECT"),
+    1: .same(proto: "SUBSCRIBE"),
+    2: .same(proto: "UNSUBSCRIBE"),
+    3: .same(proto: "PUBLISH"),
+    4: .same(proto: "PRESENCE"),
+    5: .same(proto: "PRESENCE_STATS"),
+    6: .same(proto: "HISTORY"),
+    7: .same(proto: "PING"),
+    8: .same(proto: "SEND"),
+    9: .same(proto: "RPC"),
+    10: .same(proto: "REFRESH"),
+    11: .same(proto: "SUB_REFRESH"),
+  ]
+}
+
+extension Protocol_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Reply"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "id"),
@@ -859,7 +894,7 @@ extension Proto_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Reply, rhs: Proto_Reply) -> Bool {
+  static func ==(lhs: Protocol_Reply, rhs: Protocol_Reply) -> Bool {
     if lhs.id != rhs.id {return false}
     if lhs._error != rhs._error {return false}
     if lhs.result != rhs.result {return false}
@@ -868,7 +903,7 @@ extension Proto_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
   }
 }
 
-extension Proto_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Push"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "type"),
@@ -903,7 +938,7 @@ extension Proto_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementatio
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Push, rhs: Proto_Push) -> Bool {
+  static func ==(lhs: Protocol_Push, rhs: Protocol_Push) -> Bool {
     if lhs.type != rhs.type {return false}
     if lhs.channel != rhs.channel {return false}
     if lhs.data != rhs.data {return false}
@@ -912,7 +947,20 @@ extension Proto_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementatio
   }
 }
 
-extension Proto_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Push.PushType: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "PUBLICATION"),
+    1: .same(proto: "JOIN"),
+    2: .same(proto: "LEAVE"),
+    3: .same(proto: "UNSUBSCRIBE"),
+    4: .same(proto: "MESSAGE"),
+    5: .same(proto: "SUBSCRIBE"),
+    6: .same(proto: "CONNECT"),
+    7: .same(proto: "DISCONNECT"),
+  ]
+}
+
+extension Protocol_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ClientInfo"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "user"),
@@ -952,7 +1000,7 @@ extension Proto_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_ClientInfo, rhs: Proto_ClientInfo) -> Bool {
+  static func ==(lhs: Protocol_ClientInfo, rhs: Protocol_ClientInfo) -> Bool {
     if lhs.user != rhs.user {return false}
     if lhs.client != rhs.client {return false}
     if lhs.connInfo != rhs.connInfo {return false}
@@ -962,7 +1010,7 @@ extension Proto_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
   }
 }
 
-extension Proto_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Publication"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "seq"),
@@ -1012,7 +1060,7 @@ extension Proto_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Publication, rhs: Proto_Publication) -> Bool {
+  static func ==(lhs: Protocol_Publication, rhs: Protocol_Publication) -> Bool {
     if lhs.seq != rhs.seq {return false}
     if lhs.gen != rhs.gen {return false}
     if lhs.uid != rhs.uid {return false}
@@ -1024,7 +1072,7 @@ extension Proto_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
   }
 }
 
-extension Proto_Join: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Join: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Join"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "info"),
@@ -1049,14 +1097,14 @@ extension Proto_Join: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementatio
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Join, rhs: Proto_Join) -> Bool {
+  static func ==(lhs: Protocol_Join, rhs: Protocol_Join) -> Bool {
     if lhs._info != rhs._info {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_Leave: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Leave: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Leave"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "info"),
@@ -1081,15 +1129,15 @@ extension Proto_Leave: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Leave, rhs: Proto_Leave) -> Bool {
+  static func ==(lhs: Protocol_Leave, rhs: Protocol_Leave) -> Bool {
     if lhs._info != rhs._info {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_Unsub: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".Unsub"
+extension Protocol_Unsubscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".Unsubscribe"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "resubscribe"),
   ]
@@ -1113,15 +1161,15 @@ extension Proto_Unsub: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementati
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Unsub, rhs: Proto_Unsub) -> Bool {
+  static func ==(lhs: Protocol_Unsubscribe, rhs: Protocol_Unsubscribe) -> Bool {
     if lhs.resubscribe != rhs.resubscribe {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_Sub: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".Sub"
+extension Protocol_Subscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".Subscribe"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "recoverable"),
     2: .same(proto: "seq"),
@@ -1129,6 +1177,7 @@ extension Proto_Sub: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementation
     4: .same(proto: "epoch"),
     5: .same(proto: "offset"),
     6: .same(proto: "positioned"),
+    7: .same(proto: "data"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1143,6 +1192,7 @@ extension Proto_Sub: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementation
       case 4: try { try decoder.decodeSingularStringField(value: &self.epoch) }()
       case 5: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
       case 6: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
+      case 7: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       default: break
       }
     }
@@ -1167,22 +1217,26 @@ extension Proto_Sub: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementation
     if self.positioned != false {
       try visitor.visitSingularBoolField(value: self.positioned, fieldNumber: 6)
     }
+    if !self.data.isEmpty {
+      try visitor.visitSingularBytesField(value: self.data, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Sub, rhs: Proto_Sub) -> Bool {
+  static func ==(lhs: Protocol_Subscribe, rhs: Protocol_Subscribe) -> Bool {
     if lhs.recoverable != rhs.recoverable {return false}
     if lhs.seq != rhs.seq {return false}
     if lhs.gen != rhs.gen {return false}
     if lhs.epoch != rhs.epoch {return false}
     if lhs.offset != rhs.offset {return false}
     if lhs.positioned != rhs.positioned {return false}
+    if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_Message: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Message: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Message"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
@@ -1207,14 +1261,108 @@ extension Proto_Message: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementa
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_Message, rhs: Proto_Message) -> Bool {
+  static func ==(lhs: Protocol_Message, rhs: Protocol_Message) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_Connect: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".Connect"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "client"),
+    2: .same(proto: "version"),
+    3: .same(proto: "data"),
+    4: .same(proto: "subs"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.client) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.version) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self.data) }()
+      case 4: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeResult>.self, value: &self.subs) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.client.isEmpty {
+      try visitor.visitSingularStringField(value: self.client, fieldNumber: 1)
+    }
+    if !self.version.isEmpty {
+      try visitor.visitSingularStringField(value: self.version, fieldNumber: 2)
+    }
+    if !self.data.isEmpty {
+      try visitor.visitSingularBytesField(value: self.data, fieldNumber: 3)
+    }
+    if !self.subs.isEmpty {
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeResult>.self, value: self.subs, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Protocol_Connect, rhs: Protocol_Connect) -> Bool {
+    if lhs.client != rhs.client {return false}
+    if lhs.version != rhs.version {return false}
+    if lhs.data != rhs.data {return false}
+    if lhs.subs != rhs.subs {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Protocol_Disconnect: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".Disconnect"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "code"),
+    2: .same(proto: "reason"),
+    3: .same(proto: "reconnect"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.code) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.reason) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self.reconnect) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.code != 0 {
+      try visitor.visitSingularUInt32Field(value: self.code, fieldNumber: 1)
+    }
+    if !self.reason.isEmpty {
+      try visitor.visitSingularStringField(value: self.reason, fieldNumber: 2)
+    }
+    if self.reconnect != false {
+      try visitor.visitSingularBoolField(value: self.reconnect, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Protocol_Disconnect, rhs: Protocol_Disconnect) -> Bool {
+    if lhs.code != rhs.code {return false}
+    if lhs.reason != rhs.reason {return false}
+    if lhs.reconnect != rhs.reconnect {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Protocol_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "token"),
@@ -1232,7 +1380,7 @@ extension Proto_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.token) }()
       case 2: try { try decoder.decodeSingularBytesField(value: &self.data) }()
-      case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Proto_SubscribeRequest>.self, value: &self.subs) }()
+      case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeRequest>.self, value: &self.subs) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.version) }()
       default: break
@@ -1248,7 +1396,7 @@ extension Proto_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 2)
     }
     if !self.subs.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Proto_SubscribeRequest>.self, value: self.subs, fieldNumber: 3)
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeRequest>.self, value: self.subs, fieldNumber: 3)
     }
     if !self.name.isEmpty {
       try visitor.visitSingularStringField(value: self.name, fieldNumber: 4)
@@ -1259,7 +1407,7 @@ extension Proto_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_ConnectRequest, rhs: Proto_ConnectRequest) -> Bool {
+  static func ==(lhs: Protocol_ConnectRequest, rhs: Protocol_ConnectRequest) -> Bool {
     if lhs.token != rhs.token {return false}
     if lhs.data != rhs.data {return false}
     if lhs.subs != rhs.subs {return false}
@@ -1270,7 +1418,7 @@ extension Proto_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   }
 }
 
-extension Proto_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "client"),
@@ -1292,7 +1440,7 @@ extension Proto_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
       case 3: try { try decoder.decodeSingularBoolField(value: &self.expires) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.ttl) }()
       case 5: try { try decoder.decodeSingularBytesField(value: &self.data) }()
-      case 6: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Proto_SubscribeResult>.self, value: &self.subs) }()
+      case 6: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeResult>.self, value: &self.subs) }()
       default: break
       }
     }
@@ -1315,12 +1463,12 @@ extension Proto_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 5)
     }
     if !self.subs.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Proto_SubscribeResult>.self, value: self.subs, fieldNumber: 6)
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeResult>.self, value: self.subs, fieldNumber: 6)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_ConnectResult, rhs: Proto_ConnectResult) -> Bool {
+  static func ==(lhs: Protocol_ConnectResult, rhs: Protocol_ConnectResult) -> Bool {
     if lhs.client != rhs.client {return false}
     if lhs.version != rhs.version {return false}
     if lhs.expires != rhs.expires {return false}
@@ -1332,7 +1480,7 @@ extension Proto_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
   }
 }
 
-extension Proto_RefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_RefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RefreshRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "token"),
@@ -1357,14 +1505,14 @@ extension Proto_RefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_RefreshRequest, rhs: Proto_RefreshRequest) -> Bool {
+  static func ==(lhs: Protocol_RefreshRequest, rhs: Protocol_RefreshRequest) -> Bool {
     if lhs.token != rhs.token {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_RefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_RefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RefreshResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "client"),
@@ -1404,7 +1552,7 @@ extension Proto_RefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_RefreshResult, rhs: Proto_RefreshResult) -> Bool {
+  static func ==(lhs: Protocol_RefreshResult, rhs: Protocol_RefreshResult) -> Bool {
     if lhs.client != rhs.client {return false}
     if lhs.version != rhs.version {return false}
     if lhs.expires != rhs.expires {return false}
@@ -1414,7 +1562,7 @@ extension Proto_RefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
   }
 }
 
-extension Proto_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribeRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1469,7 +1617,7 @@ extension Proto_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_SubscribeRequest, rhs: Proto_SubscribeRequest) -> Bool {
+  static func ==(lhs: Protocol_SubscribeRequest, rhs: Protocol_SubscribeRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.token != rhs.token {return false}
     if lhs.recover != rhs.recover {return false}
@@ -1482,7 +1630,7 @@ extension Proto_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   }
 }
 
-extension Proto_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribeResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "expires"),
@@ -1495,6 +1643,7 @@ extension Proto_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     8: .same(proto: "recovered"),
     9: .same(proto: "offset"),
     10: .same(proto: "positioned"),
+    11: .same(proto: "data"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1513,6 +1662,7 @@ extension Proto_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
       case 8: try { try decoder.decodeSingularBoolField(value: &self.recovered) }()
       case 9: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
+      case 11: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       default: break
       }
     }
@@ -1549,10 +1699,13 @@ extension Proto_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     if self.positioned != false {
       try visitor.visitSingularBoolField(value: self.positioned, fieldNumber: 10)
     }
+    if !self.data.isEmpty {
+      try visitor.visitSingularBytesField(value: self.data, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_SubscribeResult, rhs: Proto_SubscribeResult) -> Bool {
+  static func ==(lhs: Protocol_SubscribeResult, rhs: Protocol_SubscribeResult) -> Bool {
     if lhs.expires != rhs.expires {return false}
     if lhs.ttl != rhs.ttl {return false}
     if lhs.recoverable != rhs.recoverable {return false}
@@ -1563,12 +1716,13 @@ extension Proto_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     if lhs.recovered != rhs.recovered {return false}
     if lhs.offset != rhs.offset {return false}
     if lhs.positioned != rhs.positioned {return false}
+    if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_SubRefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_SubRefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubRefreshRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1598,7 +1752,7 @@ extension Proto_SubRefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_SubRefreshRequest, rhs: Proto_SubRefreshRequest) -> Bool {
+  static func ==(lhs: Protocol_SubRefreshRequest, rhs: Protocol_SubRefreshRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.token != rhs.token {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -1606,7 +1760,7 @@ extension Proto_SubRefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
   }
 }
 
-extension Proto_SubRefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_SubRefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubRefreshResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "expires"),
@@ -1636,7 +1790,7 @@ extension Proto_SubRefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_SubRefreshResult, rhs: Proto_SubRefreshResult) -> Bool {
+  static func ==(lhs: Protocol_SubRefreshResult, rhs: Protocol_SubRefreshResult) -> Bool {
     if lhs.expires != rhs.expires {return false}
     if lhs.ttl != rhs.ttl {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -1644,7 +1798,7 @@ extension Proto_SubRefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   }
 }
 
-extension Proto_UnsubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_UnsubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UnsubscribeRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1669,14 +1823,14 @@ extension Proto_UnsubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._Messag
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_UnsubscribeRequest, rhs: Proto_UnsubscribeRequest) -> Bool {
+  static func ==(lhs: Protocol_UnsubscribeRequest, rhs: Protocol_UnsubscribeRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_UnsubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_UnsubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UnsubscribeResult"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
@@ -1689,13 +1843,13 @@ extension Proto_UnsubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._Message
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_UnsubscribeResult, rhs: Proto_UnsubscribeResult) -> Bool {
+  static func ==(lhs: Protocol_UnsubscribeResult, rhs: Protocol_UnsubscribeResult) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_PublishRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_PublishRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PublishRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1725,7 +1879,7 @@ extension Proto_PublishRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_PublishRequest, rhs: Proto_PublishRequest) -> Bool {
+  static func ==(lhs: Protocol_PublishRequest, rhs: Protocol_PublishRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -1733,7 +1887,7 @@ extension Proto_PublishRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   }
 }
 
-extension Proto_PublishResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_PublishResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PublishResult"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
@@ -1746,13 +1900,13 @@ extension Proto_PublishResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_PublishResult, rhs: Proto_PublishResult) -> Bool {
+  static func ==(lhs: Protocol_PublishResult, rhs: Protocol_PublishResult) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_PresenceRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_PresenceRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PresenceRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1777,14 +1931,14 @@ extension Proto_PresenceRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageIm
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_PresenceRequest, rhs: Proto_PresenceRequest) -> Bool {
+  static func ==(lhs: Protocol_PresenceRequest, rhs: Protocol_PresenceRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_PresenceResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_PresenceResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PresenceResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "presence"),
@@ -1796,7 +1950,7 @@ extension Proto_PresenceResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Proto_ClientInfo>.self, value: &self.presence) }()
+      case 1: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_ClientInfo>.self, value: &self.presence) }()
       default: break
       }
     }
@@ -1804,19 +1958,19 @@ extension Proto_PresenceResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.presence.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Proto_ClientInfo>.self, value: self.presence, fieldNumber: 1)
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_ClientInfo>.self, value: self.presence, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_PresenceResult, rhs: Proto_PresenceResult) -> Bool {
+  static func ==(lhs: Protocol_PresenceResult, rhs: Protocol_PresenceResult) -> Bool {
     if lhs.presence != rhs.presence {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_PresenceStatsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_PresenceStatsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PresenceStatsRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1841,14 +1995,14 @@ extension Proto_PresenceStatsRequest: SwiftProtobuf.Message, SwiftProtobuf._Mess
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_PresenceStatsRequest, rhs: Proto_PresenceStatsRequest) -> Bool {
+  static func ==(lhs: Protocol_PresenceStatsRequest, rhs: Protocol_PresenceStatsRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_PresenceStatsResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_PresenceStatsResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PresenceStatsResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .standard(proto: "num_clients"),
@@ -1878,7 +2032,7 @@ extension Proto_PresenceStatsResult: SwiftProtobuf.Message, SwiftProtobuf._Messa
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_PresenceStatsResult, rhs: Proto_PresenceStatsResult) -> Bool {
+  static func ==(lhs: Protocol_PresenceStatsResult, rhs: Protocol_PresenceStatsResult) -> Bool {
     if lhs.numClients != rhs.numClients {return false}
     if lhs.numUsers != rhs.numUsers {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -1886,7 +2040,7 @@ extension Proto_PresenceStatsResult: SwiftProtobuf.Message, SwiftProtobuf._Messa
   }
 }
 
-extension Proto_HistoryRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_HistoryRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".HistoryRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1936,7 +2090,7 @@ extension Proto_HistoryRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_HistoryRequest, rhs: Proto_HistoryRequest) -> Bool {
+  static func ==(lhs: Protocol_HistoryRequest, rhs: Protocol_HistoryRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.useSince != rhs.useSince {return false}
     if lhs.offset != rhs.offset {return false}
@@ -1948,7 +2102,7 @@ extension Proto_HistoryRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   }
 }
 
-extension Proto_HistoryResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_HistoryResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".HistoryResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "publications"),
@@ -1983,7 +2137,7 @@ extension Proto_HistoryResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_HistoryResult, rhs: Proto_HistoryResult) -> Bool {
+  static func ==(lhs: Protocol_HistoryResult, rhs: Protocol_HistoryResult) -> Bool {
     if lhs.publications != rhs.publications {return false}
     if lhs.epoch != rhs.epoch {return false}
     if lhs.offset != rhs.offset {return false}
@@ -1992,7 +2146,7 @@ extension Proto_HistoryResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
   }
 }
 
-extension Proto_PingRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_PingRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PingRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
@@ -2005,13 +2159,13 @@ extension Proto_PingRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_PingRequest, rhs: Proto_PingRequest) -> Bool {
+  static func ==(lhs: Protocol_PingRequest, rhs: Protocol_PingRequest) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_PingResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_PingResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PingResult"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
@@ -2024,13 +2178,13 @@ extension Proto_PingResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_PingResult, rhs: Proto_PingResult) -> Bool {
+  static func ==(lhs: Protocol_PingResult, rhs: Protocol_PingResult) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_RPCRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_RPCRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RPCRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
@@ -2060,7 +2214,7 @@ extension Proto_RPCRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_RPCRequest, rhs: Proto_RPCRequest) -> Bool {
+  static func ==(lhs: Protocol_RPCRequest, rhs: Protocol_RPCRequest) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.method != rhs.method {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -2068,7 +2222,7 @@ extension Proto_RPCRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
   }
 }
 
-extension Proto_RPCResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_RPCResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RPCResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
@@ -2093,14 +2247,14 @@ extension Proto_RPCResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplemen
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_RPCResult, rhs: Proto_RPCResult) -> Bool {
+  static func ==(lhs: Protocol_RPCResult, rhs: Protocol_RPCResult) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Proto_SendRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Protocol_SendRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SendRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
@@ -2125,7 +2279,7 @@ extension Proto_SendRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplem
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Proto_SendRequest, rhs: Proto_SendRequest) -> Bool {
+  static func ==(lhs: Protocol_SendRequest, rhs: Protocol_SendRequest) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
