@@ -26,6 +26,8 @@ public struct CentrifugeClientConfig {
     public var maxReconnectDelay = 20.0
     public var privateChannelPrefix = "$"
     public var pingInterval = 25.0
+    public var name = "swift"
+    public var version = ""
     
     public init() {}
 }
@@ -49,6 +51,7 @@ public class CentrifugeClient {
     fileprivate(set) var status: CentrifugeClientStatus = .new
     fileprivate var conn: WebSocket?
     fileprivate var token: String?
+    fileprivate var connectData: Data?
     fileprivate var client: String?
     fileprivate var commandId: UInt32 = 0
     fileprivate var commandIdLock: NSLock = NSLock()
@@ -56,6 +59,7 @@ public class CentrifugeClient {
     fileprivate var connectCallbacks: [String: ((Error?) -> ())] = [:]
     fileprivate var subscriptionsLock = NSLock()
     fileprivate var subscriptions = [CentrifugeSubscription]()
+    fileprivate var serverSubs = [String: serverSubscription]()
     fileprivate var needReconnect = true
     fileprivate var numReconnectAttempts = 0
     fileprivate var pingTimer: DispatchSourceTimer?
@@ -97,6 +101,17 @@ public class CentrifugeClient {
         }
     }
     
+    /**
+     Set connection custom data
+     - parameter data: Data
+     */
+    public func setConnectData(_ data: Data) {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.connectData = data
+        }
+    }
+
     /**
      Publish message Data to channel
      - parameter channel: String channel name
@@ -197,7 +212,6 @@ public class CentrifugeClient {
                     } catch {}
                 }
                 strongSelf.onClose(serverDisconnect: serverDisconnect)
-                
             }
             ws.onData = { [weak self] data in
                 guard let strongSelf = self else { return }
@@ -409,6 +423,33 @@ fileprivate extension CentrifugeClient {
                         cb(nil)
                     }
                     strongSelf.connectCallbacks.removeAll(keepingCapacity: true)
+                    // Process server-side subscriptions.
+                    for (channel, subResult) in result.subs {
+                        let isResubscribe = strongSelf.serverSubs[channel] != nil
+                        strongSelf.serverSubs[channel] = serverSubscription(recoverable: subResult.recoverable, offset: subResult.offset, epoch: subResult.epoch)
+                        let event = CentrifugeServerSubscribeEvent(channel: channel, resubscribe: isResubscribe, recovered: subResult.recovered)
+                        strongSelf.delegateQueue.addOperation { [weak self] in
+                            guard let strongSelf = self else { return }
+                            strongSelf.delegate?.onSubscribe(strongSelf, event)
+                            subResult.publications.forEach{ pub in
+                                var info: CentrifugeClientInfo? = nil;
+                                if pub.hasInfo {
+                                    info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+                                }
+                                let pubEvent = CentrifugeServerPublishEvent(channel: channel, data: pub.data, offset: pub.offset, info: info)
+                                strongSelf.delegateQueue.addOperation { [weak self] in
+                                    guard let strongSelf = self else { return }
+                                    strongSelf.delegate?.onPublish(strongSelf, pubEvent)
+                                }
+                            }
+                        }
+                        for (channel, _) in strongSelf.serverSubs {
+                            if result.subs[channel] == nil {
+                                strongSelf.serverSubs.removeValue(forKey: channel)
+                            }
+                        }
+                    }
+                    // Resubscribe to client-side subscriptions.
                     strongSelf.resubscribe()
                     strongSelf.startPing()
                     if result.expires {
@@ -551,12 +592,27 @@ fileprivate extension CentrifugeClient {
             let subs = self.subscriptions.filter({ $0.channel == channel })
             if subs.count == 0 {
                 subscriptionsLock.unlock()
+                if let _ = self.serverSubs[channel] {
+                    self.delegateQueue.addOperation {
+                        var info: CentrifugeClientInfo? = nil;
+                        if pub.hasInfo {
+                            info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+                        }
+                        let event = CentrifugeServerPublishEvent(channel: channel, data: pub.data, offset: pub.offset, info: info)
+                        self.delegate?.onPublish(self, event)
+                        self.serverSubs[channel]?.offset = pub.offset
+                    }
+                }
                 return
             }
             let sub = subs[0]
             subscriptionsLock.unlock()
             self.delegateQueue.addOperation {
-                let event = CentrifugePublishEvent(uid: pub.uid, data: pub.data, offset: pub.offset, info: pub.info)
+                var info: CentrifugeClientInfo? = nil;
+                if pub.hasInfo {
+                    info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+                }
+                let event = CentrifugePublishEvent(data: pub.data, offset: pub.offset, info: info)
                 sub.delegate?.onPublish(sub, event)
             }
             sub.setLastOffset(pub.offset)
@@ -566,6 +622,12 @@ fileprivate extension CentrifugeClient {
             let subs = self.subscriptions.filter({ $0.channel == channel })
             if subs.count == 0 {
                 subscriptionsLock.unlock()
+                if let _ = self.serverSubs[channel] {
+                    self.delegateQueue.addOperation {
+                        let event = CentrifugeServerJoinEvent(channel: channel, client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo)
+                        self.delegate?.onJoin(self, event)
+                    }
+                }
                 return
             }
             let sub = subs[0]
@@ -579,6 +641,12 @@ fileprivate extension CentrifugeClient {
             let subs = self.subscriptions.filter({ $0.channel == channel })
             if subs.count == 0 {
                 subscriptionsLock.unlock()
+                if let _ = self.serverSubs[channel] {
+                    self.delegateQueue.addOperation {
+                        let event = CentrifugeServerLeaveEvent(channel: channel, client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo)
+                        self.delegate?.onLeave(self, event)
+                    }
+                }
                 return
             }
             let sub = subs[0]
@@ -592,11 +660,25 @@ fileprivate extension CentrifugeClient {
             let subs = self.subscriptions.filter({ $0.channel == channel })
             if subs.count == 0 {
                 subscriptionsLock.unlock()
+                if let _ = self.serverSubs[channel] {
+                    self.delegateQueue.addOperation {
+                        let event = CentrifugeServerUnsubscribeEvent(channel: channel)
+                        self.delegate?.onUnsubscribe(self, event)
+                        self.serverSubs.removeValue(forKey: channel)
+                    }
+                }
                 return
             }
             let sub = subs[0]
             subscriptionsLock.unlock()
             sub.unsubscribe()
+        } else if push.type == Proto_PushType.sub {
+            let sub = try Proto_Sub(serializedData: push.data)
+            self.serverSubs[channel] = serverSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
+            self.delegateQueue.addOperation {
+                let event = CentrifugeServerSubscribeEvent(channel: channel, resubscribe: false, recovered: false)
+                self.delegate?.onSubscribe(self, event)
+            }
         } else if push.type == Proto_PushType.message {
             let message = try Proto_Message(serializedData: push.data)
             self.delegateQueue.addOperation {
@@ -705,6 +787,10 @@ fileprivate extension CentrifugeClient {
         if previousStatus == .new || previousStatus == .connected  {
             self.delegateQueue.addOperation { [weak self] in
                 guard let strongSelf = self else { return }
+                for (channel, _) in strongSelf.serverSubs {
+                    let event = CentrifugeServerUnsubscribeEvent(channel: channel)
+                    strongSelf.delegate?.onUnsubscribe(strongSelf, event)
+                }
                 strongSelf.delegate?.onDisconnect(
                     strongSelf,
                     CentrifugeDisconnectEvent(reason: reason, reconnect: reconnect)
@@ -721,6 +807,22 @@ fileprivate extension CentrifugeClient {
         var params = Proto_ConnectRequest()
         if self.token != nil {
             params.token = self.token!
+        }
+        if self.connectData != nil {
+            params.data = self.connectData!
+        }
+        params.name = self.config.name
+        params.version = self.config.version
+        if !self.serverSubs.isEmpty {
+            var subs = [String: Proto_SubscribeRequest]()
+            for (channel, serverSub) in self.serverSubs {
+                var subRequest = Proto_SubscribeRequest();
+                subRequest.recover = serverSub.recoverable
+                subRequest.offset = serverSub.offset
+                subRequest.epoch = serverSub.epoch
+                subs[channel] = subRequest
+            }
+            params.subs = subs
         }
         do {
             let paramsData = try params.serializedData()
@@ -900,7 +1002,7 @@ fileprivate extension CentrifugeClient {
                         let result = try Proto_HistoryResult(serializedData: rep.result)
                         var pubs = [CentrifugePublication]()
                         for pub in result.publications {
-                            pubs.append(CentrifugePublication(data: pub.data))
+                            pubs.append(CentrifugePublication(offset: pub.offset, data: pub.data))
                         }
                         completion(pubs, nil)
                     } catch {

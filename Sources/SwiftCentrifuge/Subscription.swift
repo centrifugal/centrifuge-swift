@@ -158,7 +158,11 @@ public class CentrifugeSubscription {
                     guard let strongSelf = self else { return }
                     result.publications.forEach { [weak self] pub in
                         guard let strongSelf = self else { return }
-                        let event = CentrifugePublishEvent(uid: pub.uid, data: pub.data, offset: pub.offset, info: pub.info)
+                        var info: CentrifugeClientInfo? = nil;
+                        if pub.hasInfo {
+                            info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+                        }
+                        let event = CentrifugePublishEvent(data: pub.data, offset: pub.offset, info: info)
                         strongSelf.delegate?.onPublish(strongSelf, event)
                         strongSelf.setLastOffset(pub.offset)
                     }

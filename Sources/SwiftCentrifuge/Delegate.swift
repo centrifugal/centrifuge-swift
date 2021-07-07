@@ -38,10 +38,9 @@ public struct CentrifugeMessageEvent {
 }
 
 public struct CentrifugePublishEvent {
-    public var uid: String
     public var data: Data
     public var offset: UInt64
-    var info: Proto_ClientInfo?
+    var info: CentrifugeClientInfo?
 }
 
 public struct CentrifugePrivateSubEvent {
@@ -61,12 +60,50 @@ public struct CentrifugeSubscribeSuccessEvent {
 
 public struct CentrifugeUnsubscribeEvent {}
 
+public struct CentrifugeServerSubscribeEvent {
+    public var channel: String
+    public var resubscribe = false
+    public var recovered = false
+}
+
+public struct CentrifugeServerUnsubscribeEvent {
+    public var channel: String
+}
+
+public struct CentrifugeServerPublishEvent {
+    public var channel: String
+    public var data: Data
+    public var offset: UInt64
+    var info: CentrifugeClientInfo?
+}
+
+public struct CentrifugeServerJoinEvent {
+    public var channel: String
+    public var client: String
+    public var user: String
+    public var connInfo: Data?
+    public var chanInfo: Data?
+}
+
+public struct CentrifugeServerLeaveEvent {
+    public var channel: String
+    public var client: String
+    public var user: String
+    public var connInfo: Data?
+    public var chanInfo: Data?
+}
+
 public protocol CentrifugeClientDelegate: class {
     func onConnect(_ client: CentrifugeClient, _ event: CentrifugeConnectEvent)
     func onDisconnect(_ client: CentrifugeClient, _ event: CentrifugeDisconnectEvent)
     func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: @escaping (_ token: String) -> ())
     func onRefresh(_ client: CentrifugeClient, _ event: CentrifugeRefreshEvent, completion: @escaping (_ token: String) -> ())
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent)
+    func onSubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribeEvent)
+    func onPublish(_ client: CentrifugeClient, _ event: CentrifugeServerPublishEvent)
+    func onUnsubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribeEvent)
+    func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent)
+    func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent)
 }
 
 public extension CentrifugeClientDelegate {
@@ -79,6 +116,11 @@ public extension CentrifugeClientDelegate {
         completion("")
     }
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent) {}
+    func onSubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribeEvent) {}
+    func onPublish(_ client: CentrifugeClient, _ event: CentrifugeServerPublishEvent) {}
+    func onUnsubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribeEvent) {}
+    func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent) {}
+    func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent) {}
 }
 
 public protocol CentrifugeSubscriptionDelegate: class {
