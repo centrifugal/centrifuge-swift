@@ -85,6 +85,26 @@ extension ViewController: CentrifugeClientDelegate {
             self?.connectButton.setTitle("Connect", for: .normal)
         }
     }
+
+    func onSubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribeEvent) {
+        print("server-side subscribe to", event.channel, "recovered", event.recovered, "resubscribe", event.resubscribe)
+    }
+
+    func onPublish(_ client: CentrifugeClient, _ event: CentrifugeServerPublishEvent) {
+        print("server-side publication from", event.channel, "offset", event.offset)
+    }
+
+    func onUnsubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribeEvent) {
+        print("server-side unsubscribe from", event.channel)
+    }
+
+    func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent) {
+        print("server-side join in", event.channel, "client", event.client)
+    }
+
+    func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent) {
+        print("server-side leave in", event.channel, "client", event.client)
+    }
 }
 
 extension ViewController: CentrifugeSubscriptionDelegate {

@@ -10,7 +10,9 @@ import Foundation
 import SwiftProtobuf
 
 public struct CentrifugePublication {
+    public var offset: UInt64
     public var data: Data
+    public var clientInfo: CentrifugeClientInfo?
 }
 
 public struct CentrifugeClientInfo {
@@ -23,4 +25,10 @@ public struct CentrifugeClientInfo {
 public struct CentrifugePresenceStats {
     public var numClients: UInt32
     public var numUsers: UInt32
+}
+
+struct serverSubscription {
+    var recoverable: Bool
+    var offset: UInt64
+    var epoch: String
 }
