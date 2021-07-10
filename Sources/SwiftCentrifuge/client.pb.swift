@@ -20,7 +20,7 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-struct Protocol_Error {
+struct Centrifugal_Centrifuge_Protocol_Error {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -34,14 +34,14 @@ struct Protocol_Error {
   init() {}
 }
 
-struct Protocol_Command {
+struct Centrifugal_Centrifuge_Protocol_Command {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   var id: UInt32 = 0
 
-  var method: Protocol_Command.MethodType = .connect
+  var method: Centrifugal_Centrifuge_Protocol_Command.MethodType = .connect
 
   var params: Data = Data()
 
@@ -110,9 +110,9 @@ struct Protocol_Command {
 
 #if swift(>=4.2)
 
-extension Protocol_Command.MethodType: CaseIterable {
+extension Centrifugal_Centrifuge_Protocol_Command.MethodType: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Protocol_Command.MethodType] = [
+  static var allCases: [Centrifugal_Centrifuge_Protocol_Command.MethodType] = [
     .connect,
     .subscribe,
     .unsubscribe,
@@ -130,15 +130,15 @@ extension Protocol_Command.MethodType: CaseIterable {
 
 #endif  // swift(>=4.2)
 
-struct Protocol_Reply {
+struct Centrifugal_Centrifuge_Protocol_Reply {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   var id: UInt32 = 0
 
-  var error: Protocol_Error {
-    get {return _error ?? Protocol_Error()}
+  var error: Centrifugal_Centrifuge_Protocol_Error {
+    get {return _error ?? Centrifugal_Centrifuge_Protocol_Error()}
     set {_error = newValue}
   }
   /// Returns true if `error` has been explicitly set.
@@ -152,15 +152,15 @@ struct Protocol_Reply {
 
   init() {}
 
-  fileprivate var _error: Protocol_Error? = nil
+  fileprivate var _error: Centrifugal_Centrifuge_Protocol_Error? = nil
 }
 
-struct Protocol_Push {
+struct Centrifugal_Centrifuge_Protocol_Push {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var type: Protocol_Push.PushType = .publication
+  var type: Centrifugal_Centrifuge_Protocol_Push.PushType = .publication
 
   var channel: String = String()
 
@@ -219,9 +219,9 @@ struct Protocol_Push {
 
 #if swift(>=4.2)
 
-extension Protocol_Push.PushType: CaseIterable {
+extension Centrifugal_Centrifuge_Protocol_Push.PushType: CaseIterable {
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Protocol_Push.PushType] = [
+  static var allCases: [Centrifugal_Centrifuge_Protocol_Push.PushType] = [
     .publication,
     .join,
     .leave,
@@ -235,7 +235,7 @@ extension Protocol_Push.PushType: CaseIterable {
 
 #endif  // swift(>=4.2)
 
-struct Protocol_ClientInfo {
+struct Centrifugal_Centrifuge_Protocol_ClientInfo {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -253,21 +253,16 @@ struct Protocol_ClientInfo {
   init() {}
 }
 
-struct Protocol_Publication {
+struct Centrifugal_Centrifuge_Protocol_Publication {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var seq: UInt32 = 0
-
-  var gen: UInt32 = 0
-
-  var uid: String = String()
-
+  /// 1-3 skipped here for backwards compatibility.
   var data: Data = Data()
 
-  var info: Protocol_ClientInfo {
-    get {return _info ?? Protocol_ClientInfo()}
+  var info: Centrifugal_Centrifuge_Protocol_ClientInfo {
+    get {return _info ?? Centrifugal_Centrifuge_Protocol_ClientInfo()}
     set {_info = newValue}
   }
   /// Returns true if `info` has been explicitly set.
@@ -281,16 +276,16 @@ struct Protocol_Publication {
 
   init() {}
 
-  fileprivate var _info: Protocol_ClientInfo? = nil
+  fileprivate var _info: Centrifugal_Centrifuge_Protocol_ClientInfo? = nil
 }
 
-struct Protocol_Join {
+struct Centrifugal_Centrifuge_Protocol_Join {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var info: Protocol_ClientInfo {
-    get {return _info ?? Protocol_ClientInfo()}
+  var info: Centrifugal_Centrifuge_Protocol_ClientInfo {
+    get {return _info ?? Centrifugal_Centrifuge_Protocol_ClientInfo()}
     set {_info = newValue}
   }
   /// Returns true if `info` has been explicitly set.
@@ -302,16 +297,16 @@ struct Protocol_Join {
 
   init() {}
 
-  fileprivate var _info: Protocol_ClientInfo? = nil
+  fileprivate var _info: Centrifugal_Centrifuge_Protocol_ClientInfo? = nil
 }
 
-struct Protocol_Leave {
+struct Centrifugal_Centrifuge_Protocol_Leave {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var info: Protocol_ClientInfo {
-    get {return _info ?? Protocol_ClientInfo()}
+  var info: Centrifugal_Centrifuge_Protocol_ClientInfo {
+    get {return _info ?? Centrifugal_Centrifuge_Protocol_ClientInfo()}
     set {_info = newValue}
   }
   /// Returns true if `info` has been explicitly set.
@@ -323,10 +318,10 @@ struct Protocol_Leave {
 
   init() {}
 
-  fileprivate var _info: Protocol_ClientInfo? = nil
+  fileprivate var _info: Centrifugal_Centrifuge_Protocol_ClientInfo? = nil
 }
 
-struct Protocol_Unsubscribe {
+struct Centrifugal_Centrifuge_Protocol_Unsubscribe {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -338,17 +333,14 @@ struct Protocol_Unsubscribe {
   init() {}
 }
 
-struct Protocol_Subscribe {
+struct Centrifugal_Centrifuge_Protocol_Subscribe {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   var recoverable: Bool = false
 
-  var seq: UInt32 = 0
-
-  var gen: UInt32 = 0
-
+  /// 2-3 skipped here for backwards compatibility.
   var epoch: String = String()
 
   var offset: UInt64 = 0
@@ -362,7 +354,7 @@ struct Protocol_Subscribe {
   init() {}
 }
 
-struct Protocol_Message {
+struct Centrifugal_Centrifuge_Protocol_Message {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -374,7 +366,7 @@ struct Protocol_Message {
   init() {}
 }
 
-struct Protocol_Connect {
+struct Centrifugal_Centrifuge_Protocol_Connect {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -385,14 +377,14 @@ struct Protocol_Connect {
 
   var data: Data = Data()
 
-  var subs: Dictionary<String,Protocol_SubscribeResult> = [:]
+  var subs: Dictionary<String,Centrifugal_Centrifuge_Protocol_SubscribeResult> = [:]
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
-struct Protocol_Disconnect {
+struct Centrifugal_Centrifuge_Protocol_Disconnect {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -408,7 +400,7 @@ struct Protocol_Disconnect {
   init() {}
 }
 
-struct Protocol_ConnectRequest {
+struct Centrifugal_Centrifuge_Protocol_ConnectRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -417,7 +409,7 @@ struct Protocol_ConnectRequest {
 
   var data: Data = Data()
 
-  var subs: Dictionary<String,Protocol_SubscribeRequest> = [:]
+  var subs: Dictionary<String,Centrifugal_Centrifuge_Protocol_SubscribeRequest> = [:]
 
   var name: String = String()
 
@@ -428,7 +420,7 @@ struct Protocol_ConnectRequest {
   init() {}
 }
 
-struct Protocol_ConnectResult {
+struct Centrifugal_Centrifuge_Protocol_ConnectResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -443,14 +435,14 @@ struct Protocol_ConnectResult {
 
   var data: Data = Data()
 
-  var subs: Dictionary<String,Protocol_SubscribeResult> = [:]
+  var subs: Dictionary<String,Centrifugal_Centrifuge_Protocol_SubscribeResult> = [:]
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
-struct Protocol_RefreshRequest {
+struct Centrifugal_Centrifuge_Protocol_RefreshRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -462,7 +454,7 @@ struct Protocol_RefreshRequest {
   init() {}
 }
 
-struct Protocol_RefreshResult {
+struct Centrifugal_Centrifuge_Protocol_RefreshResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -480,7 +472,7 @@ struct Protocol_RefreshResult {
   init() {}
 }
 
-struct Protocol_SubscribeRequest {
+struct Centrifugal_Centrifuge_Protocol_SubscribeRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -491,10 +483,7 @@ struct Protocol_SubscribeRequest {
 
   var recover: Bool = false
 
-  var seq: UInt32 = 0
-
-  var gen: UInt32 = 0
-
+  /// 4-5 skipped here for backwards compatibility.
   var epoch: String = String()
 
   var offset: UInt64 = 0
@@ -504,7 +493,7 @@ struct Protocol_SubscribeRequest {
   init() {}
 }
 
-struct Protocol_SubscribeResult {
+struct Centrifugal_Centrifuge_Protocol_SubscribeResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -515,13 +504,10 @@ struct Protocol_SubscribeResult {
 
   var recoverable: Bool = false
 
-  var seq: UInt32 = 0
-
-  var gen: UInt32 = 0
-
+  /// 4-5 skipped here for backwards compatibility.
   var epoch: String = String()
 
-  var publications: [Protocol_Publication] = []
+  var publications: [Centrifugal_Centrifuge_Protocol_Publication] = []
 
   var recovered: Bool = false
 
@@ -536,7 +522,7 @@ struct Protocol_SubscribeResult {
   init() {}
 }
 
-struct Protocol_SubRefreshRequest {
+struct Centrifugal_Centrifuge_Protocol_SubRefreshRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -550,7 +536,7 @@ struct Protocol_SubRefreshRequest {
   init() {}
 }
 
-struct Protocol_SubRefreshResult {
+struct Centrifugal_Centrifuge_Protocol_SubRefreshResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -564,7 +550,7 @@ struct Protocol_SubRefreshResult {
   init() {}
 }
 
-struct Protocol_UnsubscribeRequest {
+struct Centrifugal_Centrifuge_Protocol_UnsubscribeRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -576,7 +562,7 @@ struct Protocol_UnsubscribeRequest {
   init() {}
 }
 
-struct Protocol_UnsubscribeResult {
+struct Centrifugal_Centrifuge_Protocol_UnsubscribeResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -586,7 +572,7 @@ struct Protocol_UnsubscribeResult {
   init() {}
 }
 
-struct Protocol_PublishRequest {
+struct Centrifugal_Centrifuge_Protocol_PublishRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -600,7 +586,7 @@ struct Protocol_PublishRequest {
   init() {}
 }
 
-struct Protocol_PublishResult {
+struct Centrifugal_Centrifuge_Protocol_PublishResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -610,31 +596,7 @@ struct Protocol_PublishResult {
   init() {}
 }
 
-struct Protocol_PresenceRequest {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  var channel: String = String()
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
-}
-
-struct Protocol_PresenceResult {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  var presence: Dictionary<String,Protocol_ClientInfo> = [:]
-
-  var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  init() {}
-}
-
-struct Protocol_PresenceStatsRequest {
+struct Centrifugal_Centrifuge_Protocol_PresenceRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -646,7 +608,31 @@ struct Protocol_PresenceStatsRequest {
   init() {}
 }
 
-struct Protocol_PresenceStatsResult {
+struct Centrifugal_Centrifuge_Protocol_PresenceResult {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var presence: Dictionary<String,Centrifugal_Centrifuge_Protocol_ClientInfo> = [:]
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Centrifugal_Centrifuge_Protocol_PresenceStatsRequest {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var channel: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Centrifugal_Centrifuge_Protocol_PresenceStatsResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -660,34 +646,52 @@ struct Protocol_PresenceStatsResult {
   init() {}
 }
 
-struct Protocol_HistoryRequest {
+struct Centrifugal_Centrifuge_Protocol_StreamPosition {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var offset: UInt64 = 0
+
+  var epoch: String = String()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Centrifugal_Centrifuge_Protocol_HistoryRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   var channel: String = String()
 
-  var useSince: Bool = false
-
-  var offset: UInt64 = 0
-
-  var epoch: String = String()
-
-  var useLimit: Bool = false
-
+  /// 2-6 skipped here for backwards compatibility.
   var limit: Int32 = 0
 
+  var since: Centrifugal_Centrifuge_Protocol_StreamPosition {
+    get {return _since ?? Centrifugal_Centrifuge_Protocol_StreamPosition()}
+    set {_since = newValue}
+  }
+  /// Returns true if `since` has been explicitly set.
+  var hasSince: Bool {return self._since != nil}
+  /// Clears the value of `since`. Subsequent reads from it will return its default value.
+  mutating func clearSince() {self._since = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
+
+  fileprivate var _since: Centrifugal_Centrifuge_Protocol_StreamPosition? = nil
 }
 
-struct Protocol_HistoryResult {
+struct Centrifugal_Centrifuge_Protocol_HistoryResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var publications: [Protocol_Publication] = []
+  var publications: [Centrifugal_Centrifuge_Protocol_Publication] = []
 
   var epoch: String = String()
 
@@ -698,7 +702,7 @@ struct Protocol_HistoryResult {
   init() {}
 }
 
-struct Protocol_PingRequest {
+struct Centrifugal_Centrifuge_Protocol_PingRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -708,7 +712,7 @@ struct Protocol_PingRequest {
   init() {}
 }
 
-struct Protocol_PingResult {
+struct Centrifugal_Centrifuge_Protocol_PingResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -718,7 +722,7 @@ struct Protocol_PingResult {
   init() {}
 }
 
-struct Protocol_RPCRequest {
+struct Centrifugal_Centrifuge_Protocol_RPCRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -732,7 +736,7 @@ struct Protocol_RPCRequest {
   init() {}
 }
 
-struct Protocol_RPCResult {
+struct Centrifugal_Centrifuge_Protocol_RPCResult {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -744,7 +748,7 @@ struct Protocol_RPCResult {
   init() {}
 }
 
-struct Protocol_SendRequest {
+struct Centrifugal_Centrifuge_Protocol_SendRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -758,9 +762,9 @@ struct Protocol_SendRequest {
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
-fileprivate let _protobuf_package = "protocol"
+fileprivate let _protobuf_package = "centrifugal.centrifuge.protocol"
 
-extension Protocol_Error: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Error: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Error"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "code"),
@@ -790,7 +794,7 @@ extension Protocol_Error: SwiftProtobuf.Message, SwiftProtobuf._MessageImplement
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Error, rhs: Protocol_Error) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Error, rhs: Centrifugal_Centrifuge_Protocol_Error) -> Bool {
     if lhs.code != rhs.code {return false}
     if lhs.message != rhs.message {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -798,7 +802,7 @@ extension Protocol_Error: SwiftProtobuf.Message, SwiftProtobuf._MessageImplement
   }
 }
 
-extension Protocol_Command: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Command"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "id"),
@@ -833,7 +837,7 @@ extension Protocol_Command: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Command, rhs: Protocol_Command) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Command, rhs: Centrifugal_Centrifuge_Protocol_Command) -> Bool {
     if lhs.id != rhs.id {return false}
     if lhs.method != rhs.method {return false}
     if lhs.params != rhs.params {return false}
@@ -842,7 +846,7 @@ extension Protocol_Command: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
   }
 }
 
-extension Protocol_Command.MethodType: SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Command.MethodType: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     0: .same(proto: "CONNECT"),
     1: .same(proto: "SUBSCRIBE"),
@@ -859,7 +863,7 @@ extension Protocol_Command.MethodType: SwiftProtobuf._ProtoNameProviding {
   ]
 }
 
-extension Protocol_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Reply"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "id"),
@@ -894,7 +898,7 @@ extension Protocol_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplement
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Reply, rhs: Protocol_Reply) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Reply, rhs: Centrifugal_Centrifuge_Protocol_Reply) -> Bool {
     if lhs.id != rhs.id {return false}
     if lhs._error != rhs._error {return false}
     if lhs.result != rhs.result {return false}
@@ -903,7 +907,7 @@ extension Protocol_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplement
   }
 }
 
-extension Protocol_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Push"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "type"),
@@ -938,7 +942,7 @@ extension Protocol_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementa
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Push, rhs: Protocol_Push) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Push, rhs: Centrifugal_Centrifuge_Protocol_Push) -> Bool {
     if lhs.type != rhs.type {return false}
     if lhs.channel != rhs.channel {return false}
     if lhs.data != rhs.data {return false}
@@ -947,7 +951,7 @@ extension Protocol_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementa
   }
 }
 
-extension Protocol_Push.PushType: SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Push.PushType: SwiftProtobuf._ProtoNameProviding {
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     0: .same(proto: "PUBLICATION"),
     1: .same(proto: "JOIN"),
@@ -960,7 +964,7 @@ extension Protocol_Push.PushType: SwiftProtobuf._ProtoNameProviding {
   ]
 }
 
-extension Protocol_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ClientInfo"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "user"),
@@ -1000,7 +1004,7 @@ extension Protocol_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_ClientInfo, rhs: Protocol_ClientInfo) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_ClientInfo, rhs: Centrifugal_Centrifuge_Protocol_ClientInfo) -> Bool {
     if lhs.user != rhs.user {return false}
     if lhs.client != rhs.client {return false}
     if lhs.connInfo != rhs.connInfo {return false}
@@ -1010,12 +1014,9 @@ extension Protocol_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
   }
 }
 
-extension Protocol_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Publication"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "seq"),
-    2: .same(proto: "gen"),
-    3: .same(proto: "uid"),
     4: .same(proto: "data"),
     5: .same(proto: "info"),
     6: .same(proto: "offset"),
@@ -1027,9 +1028,6 @@ extension Protocol_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.seq) }()
-      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.gen) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self.uid) }()
       case 4: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       case 5: try { try decoder.decodeSingularMessageField(value: &self._info) }()
       case 6: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
@@ -1039,15 +1037,6 @@ extension Protocol_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.seq != 0 {
-      try visitor.visitSingularUInt32Field(value: self.seq, fieldNumber: 1)
-    }
-    if self.gen != 0 {
-      try visitor.visitSingularUInt32Field(value: self.gen, fieldNumber: 2)
-    }
-    if !self.uid.isEmpty {
-      try visitor.visitSingularStringField(value: self.uid, fieldNumber: 3)
-    }
     if !self.data.isEmpty {
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 4)
     }
@@ -1060,10 +1049,7 @@ extension Protocol_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Publication, rhs: Protocol_Publication) -> Bool {
-    if lhs.seq != rhs.seq {return false}
-    if lhs.gen != rhs.gen {return false}
-    if lhs.uid != rhs.uid {return false}
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Publication, rhs: Centrifugal_Centrifuge_Protocol_Publication) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs._info != rhs._info {return false}
     if lhs.offset != rhs.offset {return false}
@@ -1072,7 +1058,7 @@ extension Protocol_Publication: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
   }
 }
 
-extension Protocol_Join: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Join: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Join"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "info"),
@@ -1097,14 +1083,14 @@ extension Protocol_Join: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementa
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Join, rhs: Protocol_Join) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Join, rhs: Centrifugal_Centrifuge_Protocol_Join) -> Bool {
     if lhs._info != rhs._info {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_Leave: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Leave: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Leave"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "info"),
@@ -1129,14 +1115,14 @@ extension Protocol_Leave: SwiftProtobuf.Message, SwiftProtobuf._MessageImplement
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Leave, rhs: Protocol_Leave) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Leave, rhs: Centrifugal_Centrifuge_Protocol_Leave) -> Bool {
     if lhs._info != rhs._info {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_Unsubscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Unsubscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Unsubscribe"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "resubscribe"),
@@ -1161,19 +1147,17 @@ extension Protocol_Unsubscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Unsubscribe, rhs: Protocol_Unsubscribe) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Unsubscribe, rhs: Centrifugal_Centrifuge_Protocol_Unsubscribe) -> Bool {
     if lhs.resubscribe != rhs.resubscribe {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_Subscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Subscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Subscribe"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "recoverable"),
-    2: .same(proto: "seq"),
-    3: .same(proto: "gen"),
     4: .same(proto: "epoch"),
     5: .same(proto: "offset"),
     6: .same(proto: "positioned"),
@@ -1187,8 +1171,6 @@ extension Protocol_Subscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBoolField(value: &self.recoverable) }()
-      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.seq) }()
-      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.gen) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self.epoch) }()
       case 5: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
       case 6: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
@@ -1201,12 +1183,6 @@ extension Protocol_Subscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if self.recoverable != false {
       try visitor.visitSingularBoolField(value: self.recoverable, fieldNumber: 1)
-    }
-    if self.seq != 0 {
-      try visitor.visitSingularUInt32Field(value: self.seq, fieldNumber: 2)
-    }
-    if self.gen != 0 {
-      try visitor.visitSingularUInt32Field(value: self.gen, fieldNumber: 3)
     }
     if !self.epoch.isEmpty {
       try visitor.visitSingularStringField(value: self.epoch, fieldNumber: 4)
@@ -1223,10 +1199,8 @@ extension Protocol_Subscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Subscribe, rhs: Protocol_Subscribe) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Subscribe, rhs: Centrifugal_Centrifuge_Protocol_Subscribe) -> Bool {
     if lhs.recoverable != rhs.recoverable {return false}
-    if lhs.seq != rhs.seq {return false}
-    if lhs.gen != rhs.gen {return false}
     if lhs.epoch != rhs.epoch {return false}
     if lhs.offset != rhs.offset {return false}
     if lhs.positioned != rhs.positioned {return false}
@@ -1236,7 +1210,7 @@ extension Protocol_Subscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
   }
 }
 
-extension Protocol_Message: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Message: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Message"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
@@ -1261,14 +1235,14 @@ extension Protocol_Message: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Message, rhs: Protocol_Message) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Message, rhs: Centrifugal_Centrifuge_Protocol_Message) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_Connect: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Connect"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "client"),
@@ -1286,7 +1260,7 @@ extension Protocol_Connect: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       case 1: try { try decoder.decodeSingularStringField(value: &self.client) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.version) }()
       case 3: try { try decoder.decodeSingularBytesField(value: &self.data) }()
-      case 4: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeResult>.self, value: &self.subs) }()
+      case 4: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: &self.subs) }()
       default: break
       }
     }
@@ -1303,12 +1277,12 @@ extension Protocol_Connect: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 3)
     }
     if !self.subs.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeResult>.self, value: self.subs, fieldNumber: 4)
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: self.subs, fieldNumber: 4)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Connect, rhs: Protocol_Connect) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Connect, rhs: Centrifugal_Centrifuge_Protocol_Connect) -> Bool {
     if lhs.client != rhs.client {return false}
     if lhs.version != rhs.version {return false}
     if lhs.data != rhs.data {return false}
@@ -1318,7 +1292,7 @@ extension Protocol_Connect: SwiftProtobuf.Message, SwiftProtobuf._MessageImpleme
   }
 }
 
-extension Protocol_Disconnect: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_Disconnect: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Disconnect"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "code"),
@@ -1353,7 +1327,7 @@ extension Protocol_Disconnect: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_Disconnect, rhs: Protocol_Disconnect) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Disconnect, rhs: Centrifugal_Centrifuge_Protocol_Disconnect) -> Bool {
     if lhs.code != rhs.code {return false}
     if lhs.reason != rhs.reason {return false}
     if lhs.reconnect != rhs.reconnect {return false}
@@ -1362,7 +1336,7 @@ extension Protocol_Disconnect: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
   }
 }
 
-extension Protocol_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "token"),
@@ -1380,7 +1354,7 @@ extension Protocol_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.token) }()
       case 2: try { try decoder.decodeSingularBytesField(value: &self.data) }()
-      case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeRequest>.self, value: &self.subs) }()
+      case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeRequest>.self, value: &self.subs) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.version) }()
       default: break
@@ -1396,7 +1370,7 @@ extension Protocol_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 2)
     }
     if !self.subs.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeRequest>.self, value: self.subs, fieldNumber: 3)
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeRequest>.self, value: self.subs, fieldNumber: 3)
     }
     if !self.name.isEmpty {
       try visitor.visitSingularStringField(value: self.name, fieldNumber: 4)
@@ -1407,7 +1381,7 @@ extension Protocol_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_ConnectRequest, rhs: Protocol_ConnectRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_ConnectRequest, rhs: Centrifugal_Centrifuge_Protocol_ConnectRequest) -> Bool {
     if lhs.token != rhs.token {return false}
     if lhs.data != rhs.data {return false}
     if lhs.subs != rhs.subs {return false}
@@ -1418,7 +1392,7 @@ extension Protocol_ConnectRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
   }
 }
 
-extension Protocol_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".ConnectResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "client"),
@@ -1440,7 +1414,7 @@ extension Protocol_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       case 3: try { try decoder.decodeSingularBoolField(value: &self.expires) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.ttl) }()
       case 5: try { try decoder.decodeSingularBytesField(value: &self.data) }()
-      case 6: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeResult>.self, value: &self.subs) }()
+      case 6: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: &self.subs) }()
       default: break
       }
     }
@@ -1463,12 +1437,12 @@ extension Protocol_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 5)
     }
     if !self.subs.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_SubscribeResult>.self, value: self.subs, fieldNumber: 6)
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: self.subs, fieldNumber: 6)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_ConnectResult, rhs: Protocol_ConnectResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_ConnectResult, rhs: Centrifugal_Centrifuge_Protocol_ConnectResult) -> Bool {
     if lhs.client != rhs.client {return false}
     if lhs.version != rhs.version {return false}
     if lhs.expires != rhs.expires {return false}
@@ -1480,7 +1454,7 @@ extension Protocol_ConnectResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   }
 }
 
-extension Protocol_RefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_RefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RefreshRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "token"),
@@ -1505,14 +1479,14 @@ extension Protocol_RefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_RefreshRequest, rhs: Protocol_RefreshRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_RefreshRequest, rhs: Centrifugal_Centrifuge_Protocol_RefreshRequest) -> Bool {
     if lhs.token != rhs.token {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_RefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_RefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RefreshResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "client"),
@@ -1552,7 +1526,7 @@ extension Protocol_RefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_RefreshResult, rhs: Protocol_RefreshResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_RefreshResult, rhs: Centrifugal_Centrifuge_Protocol_RefreshResult) -> Bool {
     if lhs.client != rhs.client {return false}
     if lhs.version != rhs.version {return false}
     if lhs.expires != rhs.expires {return false}
@@ -1562,14 +1536,12 @@ extension Protocol_RefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   }
 }
 
-extension Protocol_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribeRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
     2: .same(proto: "token"),
     3: .same(proto: "recover"),
-    4: .same(proto: "seq"),
-    5: .same(proto: "gen"),
     6: .same(proto: "epoch"),
     7: .same(proto: "offset"),
   ]
@@ -1583,8 +1555,6 @@ extension Protocol_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
       case 1: try { try decoder.decodeSingularStringField(value: &self.channel) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.token) }()
       case 3: try { try decoder.decodeSingularBoolField(value: &self.recover) }()
-      case 4: try { try decoder.decodeSingularUInt32Field(value: &self.seq) }()
-      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.gen) }()
       case 6: try { try decoder.decodeSingularStringField(value: &self.epoch) }()
       case 7: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
       default: break
@@ -1602,12 +1572,6 @@ extension Protocol_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
     if self.recover != false {
       try visitor.visitSingularBoolField(value: self.recover, fieldNumber: 3)
     }
-    if self.seq != 0 {
-      try visitor.visitSingularUInt32Field(value: self.seq, fieldNumber: 4)
-    }
-    if self.gen != 0 {
-      try visitor.visitSingularUInt32Field(value: self.gen, fieldNumber: 5)
-    }
     if !self.epoch.isEmpty {
       try visitor.visitSingularStringField(value: self.epoch, fieldNumber: 6)
     }
@@ -1617,12 +1581,10 @@ extension Protocol_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_SubscribeRequest, rhs: Protocol_SubscribeRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_SubscribeRequest, rhs: Centrifugal_Centrifuge_Protocol_SubscribeRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.token != rhs.token {return false}
     if lhs.recover != rhs.recover {return false}
-    if lhs.seq != rhs.seq {return false}
-    if lhs.gen != rhs.gen {return false}
     if lhs.epoch != rhs.epoch {return false}
     if lhs.offset != rhs.offset {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -1630,14 +1592,12 @@ extension Protocol_SubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
   }
 }
 
-extension Protocol_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubscribeResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "expires"),
     2: .same(proto: "ttl"),
     3: .same(proto: "recoverable"),
-    4: .same(proto: "seq"),
-    5: .same(proto: "gen"),
     6: .same(proto: "epoch"),
     7: .same(proto: "publications"),
     8: .same(proto: "recovered"),
@@ -1655,8 +1615,6 @@ extension Protocol_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._Messag
       case 1: try { try decoder.decodeSingularBoolField(value: &self.expires) }()
       case 2: try { try decoder.decodeSingularUInt32Field(value: &self.ttl) }()
       case 3: try { try decoder.decodeSingularBoolField(value: &self.recoverable) }()
-      case 4: try { try decoder.decodeSingularUInt32Field(value: &self.seq) }()
-      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.gen) }()
       case 6: try { try decoder.decodeSingularStringField(value: &self.epoch) }()
       case 7: try { try decoder.decodeRepeatedMessageField(value: &self.publications) }()
       case 8: try { try decoder.decodeSingularBoolField(value: &self.recovered) }()
@@ -1677,12 +1635,6 @@ extension Protocol_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._Messag
     }
     if self.recoverable != false {
       try visitor.visitSingularBoolField(value: self.recoverable, fieldNumber: 3)
-    }
-    if self.seq != 0 {
-      try visitor.visitSingularUInt32Field(value: self.seq, fieldNumber: 4)
-    }
-    if self.gen != 0 {
-      try visitor.visitSingularUInt32Field(value: self.gen, fieldNumber: 5)
     }
     if !self.epoch.isEmpty {
       try visitor.visitSingularStringField(value: self.epoch, fieldNumber: 6)
@@ -1705,12 +1657,10 @@ extension Protocol_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._Messag
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_SubscribeResult, rhs: Protocol_SubscribeResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_SubscribeResult, rhs: Centrifugal_Centrifuge_Protocol_SubscribeResult) -> Bool {
     if lhs.expires != rhs.expires {return false}
     if lhs.ttl != rhs.ttl {return false}
     if lhs.recoverable != rhs.recoverable {return false}
-    if lhs.seq != rhs.seq {return false}
-    if lhs.gen != rhs.gen {return false}
     if lhs.epoch != rhs.epoch {return false}
     if lhs.publications != rhs.publications {return false}
     if lhs.recovered != rhs.recovered {return false}
@@ -1722,7 +1672,7 @@ extension Protocol_SubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._Messag
   }
 }
 
-extension Protocol_SubRefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_SubRefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubRefreshRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1752,7 +1702,7 @@ extension Protocol_SubRefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._Mess
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_SubRefreshRequest, rhs: Protocol_SubRefreshRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_SubRefreshRequest, rhs: Centrifugal_Centrifuge_Protocol_SubRefreshRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.token != rhs.token {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -1760,7 +1710,7 @@ extension Protocol_SubRefreshRequest: SwiftProtobuf.Message, SwiftProtobuf._Mess
   }
 }
 
-extension Protocol_SubRefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_SubRefreshResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SubRefreshResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "expires"),
@@ -1790,7 +1740,7 @@ extension Protocol_SubRefreshResult: SwiftProtobuf.Message, SwiftProtobuf._Messa
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_SubRefreshResult, rhs: Protocol_SubRefreshResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_SubRefreshResult, rhs: Centrifugal_Centrifuge_Protocol_SubRefreshResult) -> Bool {
     if lhs.expires != rhs.expires {return false}
     if lhs.ttl != rhs.ttl {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -1798,7 +1748,7 @@ extension Protocol_SubRefreshResult: SwiftProtobuf.Message, SwiftProtobuf._Messa
   }
 }
 
-extension Protocol_UnsubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_UnsubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UnsubscribeRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1823,14 +1773,14 @@ extension Protocol_UnsubscribeRequest: SwiftProtobuf.Message, SwiftProtobuf._Mes
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_UnsubscribeRequest, rhs: Protocol_UnsubscribeRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_UnsubscribeRequest, rhs: Centrifugal_Centrifuge_Protocol_UnsubscribeRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_UnsubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_UnsubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".UnsubscribeResult"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
@@ -1843,13 +1793,13 @@ extension Protocol_UnsubscribeResult: SwiftProtobuf.Message, SwiftProtobuf._Mess
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_UnsubscribeResult, rhs: Protocol_UnsubscribeResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_UnsubscribeResult, rhs: Centrifugal_Centrifuge_Protocol_UnsubscribeResult) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_PublishRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_PublishRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PublishRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1879,7 +1829,7 @@ extension Protocol_PublishRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_PublishRequest, rhs: Protocol_PublishRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_PublishRequest, rhs: Centrifugal_Centrifuge_Protocol_PublishRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -1887,7 +1837,7 @@ extension Protocol_PublishRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
   }
 }
 
-extension Protocol_PublishResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_PublishResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PublishResult"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
@@ -1900,13 +1850,13 @@ extension Protocol_PublishResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_PublishResult, rhs: Protocol_PublishResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_PublishResult, rhs: Centrifugal_Centrifuge_Protocol_PublishResult) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_PresenceRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_PresenceRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PresenceRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1931,14 +1881,14 @@ extension Protocol_PresenceRequest: SwiftProtobuf.Message, SwiftProtobuf._Messag
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_PresenceRequest, rhs: Protocol_PresenceRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_PresenceRequest, rhs: Centrifugal_Centrifuge_Protocol_PresenceRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_PresenceResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_PresenceResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PresenceResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "presence"),
@@ -1950,7 +1900,7 @@ extension Protocol_PresenceResult: SwiftProtobuf.Message, SwiftProtobuf._Message
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_ClientInfo>.self, value: &self.presence) }()
+      case 1: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_ClientInfo>.self, value: &self.presence) }()
       default: break
       }
     }
@@ -1958,19 +1908,19 @@ extension Protocol_PresenceResult: SwiftProtobuf.Message, SwiftProtobuf._Message
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.presence.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Protocol_ClientInfo>.self, value: self.presence, fieldNumber: 1)
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_ClientInfo>.self, value: self.presence, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_PresenceResult, rhs: Protocol_PresenceResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_PresenceResult, rhs: Centrifugal_Centrifuge_Protocol_PresenceResult) -> Bool {
     if lhs.presence != rhs.presence {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_PresenceStatsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_PresenceStatsRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PresenceStatsRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
@@ -1995,14 +1945,14 @@ extension Protocol_PresenceStatsRequest: SwiftProtobuf.Message, SwiftProtobuf._M
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_PresenceStatsRequest, rhs: Protocol_PresenceStatsRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_PresenceStatsRequest, rhs: Centrifugal_Centrifuge_Protocol_PresenceStatsRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_PresenceStatsResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_PresenceStatsResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PresenceStatsResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .standard(proto: "num_clients"),
@@ -2032,7 +1982,7 @@ extension Protocol_PresenceStatsResult: SwiftProtobuf.Message, SwiftProtobuf._Me
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_PresenceStatsResult, rhs: Protocol_PresenceStatsResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_PresenceStatsResult, rhs: Centrifugal_Centrifuge_Protocol_PresenceStatsResult) -> Bool {
     if lhs.numClients != rhs.numClients {return false}
     if lhs.numUsers != rhs.numUsers {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -2040,15 +1990,50 @@ extension Protocol_PresenceStatsResult: SwiftProtobuf.Message, SwiftProtobuf._Me
   }
 }
 
-extension Protocol_HistoryRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_StreamPosition: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".StreamPosition"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "offset"),
+    2: .same(proto: "epoch"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.epoch) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.offset != 0 {
+      try visitor.visitSingularUInt64Field(value: self.offset, fieldNumber: 1)
+    }
+    if !self.epoch.isEmpty {
+      try visitor.visitSingularStringField(value: self.epoch, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_StreamPosition, rhs: Centrifugal_Centrifuge_Protocol_StreamPosition) -> Bool {
+    if lhs.offset != rhs.offset {return false}
+    if lhs.epoch != rhs.epoch {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Centrifugal_Centrifuge_Protocol_HistoryRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".HistoryRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "channel"),
-    2: .standard(proto: "use_since"),
-    3: .same(proto: "offset"),
-    4: .same(proto: "epoch"),
-    5: .standard(proto: "use_limit"),
-    6: .same(proto: "limit"),
+    7: .same(proto: "limit"),
+    8: .same(proto: "since"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2058,11 +2043,8 @@ extension Protocol_HistoryRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.channel) }()
-      case 2: try { try decoder.decodeSingularBoolField(value: &self.useSince) }()
-      case 3: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
-      case 4: try { try decoder.decodeSingularStringField(value: &self.epoch) }()
-      case 5: try { try decoder.decodeSingularBoolField(value: &self.useLimit) }()
-      case 6: try { try decoder.decodeSingularInt32Field(value: &self.limit) }()
+      case 7: try { try decoder.decodeSingularInt32Field(value: &self.limit) }()
+      case 8: try { try decoder.decodeSingularMessageField(value: &self._since) }()
       default: break
       }
     }
@@ -2072,37 +2054,25 @@ extension Protocol_HistoryRequest: SwiftProtobuf.Message, SwiftProtobuf._Message
     if !self.channel.isEmpty {
       try visitor.visitSingularStringField(value: self.channel, fieldNumber: 1)
     }
-    if self.useSince != false {
-      try visitor.visitSingularBoolField(value: self.useSince, fieldNumber: 2)
-    }
-    if self.offset != 0 {
-      try visitor.visitSingularUInt64Field(value: self.offset, fieldNumber: 3)
-    }
-    if !self.epoch.isEmpty {
-      try visitor.visitSingularStringField(value: self.epoch, fieldNumber: 4)
-    }
-    if self.useLimit != false {
-      try visitor.visitSingularBoolField(value: self.useLimit, fieldNumber: 5)
-    }
     if self.limit != 0 {
-      try visitor.visitSingularInt32Field(value: self.limit, fieldNumber: 6)
+      try visitor.visitSingularInt32Field(value: self.limit, fieldNumber: 7)
+    }
+    if let v = self._since {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_HistoryRequest, rhs: Protocol_HistoryRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_HistoryRequest, rhs: Centrifugal_Centrifuge_Protocol_HistoryRequest) -> Bool {
     if lhs.channel != rhs.channel {return false}
-    if lhs.useSince != rhs.useSince {return false}
-    if lhs.offset != rhs.offset {return false}
-    if lhs.epoch != rhs.epoch {return false}
-    if lhs.useLimit != rhs.useLimit {return false}
     if lhs.limit != rhs.limit {return false}
+    if lhs._since != rhs._since {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_HistoryResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_HistoryResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".HistoryResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "publications"),
@@ -2137,7 +2107,7 @@ extension Protocol_HistoryResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_HistoryResult, rhs: Protocol_HistoryResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_HistoryResult, rhs: Centrifugal_Centrifuge_Protocol_HistoryResult) -> Bool {
     if lhs.publications != rhs.publications {return false}
     if lhs.epoch != rhs.epoch {return false}
     if lhs.offset != rhs.offset {return false}
@@ -2146,7 +2116,7 @@ extension Protocol_HistoryResult: SwiftProtobuf.Message, SwiftProtobuf._MessageI
   }
 }
 
-extension Protocol_PingRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_PingRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PingRequest"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
@@ -2159,13 +2129,13 @@ extension Protocol_PingRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_PingRequest, rhs: Protocol_PingRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_PingRequest, rhs: Centrifugal_Centrifuge_Protocol_PingRequest) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_PingResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_PingResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".PingResult"
   static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
@@ -2178,13 +2148,13 @@ extension Protocol_PingResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_PingResult, rhs: Protocol_PingResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_PingResult, rhs: Centrifugal_Centrifuge_Protocol_PingResult) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_RPCRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_RPCRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RPCRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
@@ -2214,7 +2184,7 @@ extension Protocol_RPCRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_RPCRequest, rhs: Protocol_RPCRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_RPCRequest, rhs: Centrifugal_Centrifuge_Protocol_RPCRequest) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.method != rhs.method {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -2222,7 +2192,7 @@ extension Protocol_RPCRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImpl
   }
 }
 
-extension Protocol_RPCResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_RPCResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".RPCResult"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
@@ -2247,14 +2217,14 @@ extension Protocol_RPCResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImple
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_RPCResult, rhs: Protocol_RPCResult) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_RPCResult, rhs: Centrifugal_Centrifuge_Protocol_RPCResult) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
-extension Protocol_SendRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+extension Centrifugal_Centrifuge_Protocol_SendRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".SendRequest"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "data"),
@@ -2279,7 +2249,7 @@ extension Protocol_SendRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImp
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Protocol_SendRequest, rhs: Protocol_SendRequest) -> Bool {
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_SendRequest, rhs: Centrifugal_Centrifuge_Protocol_SendRequest) -> Bool {
     if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
