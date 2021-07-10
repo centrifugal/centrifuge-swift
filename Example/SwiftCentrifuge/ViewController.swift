@@ -124,13 +124,13 @@ extension ViewController: CentrifugeSubscriptionDelegate {
                 print(presence)
             }
         })
-        s.history { result, error in
+        s.history(limit: 10, completion: { result, error in
             if let err = error {
                 print("Unexpected history error: \(err)")
             } else if let res = result {
-                print(res)
+                print("Num publications in history: \(res.publications.count)")
             }
-        }
+        })
         print("successfully subscribed to channel \(s.channel)")
     }
     
