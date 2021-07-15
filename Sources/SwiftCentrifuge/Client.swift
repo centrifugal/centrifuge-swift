@@ -600,7 +600,9 @@ fileprivate extension CentrifugeClient {
                         }
                         let event = CentrifugeServerPublishEvent(channel: channel, data: pub.data, offset: pub.offset, info: info)
                         self.delegate?.onPublish(self, event)
-                        self.serverSubs[channel]?.offset = pub.offset
+                        if self.serverSubs[channel]!.recoverable && pub.offset > 0 {
+                            self.serverSubs[channel]?.offset = pub.offset
+                        }
                     }
                 }
                 return
@@ -615,7 +617,9 @@ fileprivate extension CentrifugeClient {
                 let event = CentrifugePublishEvent(data: pub.data, offset: pub.offset, info: info)
                 sub.delegate?.onPublish(sub, event)
             }
-            sub.setLastOffset(pub.offset)
+            if pub.offset > 0 {
+                sub.setLastOffset(pub.offset)
+            }
         } else if push.type == Protocol_Push.PushType.join {
             let join = try Protocol_Join(serializedData: push.data)
             subscriptionsLock.lock()
