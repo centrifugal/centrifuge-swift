@@ -193,7 +193,7 @@ public class CentrifugeClient {
             for (key, value) in strongSelf.config.headers {
                 request.addValue(value, forHTTPHeaderField: key)
             }
-            let ws = WebSocket(request: request)
+            let ws = WebSocket(request: request, protocols: ["centrifuge-protobuf"])
             if strongSelf.config.tlsSkipVerify {
                 ws.disableSSLCertValidation = true
             }
