@@ -780,7 +780,7 @@ fileprivate extension CentrifugeClient {
             if !reconnect {
                 sub.setNeedRecover(false)
             }
-            sub.unsubscribeOnDisconnect()
+            sub.moveToUnsubscribed()
         }
         subscriptionsLock.unlock()
         
