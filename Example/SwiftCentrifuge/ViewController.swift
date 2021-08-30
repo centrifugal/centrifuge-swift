@@ -128,7 +128,7 @@ extension ViewController: CentrifugeSubscriptionDelegate {
             if let err = error {
                 print("Unexpected history error: \(err)")
             } else if let res = result {
-                print("Num publications in history: \(res.publications.count)")
+                print("Num publications returned: \(res.publications.count)")
             }
         })
         print("successfully subscribed to channel \(s.channel)")

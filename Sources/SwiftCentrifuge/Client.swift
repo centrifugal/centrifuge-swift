@@ -359,11 +359,11 @@ internal extension CentrifugeClient {
         }
     }
     
-    func history(channel: String, limit: Int32 = 0, since: CentrifugeStreamPosition?, completion: @escaping (CentrifugeHistoryResult?, Error?)->()) {
+    func history(channel: String, limit: Int32 = 0, since: CentrifugeStreamPosition? = nil, reverse: Bool = false, completion: @escaping (CentrifugeHistoryResult?, Error?)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.status == .connected else { completion(nil, CentrifugeError.disconnected); return }
-            strongSelf.sendHistory(channel: channel, limit: limit, since: since, completion: completion)
+            strongSelf.sendHistory(channel: channel, limit: limit, since: since, reverse: reverse, completion: completion)
         }
     }
     
@@ -985,10 +985,11 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func sendHistory(channel: String, limit: Int32 = 0, since: CentrifugeStreamPosition?, completion: @escaping (CentrifugeHistoryResult?, Error?)->()) {
+    private func sendHistory(channel: String, limit: Int32 = 0, since: CentrifugeStreamPosition?, reverse: Bool = false, completion: @escaping (CentrifugeHistoryResult?, Error?)->()) {
         var params = Centrifugal_Centrifuge_Protocol_HistoryRequest()
         params.channel = channel
         params.limit = limit
+        params.reverse = reverse
         if since != nil {
             var sp = Centrifugal_Centrifuge_Protocol_StreamPosition()
             sp.offset = since!.offset

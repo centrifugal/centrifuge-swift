@@ -86,12 +86,12 @@ public class CentrifugeSubscription {
         })
     }
     
-    public func history(limit: Int32 = 0, since: CentrifugeStreamPosition? = nil, completion: @escaping (CentrifugeHistoryResult?, Error?) -> ()) {
+    public func history(limit: Int32 = 0, since: CentrifugeStreamPosition? = nil, reverse: Bool = false, completion: @escaping (CentrifugeHistoryResult?, Error?) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
                 completion(nil, err)
             } else {
-                self?.centrifuge?.history(channel: channel, limit: limit, since: since, completion: completion)
+                self?.centrifuge?.history(channel: channel, limit: limit, since: since, reverse: reverse, completion: completion)
             }
         })
     }

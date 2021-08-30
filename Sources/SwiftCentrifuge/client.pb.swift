@@ -178,6 +178,7 @@ struct Centrifugal_Centrifuge_Protocol_Push {
     case subscribe // = 5
     case connect // = 6
     case disconnect // = 7
+    case refresh // = 8
     case UNRECOGNIZED(Int)
 
     init() {
@@ -194,6 +195,7 @@ struct Centrifugal_Centrifuge_Protocol_Push {
       case 5: self = .subscribe
       case 6: self = .connect
       case 7: self = .disconnect
+      case 8: self = .refresh
       default: self = .UNRECOGNIZED(rawValue)
       }
     }
@@ -208,6 +210,7 @@ struct Centrifugal_Centrifuge_Protocol_Push {
       case .subscribe: return 5
       case .connect: return 6
       case .disconnect: return 7
+      case .refresh: return 8
       case .UNRECOGNIZED(let i): return i
       }
     }
@@ -230,6 +233,7 @@ extension Centrifugal_Centrifuge_Protocol_Push.PushType: CaseIterable {
     .subscribe,
     .connect,
     .disconnect,
+    .refresh,
   ]
 }
 
@@ -321,12 +325,11 @@ struct Centrifugal_Centrifuge_Protocol_Leave {
   fileprivate var _info: Centrifugal_Centrifuge_Protocol_ClientInfo? = nil
 }
 
+/// Field 1 removed (bool resubscribe).
 struct Centrifugal_Centrifuge_Protocol_Unsubscribe {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
-
-  var resubscribe: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -379,6 +382,10 @@ struct Centrifugal_Centrifuge_Protocol_Connect {
 
   var subs: Dictionary<String,Centrifugal_Centrifuge_Protocol_SubscribeResult> = [:]
 
+  var expires: Bool = false
+
+  var ttl: UInt32 = 0
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -394,6 +401,20 @@ struct Centrifugal_Centrifuge_Protocol_Disconnect {
   var reason: String = String()
 
   var reconnect: Bool = false
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+struct Centrifugal_Centrifuge_Protocol_Refresh {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var expires: Bool = false
+
+  var ttl: UInt32 = 0
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -679,6 +700,8 @@ struct Centrifugal_Centrifuge_Protocol_HistoryRequest {
   /// Clears the value of `since`. Subsequent reads from it will return its default value.
   mutating func clearSince() {self._since = nil}
 
+  var reverse: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -961,6 +984,7 @@ extension Centrifugal_Centrifuge_Protocol_Push.PushType: SwiftProtobuf._ProtoNam
     5: .same(proto: "SUBSCRIBE"),
     6: .same(proto: "CONNECT"),
     7: .same(proto: "DISCONNECT"),
+    8: .same(proto: "REFRESH"),
   ]
 }
 
@@ -1124,31 +1148,18 @@ extension Centrifugal_Centrifuge_Protocol_Leave: SwiftProtobuf.Message, SwiftPro
 
 extension Centrifugal_Centrifuge_Protocol_Unsubscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Unsubscribe"
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "resubscribe"),
-  ]
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularBoolField(value: &self.resubscribe) }()
-      default: break
-      }
+    while let _ = try decoder.nextFieldNumber() {
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.resubscribe != false {
-      try visitor.visitSingularBoolField(value: self.resubscribe, fieldNumber: 1)
-    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Centrifugal_Centrifuge_Protocol_Unsubscribe, rhs: Centrifugal_Centrifuge_Protocol_Unsubscribe) -> Bool {
-    if lhs.resubscribe != rhs.resubscribe {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1249,6 +1260,8 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     2: .same(proto: "version"),
     3: .same(proto: "data"),
     4: .same(proto: "subs"),
+    5: .same(proto: "expires"),
+    6: .same(proto: "ttl"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1261,6 +1274,8 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
       case 2: try { try decoder.decodeSingularStringField(value: &self.version) }()
       case 3: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       case 4: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: &self.subs) }()
+      case 5: try { try decoder.decodeSingularBoolField(value: &self.expires) }()
+      case 6: try { try decoder.decodeSingularUInt32Field(value: &self.ttl) }()
       default: break
       }
     }
@@ -1279,6 +1294,12 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     if !self.subs.isEmpty {
       try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: self.subs, fieldNumber: 4)
     }
+    if self.expires != false {
+      try visitor.visitSingularBoolField(value: self.expires, fieldNumber: 5)
+    }
+    if self.ttl != 0 {
+      try visitor.visitSingularUInt32Field(value: self.ttl, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1287,6 +1308,8 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     if lhs.version != rhs.version {return false}
     if lhs.data != rhs.data {return false}
     if lhs.subs != rhs.subs {return false}
+    if lhs.expires != rhs.expires {return false}
+    if lhs.ttl != rhs.ttl {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1331,6 +1354,44 @@ extension Centrifugal_Centrifuge_Protocol_Disconnect: SwiftProtobuf.Message, Swi
     if lhs.code != rhs.code {return false}
     if lhs.reason != rhs.reason {return false}
     if lhs.reconnect != rhs.reconnect {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Centrifugal_Centrifuge_Protocol_Refresh: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".Refresh"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "expires"),
+    2: .same(proto: "ttl"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularBoolField(value: &self.expires) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.ttl) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.expires != false {
+      try visitor.visitSingularBoolField(value: self.expires, fieldNumber: 1)
+    }
+    if self.ttl != 0 {
+      try visitor.visitSingularUInt32Field(value: self.ttl, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_Refresh, rhs: Centrifugal_Centrifuge_Protocol_Refresh) -> Bool {
+    if lhs.expires != rhs.expires {return false}
+    if lhs.ttl != rhs.ttl {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2034,6 +2095,7 @@ extension Centrifugal_Centrifuge_Protocol_HistoryRequest: SwiftProtobuf.Message,
     1: .same(proto: "channel"),
     7: .same(proto: "limit"),
     8: .same(proto: "since"),
+    9: .same(proto: "reverse"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2045,6 +2107,7 @@ extension Centrifugal_Centrifuge_Protocol_HistoryRequest: SwiftProtobuf.Message,
       case 1: try { try decoder.decodeSingularStringField(value: &self.channel) }()
       case 7: try { try decoder.decodeSingularInt32Field(value: &self.limit) }()
       case 8: try { try decoder.decodeSingularMessageField(value: &self._since) }()
+      case 9: try { try decoder.decodeSingularBoolField(value: &self.reverse) }()
       default: break
       }
     }
@@ -2060,6 +2123,9 @@ extension Centrifugal_Centrifuge_Protocol_HistoryRequest: SwiftProtobuf.Message,
     if let v = self._since {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
     }
+    if self.reverse != false {
+      try visitor.visitSingularBoolField(value: self.reverse, fieldNumber: 9)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2067,6 +2133,7 @@ extension Centrifugal_Centrifuge_Protocol_HistoryRequest: SwiftProtobuf.Message,
     if lhs.channel != rhs.channel {return false}
     if lhs.limit != rhs.limit {return false}
     if lhs._since != rhs._since {return false}
+    if lhs.reverse != rhs.reverse {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
