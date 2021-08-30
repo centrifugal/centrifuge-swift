@@ -260,8 +260,9 @@ public class CentrifugeClient {
     }
 
     /**
-     * Say Client that Subscription should be removed from internal registry. Subscription will be
-     * automatically unsubscribed before removing.
+     * Say Client that Subscription should be removed from the internal registry. Subscription will be
+     * automatically unsubscribed before removing. Subscription unsubscribe callback won't be
+     * called in this case since Subscription is de-allocated before possibility to call it.
      - parameter sub: CentrifugeSubscription
      */
     public func removeSubscription(_ sub: CentrifugeSubscription) {
@@ -270,7 +271,7 @@ public class CentrifugeClient {
         self.subscriptions
             .filter({ $0.channel == sub.channel })
             .forEach { sub in
-                sub.unsubscribe()
+                self.unsubscribe(sub: sub)
             }
         self.subscriptions.removeAll(where: { $0.channel == sub.channel })
     }
@@ -316,12 +317,16 @@ internal extension CentrifugeClient {
             }
         }
     }
-        
-    func unsubscribeSync(sub: CentrifugeSubscription) {
+
+    func unsubscribe(sub: CentrifugeSubscription) {
         let channel = sub.channel
         if self.status == .connected {
-            self.sendUnsubscribe(channel: channel, completion: { res, error in
-                // Nothing to do here, we unsubscribed anyway.
+            self.sendUnsubscribe(channel: channel, completion: { [weak self] _, error in
+                guard let strongSelf = self else { return }
+                if let _ = error {
+                    strongSelf.close(reason: "unsubscribe error", reconnect: true)
+                    return
+                }
             })
         }
     }

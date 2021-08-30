@@ -236,7 +236,7 @@ public class CentrifugeSubscription {
             strongSelf.centrifuge?.syncQueue.asyncAfter(deadline: .now() + timeout, execute: timeoutTask)
         }
     }
-    
+
     // Access must be serialized from outside.
     func moveToUnsubscribed() {
         if self.status != .subscribeSuccess && self.status != .subscribeError {
@@ -245,7 +245,7 @@ public class CentrifugeSubscription {
         let previousStatus = self.status
         self.status = .unsubscribed
         if previousStatus == .subscribeSuccess {
-            // Only call unsubscribe event if Subscription wass successfully subscribed.
+            // Only call unsubscribe event if Subscription was successfully subscribed.
             self.centrifuge?.delegateQueue.addOperation { [weak self] in
                 guard let strongSelf = self else { return }
                 strongSelf.delegate?.onUnsubscribe(
@@ -276,7 +276,7 @@ public class CentrifugeSubscription {
             strongSelf.needResubscribe = false
             strongSelf.needRecover = false
             strongSelf.moveToUnsubscribed()
-            strongSelf.centrifuge?.unsubscribeSync(sub: strongSelf)
+            strongSelf.centrifuge?.unsubscribe(sub: strongSelf)
         }
     }
 }
