@@ -276,7 +276,7 @@ public class CentrifugeSubscription {
             strongSelf.needResubscribe = false
             strongSelf.needRecover = false
             strongSelf.moveToUnsubscribed()
-            strongSelf.centrifuge?.unsubscribe(sub: strongSelf)
+            strongSelf.centrifuge?.unsubscribeSync(sub: strongSelf)
         }
     }
 }

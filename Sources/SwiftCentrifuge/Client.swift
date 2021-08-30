@@ -153,7 +153,6 @@ public class CentrifugeClient {
         }
     }
     
-    
     /**
      Send RPC  command
      - parameter method: String
@@ -317,20 +316,16 @@ internal extension CentrifugeClient {
             }
         }
     }
-    
-    func unsubscribe(sub: CentrifugeSubscription) {
+        
+    func unsubscribeSync(sub: CentrifugeSubscription) {
         let channel = sub.channel
-        self.syncQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            if strongSelf.status == .connected {
-                guard let strongSelf = self else { return }
-                strongSelf.sendUnsubscribe(channel: channel, completion: { res, error in
-                    // Nothing to do here, we unsubscribed anyway.
-                })
-            }
+        if self.status == .connected {
+            self.sendUnsubscribe(channel: channel, completion: { res, error in
+                // Nothing to do here, we unsubscribed anyway.
+            })
         }
     }
-    
+
     func resubscribe() {
         subscriptionsLock.lock()
         for sub in self.subscriptions {
