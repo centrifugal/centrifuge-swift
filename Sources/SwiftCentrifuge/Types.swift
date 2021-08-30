@@ -15,6 +15,12 @@ public struct CentrifugePublication {
     public var clientInfo: CentrifugeClientInfo?
 }
 
+public struct CentrifugeHistoryResult {
+    public var publications: [CentrifugePublication]
+    public var offset: UInt64
+    public var epoch: String
+}
+
 public struct CentrifugeClientInfo {
     public var client: String
     public var user: String
@@ -22,9 +28,20 @@ public struct CentrifugeClientInfo {
     public var chanInfo: Data
 }
 
-public struct CentrifugePresenceStats {
+public struct CentrifugePublishResult {}
+
+public struct CentrifugePresenceResult {
+    public var presence: [String: CentrifugeClientInfo]
+}
+
+public struct CentrifugePresenceStatsResult {
     public var numClients: UInt32
     public var numUsers: UInt32
+}
+
+public struct CentrifugeStreamPosition {
+    public var offset: UInt64
+    public var epoch: String
 }
 
 struct serverSubscription {
