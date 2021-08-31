@@ -261,8 +261,7 @@ public class CentrifugeClient {
 
     /**
      * Say Client that Subscription should be removed from the internal registry. Subscription will be
-     * automatically unsubscribed before removing. Subscription unsubscribe callback won't be
-     * called in this case since Subscription is de-allocated before possibility to call it.
+     * automatically unsubscribed before removing.
      - parameter sub: CentrifugeSubscription
      */
     public func removeSubscription(_ sub: CentrifugeSubscription) {
