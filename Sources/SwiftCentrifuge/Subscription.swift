@@ -54,17 +54,17 @@ public class CentrifugeSubscription {
         }
     }
     
-    public func publish(data: Data, completion: @escaping (Error?) -> ()) {
+    public func publish(data: Data, completion: @escaping (CentrifugePublishResult?, Error?) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
-                completion(err)
+                completion(nil, err)
             } else {
                 self?.centrifuge?.publish(channel: channel, data: data, completion: completion)
             }
         })
     }
     
-    public func presence(completion: @escaping ([String: CentrifugeClientInfo]?, Error?) -> ()) {
+    public func presence(completion: @escaping (CentrifugePresenceResult?, Error?) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
                 completion(nil, err)
@@ -74,7 +74,7 @@ public class CentrifugeSubscription {
         })
     }
     
-    public func presenceStats(completion: @escaping (CentrifugePresenceStats?, Error?) -> ()) {
+    public func presenceStats(completion: @escaping (CentrifugePresenceStatsResult?, Error?) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
                 completion(nil, err)
@@ -84,12 +84,12 @@ public class CentrifugeSubscription {
         })
     }
     
-    public func history(completion: @escaping ([CentrifugePublication]?, Error?) -> ()) {
+    public func history(limit: Int32 = 0, since: CentrifugeStreamPosition? = nil, reverse: Bool = false, completion: @escaping (CentrifugeHistoryResult?, Error?) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
                 completion(nil, err)
             } else {
-                self?.centrifuge?.history(channel: channel, completion: completion)
+                self?.centrifuge?.history(channel: channel, limit: limit, since: since, reverse: reverse, completion: completion)
             }
         })
     }

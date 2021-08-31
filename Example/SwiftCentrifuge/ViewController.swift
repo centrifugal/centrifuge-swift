@@ -35,7 +35,7 @@ class ViewController: UIViewController {
         let data = ["input": self.newMessage.text ?? ""]
         self.newMessage.text = ""
         guard let jsonData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) else {return}
-        sub?.publish(data: jsonData, completion: { error in
+        sub?.publish(data: jsonData, completion: { _, error in
             if let err = error {
                 print("Unexpected publish error: \(err)")
             }
@@ -122,6 +122,13 @@ extension ViewController: CentrifugeSubscriptionDelegate {
                 print("Unexpected presence error: \(err)")
             } else if let presence = result {
                 print(presence)
+            }
+        })
+        s.history(limit: 10, completion: { result, error in
+            if let err = error {
+                print("Unexpected history error: \(err)")
+            } else if let res = result {
+                print("Num publications returned: \(res.publications.count)")
             }
         })
         print("successfully subscribed to channel \(s.channel)")

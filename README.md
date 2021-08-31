@@ -149,9 +149,9 @@ do {
 - [ ] handle subscription expired error
 - [x] ping/pong to find broken connection
 - [x] message recovery mechanism for client-side subscriptions
-- [ ] server-side subscriptions
+- [x] server-side subscriptions
 - [x] message recovery mechanism for server-side subscriptions
-- [ ] history stream pagination
+- [x] history stream pagination
 
 ## Release
 
