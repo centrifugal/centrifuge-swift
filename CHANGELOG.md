@@ -7,7 +7,6 @@ Update to work with Centrifuge >= v0.18.0 and Centrifugo v3.
 
 * Protocol definitions updated to the latest version 
 * History method now accepts optional `limit`, `since` and `reverse` arguments and returns `CentrifugeHistoryResult`
-* RPC call now requires method name as first argument (you can pass empty string to mimic previous behavior)
 * presence now returns `CentrifugePresenceResult`
 * presenceStats now returns `CentrifugePresenceStatsResult`
 * Publish now returns `CentrifugePublishResult`
