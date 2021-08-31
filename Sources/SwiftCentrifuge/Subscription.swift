@@ -244,15 +244,16 @@ public class CentrifugeSubscription {
         }
         let previousStatus = self.status
         self.status = .unsubscribed
-        if previousStatus == .subscribeSuccess {
-            // Only call unsubscribe event if Subscription was successfully subscribed.
-            self.centrifuge?.delegateQueue.addOperation { [weak self] in
-                guard let strongSelf = self else { return }
-                strongSelf.delegate?.onUnsubscribe(
-                    strongSelf,
-                    CentrifugeUnsubscribeEvent()
-                )
-            }
+        if previousStatus != .subscribeSuccess {
+            return
+        }
+        // Only call unsubscribe event if Subscription was successfully subscribed.
+        self.centrifuge?.delegateQueue.addOperation { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.delegate?.onUnsubscribe(
+                strongSelf,
+                CentrifugeUnsubscribeEvent()
+            )
         }
     }
     
@@ -277,6 +278,27 @@ public class CentrifugeSubscription {
             strongSelf.needRecover = false
             strongSelf.moveToUnsubscribed()
             strongSelf.centrifuge?.unsubscribe(sub: strongSelf)
+        }
+    }
+
+    // onRemove should only be called from Client.removeSubscription.
+    func onRemove() {
+        self.centrifuge?.syncQueue.async {
+            if self.status != .subscribeSuccess && self.status != .subscribeError {
+                return
+            }
+            let previousStatus = self.status
+            self.status = .unsubscribed
+            if previousStatus != .subscribeSuccess {
+                return
+            }
+            // Only call unsubscribe event if Subscription was successfully subscribed.
+            self.centrifuge?.delegateQueue.addOperation {
+                self.delegate?.onUnsubscribe(
+                    self,
+                    CentrifugeUnsubscribeEvent()
+                )
+            }
         }
     }
 }

@@ -272,6 +272,7 @@ public class CentrifugeClient {
             .filter({ $0.channel == sub.channel })
             .forEach { sub in
                 self.unsubscribe(sub: sub)
+                sub.onRemove()
             }
         self.subscriptions.removeAll(where: { $0.channel == sub.channel })
     }
