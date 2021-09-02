@@ -1,3 +1,9 @@
+0.4.1
+=====
+
+* Use Client's sync queue for Subscription operations (previously each Subscription had its own sync queue). Fixes [#24](https://github.com/centrifugal/centrifuge-swift/issues/24)
+* Fix `already subscribed` errors (code 105) on resubscribe after Subscription removing. Fixes [#49](https://github.com/centrifugal/centrifuge-swift/issues/49)
+
 0.4.0
 =====
 
