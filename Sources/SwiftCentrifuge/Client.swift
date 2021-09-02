@@ -153,7 +153,6 @@ public class CentrifugeClient {
         }
     }
     
-    
     /**
      Send RPC  command
      - parameter method: String
@@ -261,7 +260,7 @@ public class CentrifugeClient {
     }
 
     /**
-     * Say Client that Subscription should be removed from internal registry. Subscription will be
+     * Say Client that Subscription should be removed from the internal registry. Subscription will be
      * automatically unsubscribed before removing.
      - parameter sub: CentrifugeSubscription
      */
@@ -271,7 +270,8 @@ public class CentrifugeClient {
         self.subscriptions
             .filter({ $0.channel == sub.channel })
             .forEach { sub in
-                sub.unsubscribe()
+                self.unsubscribe(sub: sub)
+                sub.onRemove()
             }
         self.subscriptions.removeAll(where: { $0.channel == sub.channel })
     }
@@ -317,20 +317,20 @@ internal extension CentrifugeClient {
             }
         }
     }
-    
+
     func unsubscribe(sub: CentrifugeSubscription) {
         let channel = sub.channel
-        self.syncQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            if strongSelf.status == .connected {
+        if self.status == .connected {
+            self.sendUnsubscribe(channel: channel, completion: { [weak self] _, error in
                 guard let strongSelf = self else { return }
-                strongSelf.sendUnsubscribe(channel: channel, completion: { res, error in
-                    // Nothing to do here, we unsubscribed anyway.
-                })
-            }
+                if let _ = error {
+                    strongSelf.close(reason: "unsubscribe error", reconnect: true)
+                    return
+                }
+            })
         }
     }
-    
+
     func resubscribe() {
         subscriptionsLock.lock()
         for sub in self.subscriptions {
@@ -780,7 +780,7 @@ fileprivate extension CentrifugeClient {
             if !reconnect {
                 sub.setNeedRecover(false)
             }
-            sub.unsubscribeOnDisconnect()
+            sub.moveToUnsubscribed()
         }
         subscriptionsLock.unlock()
         
