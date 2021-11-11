@@ -9,7 +9,8 @@ jobs:
       run: |
         gem install cocoapods
         pod repo update
-    - name: CocoaPods
+        pod install --project-directory=Example --repo-update
+    - name: Run lint
       run: pod lib lint --allow-warnings  
   test:
     name: Test
@@ -20,7 +21,7 @@ jobs:
       matrix:
         swift: ["4.2"]
     steps:
-      - uses: fwal/setup-swift@d43a564349d1341cd990cfbd70d94d63b8899475
+      - uses: fwal/setup-swift@v1
         with:
           swift-version: ${{ matrix.swift }}    
       - name: Checkout code
