@@ -1013,7 +1013,11 @@ fileprivate extension CentrifugeClient {
                         let result = try Centrifugal_Centrifuge_Protocol_HistoryResult(serializedData: rep.result)
                         var pubs = [CentrifugePublication]()
                         for pub in result.publications {
-                            pubs.append(CentrifugePublication(offset: pub.offset, data: pub.data))
+                            var clientInfo: CentrifugeClientInfo?
+                            if pub.hasInfo {
+                                clientInfo = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+                            }
+                            pubs.append(CentrifugePublication(offset: pub.offset, data: pub.data, clientInfo: clientInfo))
                         }
                         completion(CentrifugeHistoryResult(publications: pubs, offset: result.offset, epoch: result.epoch), nil)
                     } catch {
