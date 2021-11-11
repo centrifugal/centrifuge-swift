@@ -1,3 +1,9 @@
+0.4.2
+=====
+
+* Embed Starscream 3 – see [discussion](https://github.com/centrifugal/centrifuge-swift/issues/48#issuecomment-965501423) and pr [#53](https://github.com/centrifugal/centrifuge-swift/pull/53).
+* Support CentrifugeClientInfo in history publications.
+
 0.4.1
 =====
 
