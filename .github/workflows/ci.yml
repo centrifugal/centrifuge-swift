@@ -1,0 +1,21 @@
+name: build
+on: [push, pull_request]
+jobs:
+  test:
+    name: Test
+    runs-on: macos-latest
+    # Prevent duplicate builds on internal PRs.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    strategy:
+      matrix:
+        swift: ["4.2"]
+    steps:
+      - uses: fwal/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift }}    
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build
+        run: swift build
+      - name: Run tests
+        run: xcrun swift test --verbose

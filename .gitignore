@@ -40,3 +40,4 @@ Carthage/Build
 # Pods/
 
 Example/Podfile.lock
+Package.resolved
