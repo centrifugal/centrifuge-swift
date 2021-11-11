@@ -34,10 +34,7 @@ Clone the repo and drag files from `Sources` folder into your Xcode project.
 
 ## Dependencies
 
-This library depends on two libraries:
-
-- [SwiftProtobuf](https://github.com/apple/swift-protobuf)
-- [Starscream](https://github.com/daltoniam/Starscream)
+This library depends on [SwiftProtobuf](https://github.com/apple/swift-protobuf)
 
 ## Requirements
 

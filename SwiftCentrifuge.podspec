@@ -16,5 +16,4 @@ Pod::Spec.new do |s|
     s.source                = { :git => 'https://github.com/centrifugal/centrifuge-swift.git', :tag => s.version }
 
     s.dependency 'SwiftProtobuf'
-    s.dependency 'Starscream', '~> 3'
 end

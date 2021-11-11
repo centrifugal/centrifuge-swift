@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import Starscream
 import SwiftProtobuf
 
 public enum CentrifugeError: Error {
