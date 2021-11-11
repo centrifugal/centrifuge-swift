@@ -1,17 +1,6 @@
 name: build
 on: [push, pull_request]
 jobs:
-  lint:
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install Dependencies
-      run: |
-        gem install cocoapods
-        pod repo update
-        pod install --project-directory=Example --repo-update
-    - name: Run lint
-      run: pod lib lint --allow-warnings  
   test:
     name: Test
     runs-on: macos-latest
