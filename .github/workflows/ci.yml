@@ -1,6 +1,16 @@
 name: build
 on: [push, pull_request]
 jobs:
+  lint:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Dependencies
+      run: |
+        gem install cocoapods
+        pod repo update
+    - name: CocoaPods
+      run: pod lib lint --allow-warnings  
   test:
     name: Test
     runs-on: macos-11
@@ -18,4 +28,4 @@ jobs:
       - name: Build
         run: swift build
       - name: Run tests
-        run: swift test
+        run: xcrun swift test --verbose
