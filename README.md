@@ -43,7 +43,7 @@ This library depends on [SwiftProtobuf](https://github.com/apple/swift-protobuf)
 
 ## Getting Started
 
-An [example app](Demo) is included demonstrating basic client functionality.
+An [example app](Example) is included demonstrating basic client functionality.
 
 ### Basic usage
 
