@@ -43,7 +43,7 @@ This library depends on [SwiftProtobuf](https://github.com/apple/swift-protobuf)
 
 ## Getting Started
 
-An [example app](Demo) is included demonstrating basic client functionality.
+An [example app](Example) is included demonstrating basic client functionality.
 
 ### Basic usage
 
@@ -111,6 +111,10 @@ do {
     print("Can not create subscription: \(error)")
 }
 ```
+
+## Usage in background
+
+When a mobile application goes to the background there are OS-specific limitations for established persistent connections - which can be silently closed shortly. Thus in most cases you need to disconnect from a server when app moves to the background and connect again when app goes to the foreground.
 
 ## Feature matrix
 
