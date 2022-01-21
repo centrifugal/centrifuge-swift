@@ -466,15 +466,6 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
     init(request: URLRequest, protocols: [String]? = nil, stream: WSStream = FoundationStream()) {
         self.request = request
         self.stream = stream
-        if request.value(forHTTPHeaderField: headerOriginName) == nil {
-            guard let url = request.url else {return}
-            var origin = url.absoluteString
-            if let hostUrl = URL (string: "/", relativeTo: url) {
-                origin = hostUrl.absoluteString
-                origin.remove(at: origin.index(before: origin.endIndex))
-            }
-            self.request.setValue(origin, forHTTPHeaderField: headerOriginName)
-        }
         if let protocols = protocols, !protocols.isEmpty {
             self.request.setValue(protocols.joined(separator: ","), forHTTPHeaderField: headerWSProtocolName)
         }
