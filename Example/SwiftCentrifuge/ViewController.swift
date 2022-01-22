@@ -58,7 +58,7 @@ class ViewController: UIViewController {
     
     private func createSubscription() {
         do {
-            sub = try self.client?.newSubscription(channel: "chat:index", delegate: self)
+            sub = try self.client?.newSubscription(channel: "chat:index", delegate: self, autoResubscribeErrorCodes: [100])
         } catch {
             print("Can not create subscription: \(error)")
             return

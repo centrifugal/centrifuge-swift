@@ -237,11 +237,11 @@ public class CentrifugeClient {
      - parameter delegate: CentrifugeSubscriptionDelegate
      - returns: CentrifugeSubscription
      */
-    public func newSubscription(channel: String, delegate: CentrifugeSubscriptionDelegate) throws -> CentrifugeSubscription {
+    public func newSubscription(channel: String, delegate: CentrifugeSubscriptionDelegate, autoResubscribeErrorCodes: [UInt32]? = nil) throws -> CentrifugeSubscription {
         defer { subscriptionsLock.unlock() }
         subscriptionsLock.lock()
         guard self.subscriptions.filter({ $0.channel == channel }).count == 0 else { throw CentrifugeError.duplicateSub }
-        let sub = CentrifugeSubscription(centrifuge: self, channel: channel, delegate: delegate)
+        let sub = CentrifugeSubscription(centrifuge: self, channel: channel, delegate: delegate, autoResubscribeErrorCodes: autoResubscribeErrorCodes)
         self.subscriptions.append(sub)
         return sub
     }
@@ -565,8 +565,8 @@ fileprivate extension CentrifugeClient {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.connecting = true
-            // TODO: add jitter here
-            let delay = 0.05 + min(pow(Double(strongSelf.numReconnectAttempts), 2), strongSelf.config.maxReconnectDelay)
+            let randomDouble = Double.random(in: 0.4...0.7)
+            let delay = min(0.1 + pow(Double(strongSelf.numReconnectAttempts), 2) * randomDouble, strongSelf.config.maxReconnectDelay)
             strongSelf.numReconnectAttempts += 1
             strongSelf.syncQueue.asyncAfter(deadline: .now() + delay, execute: { [weak self] in
                 guard let strongSelf = self else { return }
