@@ -1,3 +1,8 @@
+0.4.3
+=====
+
+* Remove Starscream code that automatically set Origin header
+
 0.4.2
 =====
 
