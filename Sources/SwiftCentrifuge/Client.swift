@@ -17,6 +17,11 @@ public enum CentrifugeError: Error {
     case replyError(code: UInt32, message: String)
 }
 
+public enum CentrifugeProtocolVersion {
+    case v1
+    case v2
+}
+
 public struct CentrifugeClientConfig {
     public var timeout = 5.0
     public var debug = false
@@ -27,6 +32,7 @@ public struct CentrifugeClientConfig {
     public var pingInterval = 25.0
     public var name = "swift"
     public var version = ""
+    public var protocolVersion: CentrifugeProtocolVersion = .v1
     
     public init() {}
 }
@@ -77,7 +83,7 @@ public class CentrifugeClient {
         self.url = url
         self.config = config
         self.delegate = delegate
-        
+
         let queueID = UUID().uuidString
         self.syncQueue = DispatchQueue(label: "com.centrifugal.centrifuge-swift.sync<\(queueID)>")
         
@@ -582,111 +588,158 @@ fileprivate extension CentrifugeClient {
         }
     }
     
+    private func handlePub(channel: String, pub: Centrifugal_Centrifuge_Protocol_Publication) {
+        subscriptionsLock.lock()
+        let subs = self.subscriptions.filter({ $0.channel == channel })
+        if subs.count == 0 {
+            subscriptionsLock.unlock()
+            if let _ = self.serverSubs[channel] {
+                self.delegateQueue.addOperation {
+                    var info: CentrifugeClientInfo? = nil;
+                    if pub.hasInfo {
+                        info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+                    }
+                    let event = CentrifugeServerPublishEvent(channel: channel, data: pub.data, offset: pub.offset, info: info)
+                    self.delegate?.onPublish(self, event)
+                    if self.serverSubs[channel]!.recoverable && pub.offset > 0 {
+                        self.serverSubs[channel]?.offset = pub.offset
+                    }
+                }
+            }
+            return
+        }
+        let sub = subs[0]
+        subscriptionsLock.unlock()
+        self.delegateQueue.addOperation {
+            var info: CentrifugeClientInfo? = nil;
+            if pub.hasInfo {
+                info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+            }
+            let event = CentrifugePublishEvent(data: pub.data, offset: pub.offset, info: info)
+            sub.delegate?.onPublish(sub, event)
+        }
+        if pub.offset > 0 {
+            sub.setLastOffset(pub.offset)
+        }
+    }
+    
+    private func handleJoin(channel: String, join: Centrifugal_Centrifuge_Protocol_Join) {
+        subscriptionsLock.lock()
+        let subs = self.subscriptions.filter({ $0.channel == channel })
+        if subs.count == 0 {
+            subscriptionsLock.unlock()
+            if let _ = self.serverSubs[channel] {
+                self.delegateQueue.addOperation {
+                    let event = CentrifugeServerJoinEvent(channel: channel, client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo)
+                    self.delegate?.onJoin(self, event)
+                }
+            }
+            return
+        }
+        let sub = subs[0]
+        subscriptionsLock.unlock()
+        self.delegateQueue.addOperation {
+            sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
+        }
+    }
+    
+    private func handleLeave(channel: String, leave: Centrifugal_Centrifuge_Protocol_Leave) {
+        subscriptionsLock.lock()
+        let subs = self.subscriptions.filter({ $0.channel == channel })
+        if subs.count == 0 {
+            subscriptionsLock.unlock()
+            if let _ = self.serverSubs[channel] {
+                self.delegateQueue.addOperation {
+                    let event = CentrifugeServerLeaveEvent(channel: channel, client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo)
+                    self.delegate?.onLeave(self, event)
+                }
+            }
+            return
+        }
+        let sub = subs[0]
+        subscriptionsLock.unlock()
+        self.delegateQueue.addOperation {
+            sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
+        }
+    }
+    
+    private func handleUnsubscribe(channel: String, unsubscribe: Centrifugal_Centrifuge_Protocol_Unsubscribe) {
+        subscriptionsLock.lock()
+        let subs = self.subscriptions.filter({ $0.channel == channel })
+        if subs.count == 0 {
+            subscriptionsLock.unlock()
+            if let _ = self.serverSubs[channel] {
+                self.delegateQueue.addOperation {
+                    let event = CentrifugeServerUnsubscribeEvent(channel: channel)
+                    self.delegate?.onUnsubscribe(self, event)
+                    self.serverSubs.removeValue(forKey: channel)
+                }
+            }
+            return
+        }
+        let sub = subs[0]
+        subscriptionsLock.unlock()
+        sub.unsubscribe()
+    }
+    
+    private func handleSubscribe(channel: String, sub: Centrifugal_Centrifuge_Protocol_Subscribe) {
+        self.serverSubs[channel] = serverSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
+        self.delegateQueue.addOperation {
+            let event = CentrifugeServerSubscribeEvent(channel: channel, resubscribe: false, recovered: false)
+            self.delegate?.onSubscribe(self, event)
+        }
+    }
+
+    private func handleMessage(message: Centrifugal_Centrifuge_Protocol_Message) {
+        self.delegateQueue.addOperation {
+            self.delegate?.onMessage(self, CentrifugeMessageEvent(data: message.data))
+        }
+    }
+
     private func handleAsyncData(data: Data) throws {
         let push = try Centrifugal_Centrifuge_Protocol_Push(serializedData: data)
         let channel = push.channel
         if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.publication {
             let pub = try Centrifugal_Centrifuge_Protocol_Publication(serializedData: push.data)
-            subscriptionsLock.lock()
-            let subs = self.subscriptions.filter({ $0.channel == channel })
-            if subs.count == 0 {
-                subscriptionsLock.unlock()
-                if let _ = self.serverSubs[channel] {
-                    self.delegateQueue.addOperation {
-                        var info: CentrifugeClientInfo? = nil;
-                        if pub.hasInfo {
-                            info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
-                        }
-                        let event = CentrifugeServerPublishEvent(channel: channel, data: pub.data, offset: pub.offset, info: info)
-                        self.delegate?.onPublish(self, event)
-                        if self.serverSubs[channel]!.recoverable && pub.offset > 0 {
-                            self.serverSubs[channel]?.offset = pub.offset
-                        }
-                    }
-                }
-                return
-            }
-            let sub = subs[0]
-            subscriptionsLock.unlock()
-            self.delegateQueue.addOperation {
-                var info: CentrifugeClientInfo? = nil;
-                if pub.hasInfo {
-                    info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
-                }
-                let event = CentrifugePublishEvent(data: pub.data, offset: pub.offset, info: info)
-                sub.delegate?.onPublish(sub, event)
-            }
-            if pub.offset > 0 {
-                sub.setLastOffset(pub.offset)
-            }
+            self.handlePub(channel: channel, pub: pub)
         } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.join {
             let join = try Centrifugal_Centrifuge_Protocol_Join(serializedData: push.data)
-            subscriptionsLock.lock()
-            let subs = self.subscriptions.filter({ $0.channel == channel })
-            if subs.count == 0 {
-                subscriptionsLock.unlock()
-                if let _ = self.serverSubs[channel] {
-                    self.delegateQueue.addOperation {
-                        let event = CentrifugeServerJoinEvent(channel: channel, client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo)
-                        self.delegate?.onJoin(self, event)
-                    }
-                }
-                return
-            }
-            let sub = subs[0]
-            subscriptionsLock.unlock()
-            self.delegateQueue.addOperation {
-                sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
-            }
+            self.handleJoin(channel: channel, join: join)
         } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.leave {
             let leave = try Centrifugal_Centrifuge_Protocol_Leave(serializedData: push.data)
-            subscriptionsLock.lock()
-            let subs = self.subscriptions.filter({ $0.channel == channel })
-            if subs.count == 0 {
-                subscriptionsLock.unlock()
-                if let _ = self.serverSubs[channel] {
-                    self.delegateQueue.addOperation {
-                        let event = CentrifugeServerLeaveEvent(channel: channel, client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo)
-                        self.delegate?.onLeave(self, event)
-                    }
-                }
-                return
-            }
-            let sub = subs[0]
-            subscriptionsLock.unlock()
-            self.delegateQueue.addOperation {
-                sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
-            }
+            self.handleLeave(channel: channel, leave: leave)
         } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.unsubscribe {
-            let _ = try Centrifugal_Centrifuge_Protocol_Unsubscribe(serializedData: push.data)
-            subscriptionsLock.lock()
-            let subs = self.subscriptions.filter({ $0.channel == channel })
-            if subs.count == 0 {
-                subscriptionsLock.unlock()
-                if let _ = self.serverSubs[channel] {
-                    self.delegateQueue.addOperation {
-                        let event = CentrifugeServerUnsubscribeEvent(channel: channel)
-                        self.delegate?.onUnsubscribe(self, event)
-                        self.serverSubs.removeValue(forKey: channel)
-                    }
-                }
-                return
-            }
-            let sub = subs[0]
-            subscriptionsLock.unlock()
-            sub.unsubscribe()
+            let unsubscribe = try Centrifugal_Centrifuge_Protocol_Unsubscribe(serializedData: push.data)
+            self.handleUnsubscribe(channel: channel, unsubscribe: unsubscribe)
         } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.subscribe {
             let sub = try Centrifugal_Centrifuge_Protocol_Subscribe(serializedData: push.data)
-            self.serverSubs[channel] = serverSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
-            self.delegateQueue.addOperation {
-                let event = CentrifugeServerSubscribeEvent(channel: channel, resubscribe: false, recovered: false)
-                self.delegate?.onSubscribe(self, event)
-            }
+            self.handleSubscribe(channel: channel, sub: sub)
         } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.message {
             let message = try Centrifugal_Centrifuge_Protocol_Message(serializedData: push.data)
-            self.delegateQueue.addOperation {
-                self.delegate?.onMessage(self, CentrifugeMessageEvent(data: message.data))
-            }
+            self.handleMessage(message: message)
+        }
+    }
+    
+    private func handleAsyncDataV2(push: Centrifugal_Centrifuge_Protocol_Push) throws {
+        let channel = push.channel
+        if push.hasPub {
+            let pub = push.pub
+            self.handlePub(channel: channel, pub: pub)
+        } else if push.hasJoin {
+            let join = push.join
+            self.handleJoin(channel: channel, join: join)
+        } else if push.hasLeave {
+            let leave = push.leave
+            self.handleLeave(channel: channel, leave: leave)
+        } else if push.hasUnsubscribe {
+            let unsubscribe = push.unsubscribe
+            self.handleUnsubscribe(channel: channel, unsubscribe: unsubscribe)
+        } else if push.hasSubscribe {
+            let sub = push.subscribe
+            self.handleSubscribe(channel: channel, sub: sub)
+        } else if push.hasMessage {
+            let message = push.message
+            self.handleMessage(message: message)
         }
     }
     
@@ -696,7 +749,11 @@ fileprivate extension CentrifugeClient {
             if reply.id > 0 {
                 self.opCallbacks[reply.id]?(CentrifugeResolveData(error: nil, reply: reply))
             } else {
-                try? self.handleAsyncData(data: reply.result)
+                if self.config.protocolVersion == .v1 {
+                    try? self.handleAsyncData(data: reply.result)
+                } else {
+                    try? self.handleAsyncDataV2(push: reply.push)
+                }
             }
         }
     }
@@ -807,15 +864,15 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendConnect(completion: @escaping (Centrifugal_Centrifuge_Protocol_ConnectResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_ConnectRequest()
+        var req = Centrifugal_Centrifuge_Protocol_ConnectRequest()
         if self.token != nil {
-            params.token = self.token!
+            req.token = self.token!
         }
         if self.connectData != nil {
-            params.data = self.connectData!
+            req.data = self.connectData!
         }
-        params.name = self.config.name
-        params.version = self.config.version
+        req.name = self.config.name
+        req.version = self.config.version
         if !self.serverSubs.isEmpty {
             var subs = [String: Centrifugal_Centrifuge_Protocol_SubscribeRequest]()
             for (channel, serverSub) in self.serverSubs {
@@ -825,13 +882,20 @@ fileprivate extension CentrifugeClient {
                 subRequest.epoch = serverSub.epoch
                 subs[channel] = subRequest
             }
-            params.subs = subs
+            req.subs = subs
         }
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .connect, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .connect, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.connect = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -842,7 +906,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_ConnectResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_ConnectResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_ConnectResult(serializedData: rep.result)
+                        } else {
+                            result = rep.connect
+                        }
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -855,13 +924,20 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendRefresh(token: String, completion: @escaping (Centrifugal_Centrifuge_Protocol_RefreshResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_RefreshRequest()
-        params.token = token
+        var req = Centrifugal_Centrifuge_Protocol_RefreshRequest()
+        req.token = token
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .refresh, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .refresh, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.refresh = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -872,7 +948,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_RefreshResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_RefreshResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_RefreshResult(serializedData: rep.result)
+                        } else {
+                            result = rep.refresh
+                        }
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -885,13 +966,20 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendUnsubscribe(channel: String, completion: @escaping (Centrifugal_Centrifuge_Protocol_UnsubscribeResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_UnsubscribeRequest()
-        params.channel = channel
+        var req = Centrifugal_Centrifuge_Protocol_UnsubscribeRequest()
+        req.channel = channel
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .unsubscribe, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .unsubscribe, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.unsubscribe = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -902,7 +990,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_UnsubscribeResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_UnsubscribeResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_UnsubscribeResult(serializedData: rep.result)
+                        } else {
+                            result = rep.unsubscribe
+                        }
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -915,22 +1008,29 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendSubscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_SubscribeRequest()
-        params.channel = channel
+        var req = Centrifugal_Centrifuge_Protocol_SubscribeRequest()
+        req.channel = channel
         if isRecover {
-            params.recover = true
-            params.epoch = streamPosition.epoch
-            params.offset = streamPosition.offset
+            req.recover = true
+            req.epoch = streamPosition.epoch
+            req.offset = streamPosition.offset
         }
 
         if token != "" {
-            params.token = token
+            req.token = token
         }
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .subscribe, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .subscribe, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.subscribe = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -941,7 +1041,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_SubscribeResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_SubscribeResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_SubscribeResult(serializedData: rep.result)
+                        } else {
+                            result = rep.subscribe
+                        }
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -954,14 +1059,21 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendPublish(channel: String, data: Data, completion: @escaping (Centrifugal_Centrifuge_Protocol_PublishResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_PublishRequest()
-        params.channel = channel
-        params.data = data
+        var req = Centrifugal_Centrifuge_Protocol_PublishRequest()
+        req.channel = channel
+        req.data = data
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .publish, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .publish, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.publish = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -972,7 +1084,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_PublishResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_PublishResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_PublishResult(serializedData: rep.result)
+                        } else {
+                            result = rep.publish
+                        }
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -985,21 +1102,28 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendHistory(channel: String, limit: Int32 = 0, since: CentrifugeStreamPosition?, reverse: Bool = false, completion: @escaping (CentrifugeHistoryResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_HistoryRequest()
-        params.channel = channel
-        params.limit = limit
-        params.reverse = reverse
+        var req = Centrifugal_Centrifuge_Protocol_HistoryRequest()
+        req.channel = channel
+        req.limit = limit
+        req.reverse = reverse
         if since != nil {
             var sp = Centrifugal_Centrifuge_Protocol_StreamPosition()
             sp.offset = since!.offset
             sp.epoch = since!.epoch
-            params.since = sp
+            req.since = sp
         }
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .history, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .history, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.history = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -1010,7 +1134,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_HistoryResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_HistoryResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_HistoryResult(serializedData: rep.result)
+                        } else {
+                            result = rep.history
+                        }
                         var pubs = [CentrifugePublication]()
                         for pub in result.publications {
                             var clientInfo: CentrifugeClientInfo?
@@ -1031,13 +1160,20 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendPresence(channel: String, completion: @escaping (CentrifugePresenceResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_PresenceRequest()
-        params.channel = channel
+        var req = Centrifugal_Centrifuge_Protocol_PresenceRequest()
+        req.channel = channel
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .presence, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .presence, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.presence = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -1048,7 +1184,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_PresenceResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_PresenceResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_PresenceResult(serializedData: rep.result)
+                        } else {
+                            result = rep.presence
+                        }
                         var presence = [String: CentrifugeClientInfo]()
                         for (client, info) in result.presence {
                             presence[client] = CentrifugeClientInfo(client: info.client, user: info.user, connInfo: info.connInfo, chanInfo: info.chanInfo)
@@ -1065,13 +1206,20 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendPresenceStats(channel: String, completion: @escaping (CentrifugePresenceStatsResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_PresenceStatsRequest()
-        params.channel = channel
+        var req = Centrifugal_Centrifuge_Protocol_PresenceStatsRequest()
+        req.channel = channel
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .presenceStats, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .presenceStats, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.presenceStats = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -1082,7 +1230,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_PresenceStatsResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_PresenceStatsResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_PresenceStatsResult(serializedData: rep.result)
+                        } else {
+                            result = rep.presenceStats
+                        }
                         let stats = CentrifugePresenceStatsResult(numClients: result.numClients, numUsers: result.numUsers)
                         completion(stats, nil)
                     } catch {
@@ -1096,14 +1249,21 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendRPC(method: String, data: Data, completion: @escaping (Centrifugal_Centrifuge_Protocol_RPCResult?, Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_RPCRequest()
-        params.data = data
-        params.method = method
+        var req = Centrifugal_Centrifuge_Protocol_RPCRequest()
+        req.data = data
+        req.method = method
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .rpc, params: paramsData)
+            var command: Centrifugal_Centrifuge_Protocol_Command
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command = newCommand(method: .rpc, params: reqData)
+            } else {
+                command = Centrifugal_Centrifuge_Protocol_Command()
+                command.id = self.nextCommandId()
+                command.rpc = req
+            }
             self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let _ = self else { return }
+                guard let strongSelf = self else { return }
                 if let err = error {
                     completion(nil, err)
                     return
@@ -1114,7 +1274,12 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                     do {
-                        let result = try Centrifugal_Centrifuge_Protocol_RPCResult(serializedData: rep.result)
+                        var result: Centrifugal_Centrifuge_Protocol_RPCResult
+                        if strongSelf.config.protocolVersion == .v1 {
+                            result = try Centrifugal_Centrifuge_Protocol_RPCResult(serializedData: rep.result)
+                        } else {
+                            result = rep.rpc
+                        }
                         completion(result, nil)
                     } catch {
                         completion(nil, error)
@@ -1127,11 +1292,17 @@ fileprivate extension CentrifugeClient {
     }
     
     private func sendSend(data: Data, completion: @escaping (Error?)->()) {
-        var params = Centrifugal_Centrifuge_Protocol_SendRequest()
-        params.data = data
+        var req = Centrifugal_Centrifuge_Protocol_SendRequest()
+        req.data = data
         do {
-            let paramsData = try params.serializedData()
-            let command = newCommand(method: .send, params: paramsData)
+            var command = Centrifugal_Centrifuge_Protocol_Command()
+            if self.config.protocolVersion == .v1 {
+                let reqData = try req.serializedData()
+                command.method = .rpc
+                command.params = reqData
+            } else {
+                command.send = req
+            }
             try self.sendCommandAsync(command: command)
             completion(nil)
         } catch {
