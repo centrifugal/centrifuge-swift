@@ -151,12 +151,12 @@ public class CentrifugeSubscription {
                     }
                 case CentrifugeError.timeout:
                     centrifuge.syncQueue.async { [weak centrifuge = centrifuge] in
-                        centrifuge?.close(reason: "timeout", reconnect: true)
+                        centrifuge?.close(code: 10, reason: "timeout", reconnect: true)
                     }
                     return
                 default:
                     centrifuge.syncQueue.async { [weak centrifuge = centrifuge] in
-                        centrifuge?.close(reason: "subscription error", reconnect: true)
+                        centrifuge?.close(code: 8, reason: "subscription error", reconnect: true)
                     }
                     return
                 }

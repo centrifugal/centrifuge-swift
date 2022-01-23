@@ -13,6 +13,7 @@ public struct CentrifugeConnectEvent{
 }
 
 public struct CentrifugeDisconnectEvent{
+    public var code: UInt32 // Used only for client protocol >= v2.
     public var reason: String
     public var reconnect: Bool
 }

@@ -9,7 +9,13 @@
 import Foundation
 import SwiftProtobuf
 
-struct CentrifugeDisconnectOptions: Decodable {
+struct CentrifugeDisconnectOptionsV1: Decodable {
+    var reason: String
+    var reconnect: Bool
+}
+
+struct CentrifugeDisconnectOptions {
+    var code: UInt32
     var reason: String
     var reconnect: Bool
 }

@@ -79,7 +79,7 @@ extension ViewController: CentrifugeClientDelegate {
     
     func onDisconnect(_ c: CentrifugeClient, _ e: CentrifugeDisconnectEvent) {
         self.isConnected = false
-        print("disconnected", e.reason, "reconnect", e.reconnect)
+        print("disconnected", e.code, e.reason, "reconnect", e.reconnect)
         DispatchQueue.main.async { [weak self] in
             self?.connectionStatus.text = "Disconnected"
             self?.connectButton.setTitle("Connect", for: .normal)

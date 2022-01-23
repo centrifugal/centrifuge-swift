@@ -207,13 +207,33 @@ public class CentrifugeClient {
             }
             ws.onDisconnect = { [weak self] (error: Error?) in
                 guard let strongSelf = self else { return }
-                let decoder = JSONDecoder()
                 var serverDisconnect: CentrifugeDisconnectOptions?
-                if let err = error as? WSError {
-                    do {
-                        let disconnect = try decoder.decode(CentrifugeDisconnectOptions.self, from: err.message.data(using: .utf8)!)
-                        serverDisconnect = disconnect
-                    } catch {}
+                if strongSelf.config.protocolVersion == .v1 {
+                    let decoder = JSONDecoder()
+                    if let err = error as? WSError {
+                        do {
+                            let disconnectV1 = try decoder.decode(CentrifugeDisconnectOptionsV1.self, from: err.message.data(using: .utf8)!)
+                            serverDisconnect = CentrifugeDisconnectOptions(code: 0, reason: disconnectV1.reason, reconnect: disconnectV1.reconnect)
+                        } catch {
+                            // Will fallback to default disconnect options.
+                        }
+                    }
+                } else {
+                    // For protocol v2 we act according to Disconnect code semantics.
+                    // See https://github.com/centrifugal/centrifuge/blob/master/disconnect.go.
+                    if let err = error as? WSError {
+                        var code = err.code
+                        let reconnect = code < 3500 || code >= 5000 || (code >= 4000 && code < 4500)
+                        if code < 3000 {
+                            // We expose codes defined by Centrifuge protocol, hiding details
+                            // about transport-specific error codes. We may have extra optional
+                            // transportCode field in the future.
+                            code = 4
+                        }
+                        serverDisconnect = CentrifugeDisconnectOptions(code: UInt32(code), reason: err.message, reconnect: reconnect)
+                    } else {
+                        serverDisconnect = CentrifugeDisconnectOptions(code: 4, reason: "connection closed", reconnect: true)
+                    }
                 }
                 strongSelf.onClose(serverDisconnect: serverDisconnect)
             }
@@ -233,7 +253,7 @@ public class CentrifugeClient {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.needReconnect = false
-            strongSelf.close(reason: "clean disconnect", reconnect: false)
+            strongSelf.close(code: 0, reason: "clean disconnect", reconnect: false)
         }
     }
     
@@ -290,7 +310,7 @@ internal extension CentrifugeClient {
             strongSelf.token = token
             strongSelf.sendRefresh(token: token, completion: { result, error in
                 if let _ = error {
-                    strongSelf.close(reason: "refresh error", reconnect: true)
+                    strongSelf.close(code: 7, reason: "refresh error", reconnect: true)
                     return
                 }
                 if let res = result {
@@ -329,7 +349,7 @@ internal extension CentrifugeClient {
             self.sendUnsubscribe(channel: channel, completion: { [weak self] _, error in
                 guard let strongSelf = self else { return }
                 if let _ = error {
-                    strongSelf.close(reason: "unsubscribe error", reconnect: true)
+                    strongSelf.close(code: 13, reason: "unsubscribe error", reconnect: true)
                     return
                 }
             })
@@ -372,8 +392,8 @@ internal extension CentrifugeClient {
         }
     }
     
-    func close(reason: String, reconnect: Bool) {
-        self.disconnectOpts = CentrifugeDisconnectOptions(reason: reason, reconnect: reconnect)
+    func close(code: UInt32, reason: String, reconnect: Bool) {
+        self.disconnectOpts = CentrifugeDisconnectOptions(code: code, reason: reason, reconnect: reconnect)
         self.conn?.disconnect()
     }
 }
@@ -401,16 +421,16 @@ fileprivate extension CentrifugeClient {
                                     if token != "" {
                                         strongSelf.token = token
                                     }
-                                    strongSelf.close(reason: message, reconnect: true)
+                                    strongSelf.close(code: 7, reason: message, reconnect: true)
                                     return
                                 }
                             }
                         } else {
-                            strongSelf.close(reason: "connect error", reconnect: true)
+                            strongSelf.close(code: 6, reason: "connect error", reconnect: true)
                             return
                         }
                     default:
-                        strongSelf.close(reason: "connect error", reconnect: true)
+                        strongSelf.close(code: 6, reason: "connect error", reconnect: true)
                         return
                     }
                 }
@@ -478,11 +498,11 @@ fileprivate extension CentrifugeClient {
 
             let disconnect: CentrifugeDisconnectOptions = serverDisconnect
                 ?? strongSelf.disconnectOpts
-                ?? CentrifugeDisconnectOptions(reason: "connection closed", reconnect: true)
+            ?? CentrifugeDisconnectOptions(code: 4, reason: "connection closed", reconnect: true)
 
             strongSelf.connecting = false
             strongSelf.disconnectOpts = nil
-            strongSelf.scheduleDisconnect(reason: disconnect.reason, reconnect: disconnect.reconnect)
+            strongSelf.scheduleDisconnect(code: disconnect.code, reason: disconnect.reason, reconnect: disconnect.reconnect)
         }
     }
     
@@ -774,7 +794,7 @@ fileprivate extension CentrifugeClient {
                     if let err = error {
                         switch err {
                         case CentrifugeError.timeout:
-                            strongSelf.close(reason: "no ping", reconnect: true)
+                            strongSelf.close(code: 11, reason: "no ping", reconnect: true)
                             return
                         default:
                             // Nothing to do.
@@ -816,7 +836,7 @@ fileprivate extension CentrifugeClient {
         self.refreshTask?.cancel()
     }
     
-    private func scheduleDisconnect(reason: String, reconnect: Bool) {
+    private func scheduleDisconnect(code: UInt32, reason: String, reconnect: Bool) {
         let previousStatus = self.status
         self.status = .disconnected
         self.client = nil
@@ -851,9 +871,15 @@ fileprivate extension CentrifugeClient {
                     let event = CentrifugeServerUnsubscribeEvent(channel: channel)
                     strongSelf.delegate?.onUnsubscribe(strongSelf, event)
                 }
+                var disconnectCode: UInt32;
+                if strongSelf.config.protocolVersion == .v1 {
+                    disconnectCode = 0
+                } else {
+                    disconnectCode = code
+                }
                 strongSelf.delegate?.onDisconnect(
                     strongSelf,
-                    CentrifugeDisconnectEvent(reason: reason, reconnect: reconnect)
+                    CentrifugeDisconnectEvent(code: disconnectCode, reason: reason, reconnect: reconnect)
                 )
             }
         }
