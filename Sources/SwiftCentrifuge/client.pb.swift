@@ -628,7 +628,7 @@ struct Centrifugal_Centrifuge_Protocol_Publication {
 
   var offset: UInt64 = 0
 
-  var meta: Dictionary<String,String> = [:]
+  var tags: Dictionary<String,String> = [:]
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1784,7 +1784,7 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
     4: .same(proto: "data"),
     5: .same(proto: "info"),
     6: .same(proto: "offset"),
-    7: .same(proto: "meta"),
+    7: .same(proto: "tags"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1796,7 +1796,7 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
       case 4: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       case 5: try { try decoder.decodeSingularMessageField(value: &self._info) }()
       case 6: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
-      case 7: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.meta) }()
+      case 7: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.tags) }()
       default: break
       }
     }
@@ -1816,8 +1816,8 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
     if self.offset != 0 {
       try visitor.visitSingularUInt64Field(value: self.offset, fieldNumber: 6)
     }
-    if !self.meta.isEmpty {
-      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.meta, fieldNumber: 7)
+    if !self.tags.isEmpty {
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.tags, fieldNumber: 7)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -1826,7 +1826,7 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
     if lhs.data != rhs.data {return false}
     if lhs._info != rhs._info {return false}
     if lhs.offset != rhs.offset {return false}
-    if lhs.meta != rhs.meta {return false}
+    if lhs.tags != rhs.tags {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
