@@ -33,7 +33,7 @@ public struct CentrifugeClientConfig {
     public var name = "swift"
     public var version = ""
     public var protocolVersion: CentrifugeProtocolVersion = .v1
-    
+
     public init() {}
 }
 
