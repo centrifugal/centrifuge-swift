@@ -94,7 +94,7 @@ public struct CentrifugeServerLeaveEvent {
     public var chanInfo: Data?
 }
 
-public protocol CentrifugeClientDelegate: class {
+public protocol CentrifugeClientDelegate: AnyObject {
     func onConnect(_ client: CentrifugeClient, _ event: CentrifugeConnectEvent)
     func onDisconnect(_ client: CentrifugeClient, _ event: CentrifugeDisconnectEvent)
     func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: @escaping (_ token: String) -> ())
@@ -124,7 +124,7 @@ public extension CentrifugeClientDelegate {
     func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent) {}
 }
 
-public protocol CentrifugeSubscriptionDelegate: class {
+public protocol CentrifugeSubscriptionDelegate: AnyObject {
     func onPublish(_ sub: CentrifugeSubscription, _ event: CentrifugePublishEvent)
     func onJoin(_ sub: CentrifugeSubscription, _ event: CentrifugeJoinEvent)
     func onLeave(_ sub: CentrifugeSubscription, _ event: CentrifugeLeaveEvent)

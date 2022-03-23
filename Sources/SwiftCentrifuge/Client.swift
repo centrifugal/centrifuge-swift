@@ -17,11 +17,6 @@ public enum CentrifugeError: Error {
     case replyError(code: UInt32, message: String)
 }
 
-public enum CentrifugeProtocolVersion {
-    case v1
-    case v2
-}
-
 public struct CentrifugeClientConfig {
     public var timeout = 5.0
     public var debug = false
@@ -32,7 +27,6 @@ public struct CentrifugeClientConfig {
     public var pingInterval = 25.0
     public var name = "swift"
     public var version = ""
-    public var protocolVersion: CentrifugeProtocolVersion = .v1
 
     public init() {}
 }
@@ -208,33 +202,23 @@ public class CentrifugeClient {
             ws.onDisconnect = { [weak self] (error: Error?) in
                 guard let strongSelf = self else { return }
                 var serverDisconnect: CentrifugeDisconnectOptions?
-                if strongSelf.config.protocolVersion == .v1 {
-                    let decoder = JSONDecoder()
-                    if let err = error as? WSError {
-                        do {
-                            let disconnectV1 = try decoder.decode(CentrifugeDisconnectOptionsV1.self, from: err.message.data(using: .utf8)!)
-                            serverDisconnect = CentrifugeDisconnectOptions(code: 0, reason: disconnectV1.reason, reconnect: disconnectV1.reconnect)
-                        } catch {
-                            // Will fallback to default disconnect options.
-                        }
+
+                // We act according to Disconnect code semantics.
+                // See https://github.com/centrifugal/centrifuge/blob/master/disconnect.go.
+                if let err = error as? WSError {
+                    var code = err.code
+                    let reconnect = code < 3500 || code >= 5000 || (code >= 4000 && code < 4500)
+                    if code < 3000 {
+                        // We expose codes defined by Centrifuge protocol, hiding details
+                        // about transport-specific error codes. We may have extra optional
+                        // transportCode field in the future.
+                        code = 4
                     }
+                    serverDisconnect = CentrifugeDisconnectOptions(code: UInt32(code), reason: err.message, reconnect: reconnect)
                 } else {
-                    // For protocol v2 we act according to Disconnect code semantics.
-                    // See https://github.com/centrifugal/centrifuge/blob/master/disconnect.go.
-                    if let err = error as? WSError {
-                        var code = err.code
-                        let reconnect = code < 3500 || code >= 5000 || (code >= 4000 && code < 4500)
-                        if code < 3000 {
-                            // We expose codes defined by Centrifuge protocol, hiding details
-                            // about transport-specific error codes. We may have extra optional
-                            // transportCode field in the future.
-                            code = 4
-                        }
-                        serverDisconnect = CentrifugeDisconnectOptions(code: UInt32(code), reason: err.message, reconnect: reconnect)
-                    } else {
-                        serverDisconnect = CentrifugeDisconnectOptions(code: 4, reason: "connection closed", reconnect: true)
-                    }
+                    serverDisconnect = CentrifugeDisconnectOptions(code: 4, reason: "connection closed", reconnect: true)
                 }
+
                 strongSelf.onClose(serverDisconnect: serverDisconnect)
             }
             ws.onData = { [weak self] data in
@@ -769,11 +753,7 @@ fileprivate extension CentrifugeClient {
             if reply.id > 0 {
                 self.opCallbacks[reply.id]?(CentrifugeResolveData(error: nil, reply: reply))
             } else {
-                if self.config.protocolVersion == .v1 {
-                    try? self.handleAsyncData(data: reply.result)
-                } else {
-                    try? self.handleAsyncDataV2(push: reply.push)
-                }
+                try? self.handleAsyncDataV2(push: reply.push)
             }
         }
     }
@@ -871,15 +851,9 @@ fileprivate extension CentrifugeClient {
                     let event = CentrifugeServerUnsubscribeEvent(channel: channel)
                     strongSelf.delegate?.onUnsubscribe(strongSelf, event)
                 }
-                var disconnectCode: UInt32;
-                if strongSelf.config.protocolVersion == .v1 {
-                    disconnectCode = 0
-                } else {
-                    disconnectCode = code
-                }
                 strongSelf.delegate?.onDisconnect(
                     strongSelf,
-                    CentrifugeDisconnectEvent(code: disconnectCode, reason: reason, reconnect: reconnect)
+                    CentrifugeDisconnectEvent(code: code, reason: reason, reconnect: reconnect)
                 )
             }
         }
@@ -910,127 +884,70 @@ fileprivate extension CentrifugeClient {
             }
             req.subs = subs
         }
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .connect, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.connect = req
+        
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.connect = req
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
-                    }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_ConnectResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_ConnectResult(serializedData: rep.result)
-                        } else {
-                            result = rep.connect
-                        }
-                        completion(result, nil)
-                    } catch {
-                        completion(nil, error)
-                    }
-                }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                completion(rep.connect, nil)
+            }
+        })
     }
     
     private func sendRefresh(token: String, completion: @escaping (Centrifugal_Centrifuge_Protocol_RefreshResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_RefreshRequest()
         req.token = token
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .refresh, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.refresh = req
+
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.refresh = req
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
-                    }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_RefreshResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_RefreshResult(serializedData: rep.result)
-                        } else {
-                            result = rep.refresh
-                        }
-                        completion(result, nil)
-                    } catch {
-                        completion(nil, error)
-                    }
-                }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                completion(rep.refresh, nil)
+            }
+        })
     }
     
     private func sendUnsubscribe(channel: String, completion: @escaping (Centrifugal_Centrifuge_Protocol_UnsubscribeResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_UnsubscribeRequest()
         req.channel = channel
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .unsubscribe, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.unsubscribe = req
+
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.unsubscribe = req
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
-                    }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_UnsubscribeResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_UnsubscribeResult(serializedData: rep.result)
-                        } else {
-                            result = rep.unsubscribe
-                        }
-                        completion(result, nil)
-                    } catch {
-                        completion(nil, error)
-                    }
-                }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                completion(rep.unsubscribe, nil)
+            }
+        })
     }
     
     private func sendSubscribe(channel: String, token: String, isRecover: Bool, streamPosition: StreamPosition, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
@@ -1045,86 +962,47 @@ fileprivate extension CentrifugeClient {
         if token != "" {
             req.token = token
         }
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .subscribe, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.subscribe = req
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.subscribe = req
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
-                    }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_SubscribeResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_SubscribeResult(serializedData: rep.result)
-                        } else {
-                            result = rep.subscribe
-                        }
-                        completion(result, nil)
-                    } catch {
-                        completion(nil, error)
-                    }
-                }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                completion(rep.subscribe, nil)
+            }
+        })
     }
     
     private func sendPublish(channel: String, data: Data, completion: @escaping (Centrifugal_Centrifuge_Protocol_PublishResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_PublishRequest()
         req.channel = channel
         req.data = data
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .publish, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.publish = req
+
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.publish = req
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
-                    }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_PublishResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_PublishResult(serializedData: rep.result)
-                        } else {
-                            result = rep.publish
-                        }
-                        completion(result, nil)
-                    } catch {
-                        completion(nil, error)
-                    }
-                }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                completion(rep.publish, nil)
+            }
+        })
     }
     
     private func sendHistory(channel: String, limit: Int32 = 0, since: CentrifugeStreamPosition?, reverse: Bool = false, completion: @escaping (CentrifugeHistoryResult?, Error?)->()) {
@@ -1138,183 +1016,113 @@ fileprivate extension CentrifugeClient {
             sp.epoch = since!.epoch
             req.since = sp
         }
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .history, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.history = req
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.history = req
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
+                let result = rep.history
+                var pubs = [CentrifugePublication]()
+                for pub in result.publications {
+                    var clientInfo: CentrifugeClientInfo?
+                    if pub.hasInfo {
+                        clientInfo = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
                     }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_HistoryResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_HistoryResult(serializedData: rep.result)
-                        } else {
-                            result = rep.history
-                        }
-                        var pubs = [CentrifugePublication]()
-                        for pub in result.publications {
-                            var clientInfo: CentrifugeClientInfo?
-                            if pub.hasInfo {
-                                clientInfo = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
-                            }
-                            pubs.append(CentrifugePublication(offset: pub.offset, data: pub.data, clientInfo: clientInfo))
-                        }
-                        completion(CentrifugeHistoryResult(publications: pubs, offset: result.offset, epoch: result.epoch), nil)
-                    } catch {
-                        completion(nil, error)
-                    }
+                    pubs.append(CentrifugePublication(offset: pub.offset, data: pub.data, clientInfo: clientInfo))
                 }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                completion(CentrifugeHistoryResult(publications: pubs, offset: result.offset, epoch: result.epoch), nil)
+            }
+        })
     }
     
     private func sendPresence(channel: String, completion: @escaping (CentrifugePresenceResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_PresenceRequest()
         req.channel = channel
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .presence, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.presence = req
+
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.presence = req
+        
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
-                    }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_PresenceResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_PresenceResult(serializedData: rep.result)
-                        } else {
-                            result = rep.presence
-                        }
-                        var presence = [String: CentrifugeClientInfo]()
-                        for (client, info) in result.presence {
-                            presence[client] = CentrifugeClientInfo(client: info.client, user: info.user, connInfo: info.connInfo, chanInfo: info.chanInfo)
-                        }
-                        completion(CentrifugePresenceResult(presence: presence), nil)
-                    } catch {
-                        completion(nil, error)
-                    }
+                let result = rep.presence
+                var presence = [String: CentrifugeClientInfo]()
+                for (client, info) in result.presence {
+                    presence[client] = CentrifugeClientInfo(client: info.client, user: info.user, connInfo: info.connInfo, chanInfo: info.chanInfo)
                 }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                completion(CentrifugePresenceResult(presence: presence), nil)
+            }
+        })
     }
     
     private func sendPresenceStats(channel: String, completion: @escaping (CentrifugePresenceStatsResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_PresenceStatsRequest()
         req.channel = channel
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .presenceStats, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.presenceStats = req
+        
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.presenceStats = req
+        
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
-                    }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_PresenceStatsResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_PresenceStatsResult(serializedData: rep.result)
-                        } else {
-                            result = rep.presenceStats
-                        }
-                        let stats = CentrifugePresenceStatsResult(numClients: result.numClients, numUsers: result.numUsers)
-                        completion(stats, nil)
-                    } catch {
-                        completion(nil, error)
-                    }
-                }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                let result = rep.presenceStats
+                let stats = CentrifugePresenceStatsResult(numClients: result.numClients, numUsers: result.numUsers)
+                completion(stats, nil)
+            }
+        })
     }
     
     private func sendRPC(method: String, data: Data, completion: @escaping (Centrifugal_Centrifuge_Protocol_RPCResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_RPCRequest()
         req.data = data
         req.method = method
-        do {
-            var command: Centrifugal_Centrifuge_Protocol_Command
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command = newCommand(method: .rpc, params: reqData)
-            } else {
-                command = Centrifugal_Centrifuge_Protocol_Command()
-                command.id = self.nextCommandId()
-                command.rpc = req
+
+        var command = Centrifugal_Centrifuge_Protocol_Command()
+        command.id = self.nextCommandId()
+        command.rpc = req
+        
+        self.sendCommand(command: command, completion: { [weak self] reply, error in
+            guard self != nil else { return }
+            if let err = error {
+                completion(nil, err)
+                return
             }
-            self.sendCommand(command: command, completion: { [weak self] reply, error in
-                guard let strongSelf = self else { return }
-                if let err = error {
-                    completion(nil, err)
+            if let rep = reply {
+                if rep.hasError {
+                    completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
                     return
                 }
-                if let rep = reply {
-                    if rep.hasError {
-                        completion(nil, CentrifugeError.replyError(code: rep.error.code, message: rep.error.message))
-                        return
-                    }
-                    do {
-                        var result: Centrifugal_Centrifuge_Protocol_RPCResult
-                        if strongSelf.config.protocolVersion == .v1 {
-                            result = try Centrifugal_Centrifuge_Protocol_RPCResult(serializedData: rep.result)
-                        } else {
-                            result = rep.rpc
-                        }
-                        completion(result, nil)
-                    } catch {
-                        completion(nil, error)
-                    }
-                }
-            })
-        } catch {
-            completion(nil, error)
-        }
+                let result = rep.rpc
+                completion(result, nil)
+            }
+        })
     }
     
     private func sendSend(data: Data, completion: @escaping (Error?)->()) {
@@ -1322,13 +1130,7 @@ fileprivate extension CentrifugeClient {
         req.data = data
         do {
             var command = Centrifugal_Centrifuge_Protocol_Command()
-            if self.config.protocolVersion == .v1 {
-                let reqData = try req.serializedData()
-                command.method = .rpc
-                command.params = reqData
-            } else {
-                command.send = req
-            }
+            command.send = req
             try self.sendCommandAsync(command: command)
             completion(nil)
         } catch {
