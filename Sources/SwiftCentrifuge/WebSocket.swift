@@ -143,6 +143,11 @@ class FoundationStream : NSObject, WSStream, StreamDelegate  {
 	
 	var enableSOCKSProxy = false
     
+    deinit {
+        inputStream?.delegate = nil
+        outputStream?.delegate = nil
+    }
+    
     func connect(url: URL, port: Int, timeout: TimeInterval, ssl: SSLSettings, completion: @escaping ((Error?) -> Void)) {
         var readStream: Unmanaged<CFReadStream>?
         var writeStream: Unmanaged<CFWriteStream>?
