@@ -1,3 +1,8 @@
+0.4.4
+=====
+
+* Fix possible crash in handleAsyncData method – [#62](https://github.com/centrifugal/centrifuge-swift/pull/62)
+
 0.4.3
 =====
 
