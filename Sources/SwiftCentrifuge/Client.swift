@@ -621,7 +621,7 @@ fileprivate extension CentrifugeClient {
                     }
                     let event = CentrifugeServerPublishEvent(channel: channel, data: pub.data, offset: pub.offset, info: info)
                     self.delegate?.onPublish(self, event)
-                    if self.serverSubs[channel]!.recoverable && pub.offset > 0 {
+                    if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
                         self.serverSubs[channel]?.offset = pub.offset
                     }
                 }
