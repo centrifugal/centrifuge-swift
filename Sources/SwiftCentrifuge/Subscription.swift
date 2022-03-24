@@ -8,18 +8,26 @@
 
 import Foundation
 
-public enum CentrifugeSubscriptionStatus {
+public enum CentrifugeSubscriptionState {
     case unsubscribed
     case subscribing
-    case subscribeSuccess
-    case subscribeError
+    case subscribed
+    case failed
+}
+
+public enum CentrifugeSubscriptionFailReason {
+    case clientFailed
+    case subscribeFailed
+    case refreshFailed
+    case unauthorized
+    case unrecoverable
 }
 
 public class CentrifugeSubscription {
     
     public let channel: String
     
-    private var status: CentrifugeSubscriptionStatus = .unsubscribed
+    private var state: CentrifugeSubscriptionState = .unsubscribed
     private var isResubscribe = false
     private var needResubscribe = true
 
@@ -28,7 +36,7 @@ public class CentrifugeSubscription {
     private var needRecover: Bool = false
     private var lastEpoch: String = ""
 
-    private var autoResubscribeErrorCodes: [UInt32]
+//    private var autoResubscribeErrorCodes: [UInt32]
     private var resubscribeAttempts: Int64 = 0
     private var minResubscribeDelay = 0.1
     private var maxResubscribeDelay = 20.0
@@ -38,69 +46,69 @@ public class CentrifugeSubscription {
     private var callbacks: [String: ((Error?) -> ())] = [:]
     private weak var centrifuge: CentrifugeClient?
     
-    init(centrifuge: CentrifugeClient, channel: String, delegate: CentrifugeSubscriptionDelegate, autoResubscribeErrorCodes: [UInt32]?) {
+    init(centrifuge: CentrifugeClient, channel: String, delegate: CentrifugeSubscriptionDelegate) {
         self.centrifuge = centrifuge
         self.channel = channel
         self.delegate = delegate
         self.isResubscribe = false
-        if (autoResubscribeErrorCodes != nil) {
-            self.autoResubscribeErrorCodes = autoResubscribeErrorCodes!
-        } else {
-            self.autoResubscribeErrorCodes = [UInt32]()
-        }
+//        if (autoResubscribeErrorCodes != nil) {
+//            self.autoResubscribeErrorCodes = autoResubscribeErrorCodes!
+//        } else {
+//            self.autoResubscribeErrorCodes = [UInt32]()
+//        }
     }
     
     public func subscribe() {
         self.centrifuge?.syncQueue.async { [weak self] in
             guard
                 let strongSelf = self,
-                strongSelf.status == .unsubscribed || strongSelf.status == .subscribeError
+                strongSelf.state == .unsubscribed || strongSelf.state == .failed
                 else { return }
-            strongSelf.status = .subscribing
+            strongSelf.state = .subscribing
             strongSelf.needResubscribe = true
-            if strongSelf.centrifuge?.status == .connected {
+            if strongSelf.centrifuge?.state == .connected {
                 strongSelf.resubscribe()
             }
         }
     }
     
-    public func publish(data: Data, completion: @escaping (CentrifugePublishResult?, Error?) -> ()) {
+    public func publish(data: Data, completion: @escaping (Result<CentrifugePublishResult, Error>) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
-                completion(nil, err)
-            } else {
-                self?.centrifuge?.publish(channel: channel, data: data, completion: completion)
+                completion(.failure(err))
+                return
             }
+            self?.centrifuge?.publish(channel: channel, data: data, completion: completion)
         })
     }
     
-    public func presence(completion: @escaping (CentrifugePresenceResult?, Error?) -> ()) {
+    public func presence(completion: @escaping (Result<CentrifugePresenceResult, Error>) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
-                completion(nil, err)
-            } else {
-                self?.centrifuge?.presence(channel: channel, completion: completion)
+                completion(.failure(err))
+                return
             }
+            self?.centrifuge?.presence(channel: channel, completion: completion)
         })
     }
     
-    public func presenceStats(completion: @escaping (CentrifugePresenceStatsResult?, Error?) -> ()) {
+    public func presenceStats(completion: @escaping (Result<CentrifugePresenceStatsResult, Error>) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
-                completion(nil, err)
-            } else {
-                self?.centrifuge?.presenceStats(channel: channel, completion: completion)
+                completion(.failure(err))
+                return
             }
+            self?.centrifuge?.presenceStats(channel: channel, completion: completion)
         })
     }
     
-    public func history(limit: Int32 = 0, since: CentrifugeStreamPosition? = nil, reverse: Bool = false, completion: @escaping (CentrifugeHistoryResult?, Error?) -> ()) {
+    public func history(limit: Int32 = 0, since: CentrifugeStreamPosition? = nil, reverse: Bool = false, completion: @escaping (Result<CentrifugeHistoryResult, Error>) -> ()) {
         self.waitForSubscribe(completion: { [weak self, channel = self.channel] error in
             if let err = error {
-                completion(nil, err)
-            } else {
-                self?.centrifuge?.history(channel: channel, limit: limit, since: since, reverse: reverse, completion: completion)
+                completion(.failure(err))
+                return
             }
+            self?.centrifuge?.history(channel: channel, limit: limit, since: since, reverse: reverse, completion: completion)
         })
     }
     
@@ -121,11 +129,11 @@ public class CentrifugeSubscription {
                 case CentrifugeError.replyError(let code, let message):
                     self?.centrifuge?.syncQueue.async { [weak self] in
                         guard let strongSelf = self else { return }
-                        strongSelf.status = .subscribeError
-                        strongSelf.centrifuge?.delegateQueue.addOperation { [weak self] in
-                            guard let strongSelf = self else { return }
-                            strongSelf.delegate?.onSubscribeError(strongSelf, CentrifugeSubscribeErrorEvent(code: code, message: message))
-                        }
+//                        strongSelf.state = .subscribeError
+//                        strongSelf.centrifuge?.delegateQueue.addOperation { [weak self] in
+//                            guard let strongSelf = self else { return }
+//                            strongSelf.delegate?.onSubscribeError(strongSelf, CentrifugeSubscribeErrorEvent(code: code, message: message))
+//                        }
                         
                         for cb in strongSelf.callbacks.values {
                             cb(CentrifugeError.replyError(code: code, message: message))
@@ -133,21 +141,21 @@ public class CentrifugeSubscription {
                         
                         strongSelf.callbacks.removeAll(keepingCapacity: true)
 
-                        if (strongSelf.autoResubscribeErrorCodes.contains(code)) {
-                            let randomDouble = Double.random(in: 0.4...0.7)
-                            let delay = min(strongSelf.minResubscribeDelay + pow(Double(strongSelf.resubscribeAttempts), 2) * randomDouble, strongSelf.maxResubscribeDelay)
-                            print(delay)
-                            strongSelf.resubscribeAttempts += 1
-                            strongSelf.centrifuge?.syncQueue.asyncAfter(deadline: .now() + delay, execute: { [weak self] in
-                                guard let strongSelf = self else { return }
-                                strongSelf.centrifuge?.syncQueue.async { [weak self] in
-                                    guard let strongSelf = self else { return }
-                                    if (strongSelf.status == .subscribeError && strongSelf.needResubscribe) {
-                                        strongSelf.subscribe();
-                                    }
-                                }
-                            })
-                        }
+//                        if (strongSelf.autoResubscribeErrorCodes.contains(code)) {
+//                            let randomDouble = Double.random(in: 0.4...0.7)
+//                            let delay = min(strongSelf.minResubscribeDelay + pow(Double(strongSelf.resubscribeAttempts), 2) * randomDouble, strongSelf.maxResubscribeDelay)
+//                            print(delay)
+//                            strongSelf.resubscribeAttempts += 1
+//                            strongSelf.centrifuge?.syncQueue.asyncAfter(deadline: .now() + delay, execute: { [weak self] in
+//                                guard let strongSelf = self else { return }
+//                                strongSelf.centrifuge?.syncQueue.async { [weak self] in
+//                                    guard let strongSelf = self else { return }
+//                                    if (strongSelf.state == .subscribeError && strongSelf.needResubscribe) {
+//                                        strongSelf.subscribe();
+//                                    }
+//                                }
+//                            })
+//                        }
                     }
                 case CentrifugeError.timeout:
                     centrifuge.syncQueue.async { [weak centrifuge = centrifuge] in
@@ -171,7 +179,7 @@ public class CentrifugeSubscription {
                     cb(nil)
                 }
                 strongSelf.callbacks.removeAll(keepingCapacity: true)
-                strongSelf.status = .subscribeSuccess
+                strongSelf.state = .subscribed
                 strongSelf.resubscribeAttempts = 0
                 strongSelf.centrifuge?.delegateQueue.addOperation { [weak self] in
                     guard let strongSelf = self else { return }
@@ -200,8 +208,8 @@ public class CentrifugeSubscription {
     func resubscribeIfNecessary() {
         self.centrifuge?.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            if (strongSelf.status == .unsubscribed || strongSelf.status == .subscribing) && strongSelf.needResubscribe {
-                strongSelf.status = .subscribing
+            if (strongSelf.state == .unsubscribed || strongSelf.state == .subscribing) && strongSelf.needResubscribe {
+                strongSelf.state = .subscribing
                 strongSelf.resubscribe()
             }
         }
@@ -213,14 +221,14 @@ public class CentrifugeSubscription {
             centrifuge.getSubscriptionToken(channel: self.channel, completion: { [weak self] token in
                 guard let strongSelf = self else { return }
                 strongSelf.centrifuge?.syncQueue.async { [weak self] in
-                    guard let strongSelf = self, strongSelf.status == .subscribing else { return }
+                    guard let strongSelf = self, strongSelf.state == .subscribing else { return }
                     strongSelf.sendSubscribe(channel: strongSelf.channel, token: token)
                     strongSelf.needRecover = true
                 }
             })
         } else {
             self.centrifuge?.syncQueue.async { [weak self] in
-                guard let strongSelf = self, strongSelf.status == .subscribing else { return }
+                guard let strongSelf = self, strongSelf.state == .subscribing else { return }
                 strongSelf.sendSubscribe(channel: strongSelf.channel, token: "")
                 strongSelf.needRecover = true
             }
@@ -232,11 +240,11 @@ public class CentrifugeSubscription {
             guard let strongSelf = self, let timeout = strongSelf.centrifuge?.config.timeout else { return }
             
             if !strongSelf.needResubscribe {
-                completion(CentrifugeError.unsubscribed)
+                completion(CentrifugeError.subscriptionUnsubscribed)
                 return
             }
             
-            let needWait = strongSelf.status == .subscribing || (strongSelf.status == .unsubscribed && strongSelf.needResubscribe)
+            let needWait = strongSelf.state == .subscribing || (strongSelf.state == .unsubscribed && strongSelf.needResubscribe)
             if !needWait {
                 completion(nil)
                 return
@@ -260,13 +268,13 @@ public class CentrifugeSubscription {
 
     // Access must be serialized from outside.
     func moveToUnsubscribed() {
-        if self.status != .subscribeSuccess && self.status != .subscribeError {
+        if self.state != .subscribed {
             return
         }
-        let previousStatus = self.status
-        self.status = .unsubscribed
+        let previousStatus = self.state
+        self.state = .unsubscribed
         self.resubscribeAttempts = 0
-        if previousStatus != .subscribeSuccess {
+        if previousStatus != .subscribed {
             return
         }
         // Only call unsubscribe event if Subscription was successfully subscribed.
@@ -306,12 +314,12 @@ public class CentrifugeSubscription {
     // onRemove should only be called from Client.removeSubscription.
     func onRemove() {
         self.centrifuge?.syncQueue.async {
-            if self.status != .subscribeSuccess && self.status != .subscribeError {
+            if self.state != .subscribed {
                 return
             }
-            let previousStatus = self.status
-            self.status = .unsubscribed
-            if previousStatus != .subscribeSuccess {
+            let previousStatus = self.state
+            self.state = .unsubscribed
+            if previousStatus != .subscribed {
                 return
             }
             // Only call unsubscribe event if Subscription was successfully subscribed.

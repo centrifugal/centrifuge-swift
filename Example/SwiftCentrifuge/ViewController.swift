@@ -24,19 +24,21 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let config = CentrifugeClientConfig()
+        var config = CentrifugeClientConfig()
+        config.token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw"
         let url = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
         self.client = CentrifugeClient(url: url, config: config, delegate: self)
-        let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw"
-        self.client?.setToken(token)
     }
     
     @IBAction func send(_ sender: Any) {
         let data = ["input": self.newMessage.text ?? ""]
         self.newMessage.text = ""
         guard let jsonData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) else {return}
-        sub?.publish(data: jsonData, completion: { _, error in
-            if let err = error {
+        sub?.publish(data: jsonData, completion: { result in
+            switch result {
+            case .success(_):
+                break
+            case .failure(let err):
                 print("Unexpected publish error: \(err)")
             }
         })
@@ -58,7 +60,7 @@ class ViewController: UIViewController {
     
     private func createSubscription() {
         do {
-            sub = try self.client?.newSubscription(channel: "chat:index", delegate: self, autoResubscribeErrorCodes: [100])
+            sub = try self.client?.newSubscription(channel: "chat:index", delegate: self)
         } catch {
             print("Can not create subscription: \(error)")
             return
@@ -117,18 +119,20 @@ extension ViewController: CentrifugeSubscriptionDelegate {
     }
     
     func onSubscribeSuccess(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribeSuccessEvent) {
-        s.presence(completion: { result, error in
-            if let err = error {
-                print("Unexpected presence error: \(err)")
-            } else if let presence = result {
+        s.presence(completion: { result in
+            switch result {
+            case .success(let presence):
                 print(presence)
+            case .failure(let err):
+                print("Unexpected presence error: \(err)")
             }
         })
-        s.history(limit: 10, completion: { result, error in
-            if let err = error {
-                print("Unexpected history error: \(err)")
-            } else if let res = result {
+        s.history(limit: 10, completion: { result in
+            switch result {
+            case .success(let res):
                 print("Num publications returned: \(res.publications.count)")
+            case .failure(let err):
+                print("Unexpected history error: \(err)")
             }
         })
         print("successfully subscribed to channel \(s.channel)")

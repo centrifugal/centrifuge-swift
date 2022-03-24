@@ -30,6 +30,10 @@ public struct CentrifugeClientInfo {
 
 public struct CentrifugePublishResult {}
 
+public struct CentrifugeRpcResult {
+    public var data: Data
+}
+
 public struct CentrifugePresenceResult {
     public var presence: [String: CentrifugeClientInfo]
 }
