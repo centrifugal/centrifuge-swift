@@ -8,7 +8,7 @@
 
 import Foundation
 import SwiftProtobuf
-import os.log
+//import os.log
 
 public enum CentrifugeError: Error {
     case timeout
@@ -473,8 +473,9 @@ internal extension CentrifugeClient {
     }
     
     func debugLog(_ message: String) {
-//        guard self.config.debug else { return }
-        os_log("CentrifugeClient: %{public}@", log: OSLog.default, type: .debug, message)
+        guard self.config.debug else { return }
+//        os_log("CentrifugeClient: %{public}@", log: OSLog.default, type: .debug, message)
+        print(message)
     }
     
     func sendSubRefresh(token: String, channel: String, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubRefreshResult?, Error?)->()) {
