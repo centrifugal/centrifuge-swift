@@ -26,6 +26,11 @@ struct CentrifugeResolveData {
 }
 
 struct StreamPosition {
+    public init(offset: UInt64 = 0, epoch: String = "") {
+        self.offset = offset
+        self.epoch = epoch
+    }
+
     var offset: UInt64 = 0
     var epoch: String = ""
 }

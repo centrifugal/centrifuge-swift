@@ -13,12 +13,16 @@ public struct CentrifugeConnectEvent{
 }
 
 public struct CentrifugeDisconnectEvent{
-    public var code: UInt32 // Used only for client protocol >= v2.
+    public var code: UInt32
     public var reason: String
     public var reconnect: Bool
 }
 
-public struct CentrifugeRefreshEvent {}
+public struct CentrifugeFailEvent{
+    public var reason: CentrifugeClientFailReason
+}
+
+public struct CentrifugeTokenEvent {}
 
 public struct CentrifugeJoinEvent {
     public var client: String
@@ -38,32 +42,37 @@ public struct CentrifugeMessageEvent {
     public var data: Data
 }
 
-public struct CentrifugePublishEvent {
+public struct CentrifugeErrorEvent {
+    public var error: Error
+}
+
+public struct CentrifugePublicationEvent {
     public var data: Data
     public var offset: UInt64
+    public var tags: [String: String]
     var info: CentrifugeClientInfo?
 }
 
-public struct CentrifugePrivateSubEvent {
-    public var client: String
+public struct CentrifugeSubscriptionTokenEvent {
     public var channel: String
 }
 
-public struct CentrifugeSubscribeErrorEvent {
-    public var code: UInt32
-    public var message: String
+public struct CentrifugeSubscriptionErrorEvent {
+    public var error: Error
 }
 
-public struct CentrifugeSubscribeSuccessEvent {
-    public var resubscribe = false
+public struct CentrifugeSubscribeEvent {
     public var recovered = false
 }
 
 public struct CentrifugeUnsubscribeEvent {}
 
+public struct CentrifugeSubscriptionFailEvent {
+    public var reason: CentrifugeSubscriptionFailReason
+}
+
 public struct CentrifugeServerSubscribeEvent {
     public var channel: String
-    public var resubscribe = false
     public var recovered = false
 }
 
@@ -71,10 +80,11 @@ public struct CentrifugeServerUnsubscribeEvent {
     public var channel: String
 }
 
-public struct CentrifugeServerPublishEvent {
+public struct CentrifugeServerPublicationEvent {
     public var channel: String
     public var data: Data
     public var offset: UInt64
+    public var tags: [String: String]
     var info: CentrifugeClientInfo?
 }
 
@@ -97,12 +107,18 @@ public struct CentrifugeServerLeaveEvent {
 public protocol CentrifugeClientDelegate: AnyObject {
     func onConnect(_ client: CentrifugeClient, _ event: CentrifugeConnectEvent)
     func onDisconnect(_ client: CentrifugeClient, _ event: CentrifugeDisconnectEvent)
-    func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: @escaping (_ token: String) -> ())
-    func onRefresh(_ client: CentrifugeClient, _ event: CentrifugeRefreshEvent, completion: @escaping (_ token: String) -> ())
+    func onFail(_ client: CentrifugeClient, _ event: CentrifugeFailEvent)
+
+    func onConnectionToken(_ client: CentrifugeClient, _ event: CentrifugeTokenEvent, completion: @escaping (Result<String, Error>) -> ())
+    func onSubscriptionToken(_ client: CentrifugeClient, _ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
+
+    func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent)
+    
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent)
+    
     func onSubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribeEvent)
-    func onPublish(_ client: CentrifugeClient, _ event: CentrifugeServerPublishEvent)
     func onUnsubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribeEvent)
+    func onPublication(_ client: CentrifugeClient, _ event: CentrifugeServerPublicationEvent)
     func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent)
     func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent)
 }
@@ -110,34 +126,43 @@ public protocol CentrifugeClientDelegate: AnyObject {
 public extension CentrifugeClientDelegate {
     func onConnect(_ client: CentrifugeClient, _ event: CentrifugeConnectEvent) {}
     func onDisconnect(_ client: CentrifugeClient, _ event: CentrifugeDisconnectEvent) {}
-    func onPrivateSub(_ client: CentrifugeClient, _ event: CentrifugePrivateSubEvent, completion: @escaping (_ token: String) -> ()) {
-        completion("")
+    func onFail(_ client: CentrifugeClient, _ event: CentrifugeFailEvent) {}
+
+    func onSubscriptionToken(_ client: CentrifugeClient, _ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
+        completion(.success(""))
     }
-    func onRefresh(_ client: CentrifugeClient, _ event: CentrifugeRefreshEvent, completion: @escaping (_ token: String) -> ()) {
-        completion("")
+    func onConnectionToken(_ client: CentrifugeClient, _ event: CentrifugeTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
+        completion(.success(""))
     }
+    func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent) {}
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent) {}
     func onSubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribeEvent) {}
-    func onPublish(_ client: CentrifugeClient, _ event: CentrifugeServerPublishEvent) {}
     func onUnsubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribeEvent) {}
+    func onPublication(_ client: CentrifugeClient, _ event: CentrifugeServerPublicationEvent) {}
     func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent) {}
     func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent) {}
 }
 
 public protocol CentrifugeSubscriptionDelegate: AnyObject {
-    func onPublish(_ sub: CentrifugeSubscription, _ event: CentrifugePublishEvent)
+    func onSubscribe(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscribeEvent)
+    func onUnsubscribe(_ sub: CentrifugeSubscription, _ event: CentrifugeUnsubscribeEvent)
+    func onFail(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscriptionFailEvent)
+
+    func onError(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscriptionErrorEvent)
+    
+    func onPublication(_ sub: CentrifugeSubscription, _ event: CentrifugePublicationEvent)
     func onJoin(_ sub: CentrifugeSubscription, _ event: CentrifugeJoinEvent)
     func onLeave(_ sub: CentrifugeSubscription, _ event: CentrifugeLeaveEvent)
-    func onSubscribeError(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscribeErrorEvent)
-    func onSubscribeSuccess(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscribeSuccessEvent)
-    func onUnsubscribe(_ sub: CentrifugeSubscription, _ event: CentrifugeUnsubscribeEvent)
 }
 
 public extension CentrifugeSubscriptionDelegate {
-    func onPublish(_ sub: CentrifugeSubscription, _ event: CentrifugePublishEvent) {}
+    func onSubscribe(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscribeEvent) {}
+    func onUnsubscribe(_ sub: CentrifugeSubscription, _ event: CentrifugeUnsubscribeEvent) {}
+    func onFail(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscriptionFailEvent) {}
+    
+    func onError(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscriptionErrorEvent) {}
+    
+    func onPublication(_ sub: CentrifugeSubscription, _ event: CentrifugePublicationEvent) {}
     func onJoin(_ sub: CentrifugeSubscription, _ event: CentrifugeJoinEvent) {}
     func onLeave(_ sub: CentrifugeSubscription, _ event: CentrifugeLeaveEvent) {}
-    func onSubscribeError(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscribeErrorEvent) {}
-    func onSubscribeSuccess(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscribeSuccessEvent) {}
-    func onUnsubscribe(_ sub: CentrifugeSubscription, _ event: CentrifugeUnsubscribeEvent) {}
 }
