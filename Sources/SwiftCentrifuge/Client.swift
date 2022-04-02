@@ -528,7 +528,7 @@ internal extension CentrifugeClient {
                 guard let strongSelf = self else { return }
                 strongSelf.delegate?.onConnectionToken(
                     strongSelf,
-                    CentrifugeTokenEvent()
+                    CentrifugeConnectionTokenEvent()
                 ) {[weak self] result in
                     guard let strongSelf = self else { return }
                     strongSelf.syncQueue.async { [weak self] in
@@ -913,7 +913,15 @@ fileprivate extension CentrifugeClient {
         }
         let sub = subs[0]
         subscriptionsLock.unlock()
-        sub.unsubscribe()
+        switch unsubscribe.type {
+        case .insufficient:
+            sub.moveToSubscribingUponDisconnect();
+            sub.resubscribeIfNecessary();
+        case .unrecoverable:
+            sub.failUnrecoverable();
+        default:
+            sub.failServer()
+        }
     }
 
     private func handleSubscribe(channel: String, sub: Centrifugal_Centrifuge_Protocol_Subscribe) {
@@ -1009,7 +1017,7 @@ fileprivate extension CentrifugeClient {
             guard self != nil else { return }
             self?.delegateQueue.addOperation {
                 guard let strongSelf = self else { return }
-                strongSelf.delegate?.onConnectionToken(strongSelf, CentrifugeTokenEvent()) { [weak self] result in
+                strongSelf.delegate?.onConnectionToken(strongSelf, CentrifugeConnectionTokenEvent()) { [weak self] result in
                     guard let strongSelf = self else { return }
                     guard strongSelf.state == .connected else { return }
                     switch result {

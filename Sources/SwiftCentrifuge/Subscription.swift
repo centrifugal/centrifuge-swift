@@ -487,6 +487,9 @@ public class CentrifugeSubscription {
             guard strongSelf.state != .failed else { return }
             strongSelf.processUnsubscribe(fromClient: fromClient)
             strongSelf.state = .failed
+            if reason == .unrecoverable {
+                strongSelf.clearPositionState();
+            }
             strongSelf.centrifuge?.delegateQueue.addOperation { [weak self] in
                 guard let strongSelf = self else { return }
                 strongSelf.delegate?.onFail(
@@ -497,7 +500,13 @@ public class CentrifugeSubscription {
         }
     }
 
-    private func failServer() -> Void {
+    func clearPositionState() -> Void {
+        self.recover = false;
+        self.offset = 0;
+        self.epoch = "";
+    }
+
+    func failServer() -> Void {
         self.fail(reason: CentrifugeSubscriptionFailReason.server, fromClient: false)
     }
     
@@ -513,7 +522,7 @@ public class CentrifugeSubscription {
         self.fail(reason: CentrifugeSubscriptionFailReason.unauthorized, fromClient: true)
     }
 
-    private func failUnrecoverable() -> Void {
+    func failUnrecoverable() -> Void {
         self.fail(reason: CentrifugeSubscriptionFailReason.unrecoverable, fromClient: false)
     }
 }

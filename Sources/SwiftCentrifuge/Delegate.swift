@@ -22,7 +22,7 @@ public struct CentrifugeFailEvent{
     public var reason: CentrifugeClientFailReason
 }
 
-public struct CentrifugeTokenEvent {}
+public struct CentrifugeConnectionTokenEvent {}
 
 public struct CentrifugeJoinEvent {
     public var client: String
@@ -109,7 +109,7 @@ public protocol CentrifugeClientDelegate: AnyObject {
     func onDisconnect(_ client: CentrifugeClient, _ event: CentrifugeDisconnectEvent)
     func onFail(_ client: CentrifugeClient, _ event: CentrifugeFailEvent)
 
-    func onConnectionToken(_ client: CentrifugeClient, _ event: CentrifugeTokenEvent, completion: @escaping (Result<String, Error>) -> ())
+    func onConnectionToken(_ client: CentrifugeClient, _ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
     func onSubscriptionToken(_ client: CentrifugeClient, _ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
 
     func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent)
@@ -131,7 +131,7 @@ public extension CentrifugeClientDelegate {
     func onSubscriptionToken(_ client: CentrifugeClient, _ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
         completion(.success(""))
     }
-    func onConnectionToken(_ client: CentrifugeClient, _ event: CentrifugeTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
+    func onConnectionToken(_ client: CentrifugeClient, _ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
         completion(.success(""))
     }
     func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent) {}
