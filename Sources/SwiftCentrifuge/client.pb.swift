@@ -702,57 +702,13 @@ struct Centrifugal_Centrifuge_Protocol_Unsubscribe {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var type: Centrifugal_Centrifuge_Protocol_Unsubscribe.TypeEnum = .permanent
+  /// Field 1 removed (bool resubscribe).
+  var code: UInt32 = 0
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  /// Field 1 removed (bool resubscribe).
-  enum TypeEnum: SwiftProtobuf.Enum {
-    typealias RawValue = Int
-    case permanent // = 0
-    case insufficient // = 1
-    case unrecoverable // = 2
-    case UNRECOGNIZED(Int)
-
-    init() {
-      self = .permanent
-    }
-
-    init?(rawValue: Int) {
-      switch rawValue {
-      case 0: self = .permanent
-      case 1: self = .insufficient
-      case 2: self = .unrecoverable
-      default: self = .UNRECOGNIZED(rawValue)
-      }
-    }
-
-    var rawValue: Int {
-      switch self {
-      case .permanent: return 0
-      case .insufficient: return 1
-      case .unrecoverable: return 2
-      case .UNRECOGNIZED(let i): return i
-      }
-    }
-
-  }
-
   init() {}
 }
-
-#if swift(>=4.2)
-
-extension Centrifugal_Centrifuge_Protocol_Unsubscribe.TypeEnum: CaseIterable {
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Centrifugal_Centrifuge_Protocol_Unsubscribe.TypeEnum] = [
-    .permanent,
-    .insufficient,
-    .unrecoverable,
-  ]
-}
-
-#endif  // swift(>=4.2)
 
 struct Centrifugal_Centrifuge_Protocol_Subscribe {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -973,6 +929,8 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeResult {
   var positioned: Bool = false
 
   var data: Data = Data()
+
+  var wasRecovering: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -2037,7 +1995,7 @@ extension Centrifugal_Centrifuge_Protocol_Leave: SwiftProtobuf.Message, SwiftPro
 extension Centrifugal_Centrifuge_Protocol_Unsubscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Unsubscribe"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    2: .same(proto: "type"),
+    2: .same(proto: "code"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2046,32 +2004,24 @@ extension Centrifugal_Centrifuge_Protocol_Unsubscribe: SwiftProtobuf.Message, Sw
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 2: try { try decoder.decodeSingularEnumField(value: &self.type) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.code) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.type != .permanent {
-      try visitor.visitSingularEnumField(value: self.type, fieldNumber: 2)
+    if self.code != 0 {
+      try visitor.visitSingularUInt32Field(value: self.code, fieldNumber: 2)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Centrifugal_Centrifuge_Protocol_Unsubscribe, rhs: Centrifugal_Centrifuge_Protocol_Unsubscribe) -> Bool {
-    if lhs.type != rhs.type {return false}
+    if lhs.code != rhs.code {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
-}
-
-extension Centrifugal_Centrifuge_Protocol_Unsubscribe.TypeEnum: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "PERMANENT"),
-    1: .same(proto: "INSUFFICIENT"),
-    2: .same(proto: "UNRECOVERABLE"),
-  ]
 }
 
 extension Centrifugal_Centrifuge_Protocol_Subscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -2628,6 +2578,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     9: .same(proto: "offset"),
     10: .same(proto: "positioned"),
     11: .same(proto: "data"),
+    12: .standard(proto: "was_recovering"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2645,6 +2596,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
       case 9: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
       case 11: try { try decoder.decodeSingularBytesField(value: &self.data) }()
+      case 12: try { try decoder.decodeSingularBoolField(value: &self.wasRecovering) }()
       default: break
       }
     }
@@ -2678,6 +2630,9 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     if !self.data.isEmpty {
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 11)
     }
+    if self.wasRecovering != false {
+      try visitor.visitSingularBoolField(value: self.wasRecovering, fieldNumber: 12)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2691,6 +2646,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     if lhs.offset != rhs.offset {return false}
     if lhs.positioned != rhs.positioned {return false}
     if lhs.data != rhs.data {return false}
+    if lhs.wasRecovering != rhs.wasRecovering {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

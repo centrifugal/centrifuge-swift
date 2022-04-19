@@ -48,7 +48,7 @@ public struct CentrifugeStreamPosition {
         self.offset = offset
         self.epoch = epoch
     }
-
+    
     public var offset: UInt64
     public var epoch: String
 }

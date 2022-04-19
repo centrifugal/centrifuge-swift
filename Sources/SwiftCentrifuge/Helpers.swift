@@ -30,7 +30,7 @@ struct StreamPosition {
         self.offset = offset
         self.epoch = epoch
     }
-
+    
     var offset: UInt64 = 0
     var epoch: String = ""
 }
