@@ -11,7 +11,7 @@ import SwiftCentrifuge
 
 class ViewController: UIViewController {
     
-    @IBOutlet weak var connectionStatus: UILabel!
+    @IBOutlet weak var clientState: UILabel!
     @IBOutlet weak var lastMessage: UILabel!
     @IBOutlet weak var newMessage: UITextField!
     @IBOutlet weak var connectButton: UIButton!
@@ -75,13 +75,13 @@ class ViewController: UIViewController {
         if state == .connecting || state == .connected {
             self.client?.disconnect()
             DispatchQueue.main.async { [weak self] in
-                self?.connectionStatus.text = "Disconnected"
+                self?.clientState.text = "Disconnected"
                 self?.connectButton.setTitle("Connect", for: .normal)
             }
         } else {
             self.client?.connect()
             DispatchQueue.main.async { [weak self] in
-                self?.connectionStatus.text = "Connecting"
+                self?.clientState.text = "Connecting"
                 self?.connectButton.setTitle("Disconnect", for: .normal)
             }
         }
@@ -92,7 +92,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onConnected(_ c: CentrifugeClient, _ e: CentrifugeConnectedEvent) {
         print("connected with id", e.client)
         DispatchQueue.main.async { [weak self] in
-            self?.connectionStatus.text = "Connected"
+            self?.clientState.text = "Connected"
             self?.connectButton.setTitle("Disconnect", for: .normal)
         }
     }
@@ -100,7 +100,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onDisconnected(_ c: CentrifugeClient, _ e: CentrifugeDisconnectedEvent) {
         print("disconnected with code", e.code, "and reason", e.reason)
         DispatchQueue.main.async { [weak self] in
-            self?.connectionStatus.text = "Disconnected"
+            self?.clientState.text = "Disconnected"
             self?.connectButton.setTitle("Connect", for: .normal)
         }
     }
@@ -108,7 +108,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onConnecting(_ c: CentrifugeClient, _ e: CentrifugeConnectingEvent) {
         print("connecting with code", e.code, "and reason", e.reason)
         DispatchQueue.main.async { [weak self] in
-            self?.connectionStatus.text = "Connecting"
+            self?.clientState.text = "Connecting"
             self?.connectButton.setTitle("Disconnect", for: .normal)
         }
     }

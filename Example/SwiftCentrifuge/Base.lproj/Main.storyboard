@@ -16,7 +16,7 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Status:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="p1N-9u-SWl">
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="State:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="p1N-9u-SWl">
                                 <rect key="frame" x="16" y="33" width="80" height="21"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="80" id="DiD-7r-214"/>
@@ -108,8 +108,8 @@
                         </constraints>
                     </view>
                     <connections>
+                        <outlet property="clientState" destination="dJq-5C-omx" id="7qf-Tc-lHr"/>
                         <outlet property="connectButton" destination="UO0-oE-0Vr" id="mJS-2T-8Av"/>
-                        <outlet property="connectionStatus" destination="dJq-5C-omx" id="7qf-Tc-lHr"/>
                         <outlet property="lastMessage" destination="NnK-BI-God" id="fc8-en-aGv"/>
                         <outlet property="newMessage" destination="axm-wb-jAf" id="lrM-qo-zPW"/>
                     </connections>
