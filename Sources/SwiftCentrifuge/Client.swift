@@ -58,7 +58,7 @@ public class CentrifugeClient {
     fileprivate var connectCallbacks: [String: ((Error?) -> ())] = [:]
     fileprivate var subscriptionsLock = NSLock()
     fileprivate var subscriptions = [CentrifugeSubscription]()
-    fileprivate var serverSubs = [String: serverSubscription]()
+    fileprivate var serverSubs = [String: ServerSubscription]()
     fileprivate var needReconnect = true
     fileprivate var numReconnectAttempts = 0
     fileprivate var pingTimer: DispatchSourceTimer?
@@ -425,7 +425,7 @@ fileprivate extension CentrifugeClient {
                     // Process server-side subscriptions.
                     for (channel, subResult) in result.subs {
                         let isResubscribe = strongSelf.serverSubs[channel] != nil
-                        strongSelf.serverSubs[channel] = serverSubscription(recoverable: subResult.recoverable, offset: subResult.offset, epoch: subResult.epoch)
+                        strongSelf.serverSubs[channel] = ServerSubscription(recoverable: subResult.recoverable, offset: subResult.offset, epoch: subResult.epoch)
                         let event = CentrifugeServerSubscribeEvent(channel: channel, resubscribe: isResubscribe, recovered: subResult.recovered)
                         strongSelf.delegateQueue.addOperation { [weak self] in
                             guard let strongSelf = self else { return }
@@ -583,113 +583,191 @@ fileprivate extension CentrifugeClient {
     }
     
     private func handleAsyncData(data: Data) throws {
-        let push = try Centrifugal_Centrifuge_Protocol_Push(serializedData: data)
-        let channel = push.channel
-        if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.publication {
-            let pub = try Centrifugal_Centrifuge_Protocol_Publication(serializedData: push.data)
-            subscriptionsLock.lock()
-            let subs = self.subscriptions.filter({ $0.channel == channel })
-            if subs.count == 0 {
-                subscriptionsLock.unlock()
-                if let _ = self.serverSubs[channel] {
-                    self.delegateQueue.addOperation {
-                        var info: CentrifugeClientInfo? = nil;
-                        if pub.hasInfo {
-                            info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
-                        }
-                        let event = CentrifugeServerPublishEvent(channel: channel, data: pub.data, offset: pub.offset, info: info)
-                        self.delegate?.onPublish(self, event)
-                        if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
-                            self.serverSubs[channel]?.offset = pub.offset
-                        }
-                    }
-                }
-                return
-            }
-            let sub = subs[0]
-            subscriptionsLock.unlock()
-            self.delegateQueue.addOperation {
-                var info: CentrifugeClientInfo? = nil;
-                if pub.hasInfo {
-                    info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
-                }
-                let event = CentrifugePublishEvent(data: pub.data, offset: pub.offset, info: info)
-                sub.delegate?.onPublish(sub, event)
-            }
-            if pub.offset > 0 {
-                sub.setLastOffset(pub.offset)
-            }
-        } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.join {
-            let join = try Centrifugal_Centrifuge_Protocol_Join(serializedData: push.data)
-            subscriptionsLock.lock()
-            let subs = self.subscriptions.filter({ $0.channel == channel })
-            if subs.count == 0 {
-                subscriptionsLock.unlock()
-                if let _ = self.serverSubs[channel] {
-                    self.delegateQueue.addOperation {
-                        let event = CentrifugeServerJoinEvent(channel: channel, client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo)
-                        self.delegate?.onJoin(self, event)
-                    }
-                }
-                return
-            }
-            let sub = subs[0]
-            subscriptionsLock.unlock()
-            self.delegateQueue.addOperation {
-                sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
-            }
-        } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.leave {
-            let leave = try Centrifugal_Centrifuge_Protocol_Leave(serializedData: push.data)
-            subscriptionsLock.lock()
-            let subs = self.subscriptions.filter({ $0.channel == channel })
-            if subs.count == 0 {
-                subscriptionsLock.unlock()
-                if let _ = self.serverSubs[channel] {
-                    self.delegateQueue.addOperation {
-                        let event = CentrifugeServerLeaveEvent(channel: channel, client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo)
-                        self.delegate?.onLeave(self, event)
-                    }
-                }
-                return
-            }
-            let sub = subs[0]
-            subscriptionsLock.unlock()
-            self.delegateQueue.addOperation {
-                sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
-            }
-        } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.unsubscribe {
-            let _ = try Centrifugal_Centrifuge_Protocol_Unsubscribe(serializedData: push.data)
-            subscriptionsLock.lock()
-            let subs = self.subscriptions.filter({ $0.channel == channel })
-            if subs.count == 0 {
-                subscriptionsLock.unlock()
-                if let _ = self.serverSubs[channel] {
-                    self.delegateQueue.addOperation {
-                        let event = CentrifugeServerUnsubscribeEvent(channel: channel)
-                        self.delegate?.onUnsubscribe(self, event)
-                        self.serverSubs.removeValue(forKey: channel)
-                    }
-                }
-                return
-            }
-            let sub = subs[0]
-            subscriptionsLock.unlock()
-            sub.unsubscribe()
-        } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.subscribe {
-            let sub = try Centrifugal_Centrifuge_Protocol_Subscribe(serializedData: push.data)
-            self.serverSubs[channel] = serverSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
-            self.delegateQueue.addOperation {
-                let event = CentrifugeServerSubscribeEvent(channel: channel, resubscribe: false, recovered: false)
-                self.delegate?.onSubscribe(self, event)
-            }
-        } else if push.type == Centrifugal_Centrifuge_Protocol_Push.PushType.message {
-            let message = try Centrifugal_Centrifuge_Protocol_Message(serializedData: push.data)
-            self.delegateQueue.addOperation {
-                self.delegate?.onMessage(self, CentrifugeMessageEvent(data: message.data))
-            }
-        }
+      let push = try Centrifugal_Centrifuge_Protocol_Push(serializedData: data)
+      let channel = push.channel
+
+      switch push.type {
+      case .publication:
+          let pub = try Centrifugal_Centrifuge_Protocol_Publication(serializedData: push.data)
+
+          subscriptionsLock.lock()
+
+          let subs = self.subscriptions.filter({ $0.channel == channel })
+
+          if subs.isEmpty {
+              subscriptionsLock.unlock()
+
+              if serverSubs[channel] != nil {
+                  if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
+                      self.serverSubs[channel]?.offset = pub.offset
+                  }
+
+                  self.delegateQueue.addOperation {
+                      self.delegate?.onPublish(
+                          self,
+                          CentrifugeServerPublishEvent(
+                              channel: channel,
+                              data: pub.data,
+                              offset: pub.offset,
+                              info: pub.hasInfo
+                                  ? CentrifugeClientInfo(
+                                      client: pub.info.client,
+                                      user: pub.info.user,
+                                      connInfo: pub.info.connInfo,
+                                      chanInfo: pub.info.chanInfo
+                                  )
+                                  : nil
+                          )
+                      )
+                  }
+              }
+          } else {
+              let sub = subs[0]
+              subscriptionsLock.unlock()
+
+              self.delegateQueue.addOperation {
+                  var info: CentrifugeClientInfo?
+
+                  if pub.hasInfo {
+                      info = CentrifugeClientInfo(
+                          client: pub.info.client,
+                          user: pub.info.user,
+                          connInfo: pub.info.connInfo,
+                          chanInfo: pub.info.chanInfo
+                      )
+                  }
+
+                  let event = CentrifugePublishEvent(data: pub.data, offset: pub.offset, info: info)
+                  sub.delegate?.onPublish(sub, event)
+              }
+
+              if pub.offset > 0 {
+                  sub.setLastOffset(pub.offset)
+              }
+          }
+
+      case .join:
+          let join = try Centrifugal_Centrifuge_Protocol_Join(serializedData: push.data)
+          subscriptionsLock.lock()
+          let subs = self.subscriptions.filter({ $0.channel == channel })
+
+          if subs.isEmpty {
+              subscriptionsLock.unlock()
+              if let _ = self.serverSubs[channel] {
+                  self.delegateQueue.addOperation {
+                      let event = CentrifugeServerJoinEvent(
+                          channel: channel,
+                          client: join.info.client,
+                          user: join.info.user,
+                          connInfo: join.info.connInfo,
+                          chanInfo: join.info.chanInfo
+                      )
+                      self.delegate?.onJoin(self, event)
+                  }
+              }
+          } else {
+              let sub = subs[0]
+              subscriptionsLock.unlock()
+
+              self.delegateQueue.addOperation {
+                  sub.delegate?
+                      .onJoin(
+                          sub,
+                          CentrifugeJoinEvent(
+                              client: join.info.client,
+                              user: join.info.user,
+                              connInfo: join.info.connInfo,
+                              chanInfo: join.info.chanInfo
+                          )
+                      )
+              }
+          }
+
+      case .leave:
+          let leave = try Centrifugal_Centrifuge_Protocol_Leave(serializedData: push.data)
+          subscriptionsLock.lock()
+          let subs = self.subscriptions.filter({ $0.channel == channel })
+
+          if subs.isEmpty {
+              subscriptionsLock.unlock()
+              if let _ = self.serverSubs[channel] {
+                  self.delegateQueue.addOperation {
+                      let event = CentrifugeServerLeaveEvent(
+                          channel: channel,
+                          client: leave.info.client,
+                          user: leave.info.user,
+                          connInfo: leave.info.connInfo,
+                          chanInfo: leave.info.chanInfo
+                      )
+                      self.delegate?.onLeave(self, event)
+                  }
+              }
+          } else {
+              let sub = subs[0]
+              subscriptionsLock.unlock()
+
+              self.delegateQueue.addOperation {
+                  sub.delegate?
+                      .onLeave(
+                          sub,
+                          CentrifugeLeaveEvent(
+                              client: leave.info.client,
+                              user: leave.info.user,
+                              connInfo: leave.info.connInfo,
+                              chanInfo: leave.info.chanInfo
+                          )
+                      )
+              }
+          }
+
+      case .unsubscribe:
+          _ = try Centrifugal_Centrifuge_Protocol_Unsubscribe(serializedData: push.data)
+          subscriptionsLock.lock()
+          let subs = self.subscriptions.filter({ $0.channel == channel })
+          if subs.isEmpty {
+              subscriptionsLock.unlock()
+              if let _ = self.serverSubs[channel] {
+                  self.serverSubs.removeValue(forKey: channel)
+
+                  self.delegateQueue.addOperation {
+                      let event = CentrifugeServerUnsubscribeEvent(channel: channel)
+                      self.delegate?.onUnsubscribe(self, event)
+                  }
+              }
+          } else {
+              let sub = subs[0]
+              subscriptionsLock.unlock()
+              sub.unsubscribe()
+          }
+
+      case .subscribe:
+          let sub = try Centrifugal_Centrifuge_Protocol_Subscribe(serializedData: push.data)
+
+          self.serverSubs[channel] = ServerSubscription(
+              recoverable: sub.recoverable,
+              offset: sub.offset,
+              epoch: sub.epoch
+          )
+
+          self.delegateQueue.addOperation {
+              let event = CentrifugeServerSubscribeEvent(channel: channel, resubscribe: false, recovered: false)
+              self.delegate?.onSubscribe(self, event)
+
+          }
+
+      case .message:
+          let message = try Centrifugal_Centrifuge_Protocol_Message(serializedData: push.data)
+
+          self.delegateQueue.addOperation {
+              self.delegate?.onMessage(self, CentrifugeMessageEvent(data: message.data))
+          }
+
+      case .connect, .disconnect, .UNRECOGNIZED, .refresh:
+          break
+      }
+
     }
-    
+
     private func handleData(data: Data) {
         guard let replies = try? CentrifugeSerializer.deserializeCommands(data: data) else { return }
         for reply in replies {
