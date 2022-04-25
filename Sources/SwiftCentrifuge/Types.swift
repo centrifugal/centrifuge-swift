@@ -44,7 +44,7 @@ public struct CentrifugeStreamPosition {
     public var epoch: String
 }
 
-struct serverSubscription {
+struct ServerSubscription {
     var recoverable: Bool
     var offset: UInt64
     var epoch: String
