@@ -1,3 +1,8 @@
+0.4.5
+=====
+
+* Fix crash accessing serverSubs from non-syncQueue [#65](https://github.com/centrifugal/centrifuge-swift/pull/65)
+
 0.4.4
 =====
 

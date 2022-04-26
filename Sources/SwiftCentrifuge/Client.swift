@@ -923,7 +923,7 @@ fileprivate extension CentrifugeClient {
             self.handleDisconnect(disconnect: disconnect)
         }
     }
-    
+
     private func handleData(data: Data) {
         guard let replies = try? CentrifugeSerializer.deserializeCommands(data: data) else { return }
         for reply in replies {
