@@ -421,8 +421,6 @@ public class CentrifugeSubscription {
                 return
             }
             
-            let previousStatus = strongSelf.state
-            
             strongSelf.refreshTask?.cancel()
             strongSelf.resubscribeTask?.cancel()
             
@@ -435,11 +433,6 @@ public class CentrifugeSubscription {
             
             strongSelf.callbacks.removeAll(keepingCapacity: true)
             
-            if previousStatus != .subscribed {
-                return
-            }
-            
-            // Only call unsubscribe event if Subscription was successfully subscribed.
             strongSelf.delegate?.onUnsubscribed(
                 strongSelf,
                 CentrifugeUnsubscribedEvent(code: code, reason: reason)
