@@ -196,7 +196,6 @@ public class CentrifugeSubscription {
                 strongSelf.startSubscriptionRefresh(ttl: result.ttl)
             }
             
-            guard let strongSelf = self else { return }
             strongSelf.delegate?.onSubscribed(
                 strongSelf,
                 CentrifugeSubscribedEvent(wasRecovering: result.wasRecovering, recovered: result.recovered, data: result.data)
@@ -441,7 +440,6 @@ public class CentrifugeSubscription {
             }
             
             // Only call unsubscribe event if Subscription was successfully subscribed.
-            guard let strongSelf = self else { return }
             strongSelf.delegate?.onUnsubscribed(
                 strongSelf,
                 CentrifugeUnsubscribedEvent(code: code, reason: reason)
