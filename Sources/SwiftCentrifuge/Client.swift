@@ -81,7 +81,7 @@ public class CentrifugeClient {
     fileprivate var connectCallbacks: [String: ((Error?) -> ())] = [:]
     fileprivate var subscriptionsLock = NSLock()
     fileprivate var subscriptions = [CentrifugeSubscription]()
-    fileprivate var serverSubs = [String: serverSubscription]()
+    fileprivate var serverSubs = [String: ServerSubscription]()
     fileprivate var reconnectAttempts = 0
     fileprivate var disconnectOpts: CentrifugeDisconnectOptions?
     fileprivate var refreshTask: DispatchWorkItem?
@@ -639,7 +639,7 @@ fileprivate extension CentrifugeClient {
             
             // Process server-side subscriptions.
             for (channel, subResult) in result.subs {
-                self.serverSubs[channel] = serverSubscription(recoverable: subResult.recoverable, offset: subResult.offset, epoch: subResult.epoch)
+                self.serverSubs[channel] = ServerSubscription(recoverable: subResult.recoverable, offset: subResult.offset, epoch: subResult.epoch)
                 let event = CentrifugeServerSubscribedEvent(channel: channel, wasRecovering: subResult.wasRecovering, recovered: subResult.recovered, data: subResult.data)
                 self.delegate?.onSubscribed(self, event)
                 subResult.publications.forEach{ pub in
@@ -874,7 +874,7 @@ fileprivate extension CentrifugeClient {
     }
     
     private func handleSubscribe(channel: String, sub: Centrifugal_Centrifuge_Protocol_Subscribe) {
-        self.serverSubs[channel] = serverSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
+        self.serverSubs[channel] = ServerSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
         let event = CentrifugeServerSubscribedEvent(channel: channel, wasRecovering: false, recovered: false, data: sub.data)
         self.delegate?.onSubscribed(self, event)
     }
