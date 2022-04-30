@@ -164,11 +164,11 @@ extension ViewController: CentrifugeSubscriptionDelegate {
     }
 
     func onSubscribing(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribingEvent) {
-        print("subscribing to channel", s.channel, e.reason)
+        print("subscribing to channel", s.channel, e.code, e.reason)
     }
     
     func onUnsubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeUnsubscribedEvent) {
-        print("unsubscribed from channel", s.channel, e.reason)
+        print("unsubscribed from channel", s.channel, e.code, e.reason)
     }
     
     func onError(_ s: CentrifugeSubscription, _ e: CentrifugeSubscriptionErrorEvent) {

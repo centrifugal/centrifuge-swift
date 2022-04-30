@@ -860,17 +860,15 @@ fileprivate extension CentrifugeClient {
             }
             return
         }
-        //        let sub = subs[0]
-        //        subscriptionsLock.unlock()
-        //        switch unsubscribe.type {
-        //        case .insufficient:
-        //            sub.moveToSubscribingUponDisconnect();
-        //            sub.resubscribeIfNecessary();
-        //        case .unrecoverable:
-        ////            sub.failUnrecoverable();
-        //        default:
-        ////            sub.failServer()
-        //        }
+        let sub = subs[0]
+        subscriptionsLock.unlock()
+        
+        if (unsubscribe.code < 2500) {
+            sub.processUnsubscribe(sendUnsubscribe: false, code: unsubscribe.code, reason: "server unsubscribe")
+        } else {
+            sub.moveToSubscribingUponDisconnect(code: unsubscribe.code, reason: "server resubscribe")
+            sub.resubscribeIfNecessary()
+        }
     }
     
     private func handleSubscribe(channel: String, sub: Centrifugal_Centrifuge_Protocol_Subscribe) {
