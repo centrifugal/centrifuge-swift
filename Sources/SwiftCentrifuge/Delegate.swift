@@ -65,6 +65,9 @@ public struct CentrifugeSubscriptionErrorEvent {
 public struct CentrifugeSubscribedEvent {
     public var wasRecovering = false
     public var recovered = false
+    public var positioned = false
+    public var recoverable = false
+    public var streamPosition: StreamPosition? = nil
     public var data: Data?
 }
 
@@ -122,17 +125,13 @@ public protocol CentrifugeClientDelegate: AnyObject {
     func onDisconnected(_ client: CentrifugeClient, _ event: CentrifugeDisconnectedEvent)
     func onConnecting(_ client: CentrifugeClient, _ event: CentrifugeConnectingEvent)
     
-    func onConnectionToken(_ client: CentrifugeClient, _ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
-    func onSubscriptionToken(_ client: CentrifugeClient, _ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
-    
     func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent)
-    
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent)
     
     func onSubscribed(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribedEvent)
     func onUnsubscribed(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribedEvent)
     func onSubscribing(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribingEvent)
-    
+
     func onPublication(_ client: CentrifugeClient, _ event: CentrifugeServerPublicationEvent)
     func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent)
     func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent)
@@ -143,14 +142,10 @@ public extension CentrifugeClientDelegate {
     func onDisconnected(_ client: CentrifugeClient, _ event: CentrifugeDisconnectedEvent) {}
     func onConnecting(_ client: CentrifugeClient, _ event: CentrifugeConnectingEvent) {}
     
-    func onSubscriptionToken(_ client: CentrifugeClient, _ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
-        completion(.success(""))
-    }
-    func onConnectionToken(_ client: CentrifugeClient, _ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
-        completion(.success(""))
-    }
     func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent) {}
+    
     func onMessage(_ client: CentrifugeClient, _ event: CentrifugeMessageEvent) {}
+    
     func onSubscribed(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribedEvent) {}
     func onUnsubscribed(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribedEvent) {}
     func onSubscribing(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribingEvent) {}

@@ -25,7 +25,8 @@ class ViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(self.connectClient(_:)), name: UIApplication.didBecomeActiveNotification, object: nil)
         
         let config = CentrifugeClientConfig(
-            token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw"
+            token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw",
+            connectionTokenGetter: self
         )
         let url = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
         self.client = CentrifugeClient(endpoint: url, config: config, delegate: self)
@@ -85,6 +86,12 @@ class ViewController: UIViewController {
                 self?.connectButton.setTitle("Disconnect", for: .normal)
             }
         }
+    }
+}
+
+extension ViewController: CentrifugeConnectionTokenGetter {
+    func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
+        completion(.success(""))
     }
 }
 

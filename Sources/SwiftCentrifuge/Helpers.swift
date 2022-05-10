@@ -25,7 +25,7 @@ struct CentrifugeResolveData {
     var reply: Centrifugal_Centrifuge_Protocol_Reply?
 }
 
-struct StreamPosition {
+public struct StreamPosition {
     public init(offset: UInt64 = 0, epoch: String = "") {
         self.offset = offset
         self.epoch = epoch

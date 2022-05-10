@@ -901,6 +901,10 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeRequest {
 
   var data: Data = Data()
 
+  var positioned: Bool = false
+
+  var recoverable: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -2513,6 +2517,8 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     6: .same(proto: "epoch"),
     7: .same(proto: "offset"),
     8: .same(proto: "data"),
+    9: .same(proto: "positioned"),
+    10: .same(proto: "recoverable"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2527,6 +2533,8 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
       case 6: try { try decoder.decodeSingularStringField(value: &self.epoch) }()
       case 7: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
       case 8: try { try decoder.decodeSingularBytesField(value: &self.data) }()
+      case 9: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
+      case 10: try { try decoder.decodeSingularBoolField(value: &self.recoverable) }()
       default: break
       }
     }
@@ -2551,6 +2559,12 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     if !self.data.isEmpty {
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 8)
     }
+    if self.positioned != false {
+      try visitor.visitSingularBoolField(value: self.positioned, fieldNumber: 9)
+    }
+    if self.recoverable != false {
+      try visitor.visitSingularBoolField(value: self.recoverable, fieldNumber: 10)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2561,6 +2575,8 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     if lhs.epoch != rhs.epoch {return false}
     if lhs.offset != rhs.offset {return false}
     if lhs.data != rhs.data {return false}
+    if lhs.positioned != rhs.positioned {return false}
+    if lhs.recoverable != rhs.recoverable {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

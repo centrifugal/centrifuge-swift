@@ -9,12 +9,14 @@
 import Foundation
 
 public struct CentrifugeSubscriptionConfig {
-    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String? = nil, data: Data? = nil, since: CentrifugeStreamPosition? = nil) {
+    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String? = nil, data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false) {
         self.minResubscribeDelay = minResubscribeDelay
         self.maxResubscribeDelay = maxResubscribeDelay
         self.token = token
         self.data = data
         self.since = since
+        self.positioned = positioned
+        self.recoverable = recoverable
     }
     
     public var minResubscribeDelay = 0.5
@@ -22,6 +24,8 @@ public struct CentrifugeSubscriptionConfig {
     public var token: String? = nil
     public var data: Data? = nil
     public var since: CentrifugeStreamPosition? = nil
+    public var positioned: Bool = false
+    public var recoverable: Bool = false
 }
 
 public enum CentrifugeSubscriptionState {
@@ -147,7 +151,7 @@ public class CentrifugeSubscription {
             streamPosition.offset = self.offset
             streamPosition.epoch = self.epoch
         }
-        self.centrifuge?.subscribe(channel: self.channel, token: token, data: self.config.data, recover: self.recover, streamPosition: streamPosition, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
+        self.centrifuge?.subscribe(channel: self.channel, token: token, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
             guard let centrifuge = centrifuge else { return }
             guard let strongSelf = self else { return }
             guard strongSelf.state == .subscribing else { return }
@@ -195,10 +199,10 @@ public class CentrifugeSubscription {
             if result.expires {
                 strongSelf.startSubscriptionRefresh(ttl: result.ttl)
             }
-            
+
             strongSelf.delegate?.onSubscribed(
                 strongSelf,
-                CentrifugeSubscribedEvent(wasRecovering: result.wasRecovering, recovered: result.recovered, data: result.data)
+                CentrifugeSubscribedEvent(wasRecovering: result.wasRecovering, recovered: result.recovered, positioned: result.positioned, recoverable: result.recoverable, streamPosition: result.positioned && !result.recoverable ? StreamPosition(offset: result.offset, epoch: result.epoch) : nil, data: result.data)
             )
             result.publications.forEach { [weak self] pub in
                 guard let strongSelf = self else { return }
@@ -442,12 +446,6 @@ public class CentrifugeSubscription {
                 strongSelf.centrifuge?.unsubscribe(sub: strongSelf)
             }
         }
-    }
-    
-    func clearPositionState() -> Void {
-        self.recover = false;
-        self.offset = 0;
-        self.epoch = "";
     }
     
     private func failUnauthorized(sendUnsubscribe: Bool) -> Void {

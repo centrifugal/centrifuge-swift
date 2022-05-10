@@ -25,8 +25,16 @@ public enum CentrifugeError: Error {
     case replyError(code: UInt32, message: String, temporary: Bool)
 }
 
+public protocol CentrifugeConnectionTokenGetter {
+    func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
+}
+
+public protocol CentrifugeSubscriptionTokenGetter {
+    func getSubscriptionToken(_ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
+}
+
 public struct CentrifugeClientConfig {
-    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, privateChannelPrefix: String = "$", name: String = "swift", version: String = "", token: String? = nil, data: Data? = nil, debug: Bool = false) {
+    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, privateChannelPrefix: String = "$", name: String = "swift", version: String = "", token: String? = nil, data: Data? = nil, debug: Bool = false, connectionTokenGetter: CentrifugeConnectionTokenGetter? = nil, subscriptionTokenGetter: CentrifugeSubscriptionTokenGetter? = nil) {
         self.timeout = timeout
         self.headers = headers
         self.tlsSkipVerify = tlsSkipVerify
@@ -39,6 +47,8 @@ public struct CentrifugeClientConfig {
         self.token = token
         self.data = data
         self.debug = debug
+        self.connectionTokenGetter = connectionTokenGetter
+        self.subscriptionTokenGetter = subscriptionTokenGetter
     }
     
     public var timeout = 5.0
@@ -53,6 +63,8 @@ public struct CentrifugeClientConfig {
     public var token: String?  = nil
     public var data: Data? = nil
     public var debug: Bool = false
+    public var connectionTokenGetter: CentrifugeConnectionTokenGetter?
+    public var subscriptionTokenGetter: CentrifugeSubscriptionTokenGetter?
 }
 
 public enum CentrifugeClientState {
@@ -177,7 +189,7 @@ public class CentrifugeClient {
                 } else {
                     disconnect = CentrifugeDisconnectOptions(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
                 }
-
+                
                 if strongSelf.state == .connected {
                     strongSelf.processDisconnect(code: disconnect.code, reason: disconnect.reason, reconnect: disconnect.reconnect)
                 } else {
@@ -187,7 +199,7 @@ public class CentrifugeClient {
                     }
                     strongSelf.subscriptionsLock.unlock()
                 }
-
+                
                 if strongSelf.state == .connecting {
                     strongSelf.scheduleReconnect()
                 }
@@ -493,8 +505,7 @@ internal extension CentrifugeClient {
     func getSubscriptionToken(channel: String, completion: @escaping (Result<String, Error>)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            strongSelf.delegate?.onSubscriptionToken(
-                strongSelf,
+            strongSelf.config.subscriptionTokenGetter!.getSubscriptionToken(
                 CentrifugeSubscriptionTokenEvent(channel: channel)
             ) {[weak self] result in
                 guard let strongSelf = self else { return }
@@ -509,8 +520,8 @@ internal extension CentrifugeClient {
     func getConnectionToken(completion: @escaping (Result<String, Error>)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            strongSelf.delegate?.onConnectionToken(
-                strongSelf,
+            guard strongSelf.config.connectionTokenGetter != nil else { return }
+            strongSelf.config.connectionTokenGetter!.getConnectionToken(
                 CentrifugeConnectionTokenEvent()
             ) {[weak self] result in
                 guard let strongSelf = self else { return }
@@ -548,8 +559,8 @@ internal extension CentrifugeClient {
         subscriptionsLock.unlock()
     }
     
-    func subscribe(channel: String, token: String, data: Data?, recover: Bool, streamPosition: StreamPosition, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
-        self.sendSubscribe(channel: channel, token: token, data: data, recover: recover, streamPosition: streamPosition, completion: completion)
+    func subscribe(channel: String, token: String, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
+        self.sendSubscribe(channel: channel, token: token, data: data, recover: recover, streamPosition: streamPosition, positioned: positioned, recoverable: recoverable, completion: completion)
     }
     
     func reconnect(code: UInt32, reason: String) {
@@ -563,7 +574,7 @@ fileprivate extension CentrifugeClient {
             guard let strongSelf = self else { return }
             guard strongSelf.state == .connecting else { return }
             
-            if strongSelf.refreshRequired {
+            if strongSelf.refreshRequired || (strongSelf.token == "" && strongSelf.config.connectionTokenGetter != nil) {
                 strongSelf.getConnectionToken(completion: { [weak self] result in
                     guard let strongSelf = self, strongSelf.state == .connecting else { return }
                     switch result {
@@ -921,7 +932,7 @@ fileprivate extension CentrifugeClient {
             self.handleDisconnect(disconnect: disconnect)
         }
     }
-
+    
     private func handleData(data: Data) {
         guard let replies = try? CentrifugeSerializer.deserializeCommands(data: data) else { return }
         for reply in replies {
@@ -958,7 +969,8 @@ fileprivate extension CentrifugeClient {
     private func startConnectionRefresh(ttl: UInt32) {
         let refreshTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
-            strongSelf.delegate?.onConnectionToken(strongSelf, CentrifugeConnectionTokenEvent()) { [weak self] result in
+            guard strongSelf.config.connectionTokenGetter != nil else { return }
+            strongSelf.config.connectionTokenGetter!.getConnectionToken(CentrifugeConnectionTokenEvent()) { [weak self] result in
                 guard let strongSelf = self else { return }
                 guard strongSelf.state == .connected else { return }
                 switch result {
@@ -1136,7 +1148,7 @@ fileprivate extension CentrifugeClient {
         })
     }
     
-    private func sendSubscribe(channel: String, token: String, data: Data?, recover: Bool, streamPosition: StreamPosition, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
+    private func sendSubscribe(channel: String, token: String, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_SubscribeRequest()
         req.channel = channel
         if recover {
@@ -1144,6 +1156,8 @@ fileprivate extension CentrifugeClient {
             req.epoch = streamPosition.epoch
             req.offset = streamPosition.offset
         }
+        req.positioned = positioned
+        req.recoverable = recoverable
         if data != nil {
             req.data = data!
         }

@@ -231,6 +231,8 @@ message SubscribeRequest {
   string epoch = 6;
   uint64 offset = 7;
   bytes data = 8;
+  bool positioned = 9;
+  bool recoverable = 10;
 }
 
 message SubscribeResult {
