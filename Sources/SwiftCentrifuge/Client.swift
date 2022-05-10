@@ -651,7 +651,7 @@ fileprivate extension CentrifugeClient {
             // Process server-side subscriptions.
             for (channel, subResult) in result.subs {
                 self.serverSubs[channel] = ServerSubscription(recoverable: subResult.recoverable, offset: subResult.offset, epoch: subResult.epoch)
-                let event = CentrifugeServerSubscribedEvent(channel: channel, wasRecovering: subResult.wasRecovering, recovered: subResult.recovered, data: subResult.data)
+                let event = CentrifugeServerSubscribedEvent(channel: channel, wasRecovering: subResult.wasRecovering, recovered: subResult.recovered, positioned: subResult.positioned, recoverable: subResult.recoverable, streamPosition: subResult.positioned || subResult.recoverable ? StreamPosition(offset: subResult.offset, epoch: subResult.epoch) : nil, data: subResult.data)
                 self.delegate?.onSubscribed(self, event)
                 subResult.publications.forEach{ pub in
                     var info: CentrifugeClientInfo? = nil;

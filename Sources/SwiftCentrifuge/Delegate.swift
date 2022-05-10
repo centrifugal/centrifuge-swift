@@ -85,6 +85,9 @@ public struct CentrifugeServerSubscribedEvent {
     public var channel: String
     public var wasRecovering = false
     public var recovered = false
+    public var positioned = false
+    public var recoverable = false
+    public var streamPosition: StreamPosition? = nil
     public var data: Data?
 }
 

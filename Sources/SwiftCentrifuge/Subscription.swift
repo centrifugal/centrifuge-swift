@@ -189,6 +189,7 @@ public class CentrifugeSubscription {
             
             strongSelf.recover = result.recoverable
             strongSelf.epoch = result.epoch
+            strongSelf.offset = result.offset
             for cb in strongSelf.callbacks.values {
                 cb(nil)
             }
@@ -202,7 +203,7 @@ public class CentrifugeSubscription {
 
             strongSelf.delegate?.onSubscribed(
                 strongSelf,
-                CentrifugeSubscribedEvent(wasRecovering: result.wasRecovering, recovered: result.recovered, positioned: result.positioned, recoverable: result.recoverable, streamPosition: result.positioned && !result.recoverable ? StreamPosition(offset: result.offset, epoch: result.epoch) : nil, data: result.data)
+                CentrifugeSubscribedEvent(wasRecovering: result.wasRecovering, recovered: result.recovered, positioned: result.positioned, recoverable: result.recoverable, streamPosition: result.positioned || result.recoverable ? StreamPosition(offset: result.offset, epoch: result.epoch) : nil, data: result.data)
             )
             result.publications.forEach { [weak self] pub in
                 guard let strongSelf = self else { return }
