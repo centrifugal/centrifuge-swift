@@ -705,6 +705,8 @@ struct Centrifugal_Centrifuge_Protocol_Unsubscribe {
   /// Field 1 removed (bool resubscribe).
   var code: UInt32 = 0
 
+  var reason: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -2000,6 +2002,7 @@ extension Centrifugal_Centrifuge_Protocol_Unsubscribe: SwiftProtobuf.Message, Sw
   static let protoMessageName: String = _protobuf_package + ".Unsubscribe"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     2: .same(proto: "code"),
+    3: .same(proto: "reason"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2009,6 +2012,7 @@ extension Centrifugal_Centrifuge_Protocol_Unsubscribe: SwiftProtobuf.Message, Sw
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 2: try { try decoder.decodeSingularUInt32Field(value: &self.code) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.reason) }()
       default: break
       }
     }
@@ -2018,11 +2022,15 @@ extension Centrifugal_Centrifuge_Protocol_Unsubscribe: SwiftProtobuf.Message, Sw
     if self.code != 0 {
       try visitor.visitSingularUInt32Field(value: self.code, fieldNumber: 2)
     }
+    if !self.reason.isEmpty {
+      try visitor.visitSingularStringField(value: self.reason, fieldNumber: 3)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Centrifugal_Centrifuge_Protocol_Unsubscribe, rhs: Centrifugal_Centrifuge_Protocol_Unsubscribe) -> Bool {
     if lhs.code != rhs.code {return false}
+    if lhs.reason != rhs.reason {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

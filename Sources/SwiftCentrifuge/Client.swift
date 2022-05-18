@@ -190,14 +190,8 @@ public class CentrifugeClient {
                     disconnect = CentrifugeDisconnectOptions(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
                 }
                 
-                if strongSelf.state == .connected {
+                if strongSelf.state != .disconnected {
                     strongSelf.processDisconnect(code: disconnect.code, reason: disconnect.reason, reconnect: disconnect.reconnect)
-                } else {
-                    strongSelf.subscriptionsLock.lock()
-                    for sub in strongSelf.subscriptions {
-                        sub.moveToSubscribingUponDisconnect(code: subscribingCodeTransportClosed, reason: "transport closed")
-                    }
-                    strongSelf.subscriptionsLock.unlock()
                 }
                 
                 if strongSelf.state == .connecting {
@@ -875,16 +869,16 @@ fileprivate extension CentrifugeClient {
         subscriptionsLock.unlock()
         
         if (unsubscribe.code < 2500) {
-            sub.processUnsubscribe(sendUnsubscribe: false, code: unsubscribe.code, reason: "server unsubscribe")
+            sub.processUnsubscribe(sendUnsubscribe: false, code: unsubscribe.code, reason: unsubscribe.reason)
         } else {
-            sub.moveToSubscribingUponDisconnect(code: unsubscribe.code, reason: "server resubscribe")
+            sub.moveToSubscribingUponDisconnect(code: unsubscribe.code, reason: unsubscribe.reason)
             sub.resubscribeIfNecessary()
         }
     }
     
     private func handleSubscribe(channel: String, sub: Centrifugal_Centrifuge_Protocol_Subscribe) {
         self.serverSubs[channel] = ServerSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
-        let event = CentrifugeServerSubscribedEvent(channel: channel, wasRecovering: false, recovered: false, data: sub.data)
+        let event = CentrifugeServerSubscribedEvent(channel: channel, wasRecovering: false, recovered: false, positioned: sub.positioned, recoverable: sub.recoverable, streamPosition: sub.positioned || sub.recoverable ? StreamPosition(offset: sub.offset, epoch: sub.epoch): nil, data: sub.data)
         self.delegate?.onSubscribed(self, event)
     }
     
