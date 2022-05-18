@@ -8,11 +8,16 @@
 
 import Foundation
 
+public protocol CentrifugeSubscriptionTokenGetter {
+    func getSubscriptionToken(_ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
+}
+
 public struct CentrifugeSubscriptionConfig {
-    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String? = nil, data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false) {
+    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String? = nil, data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil) {
         self.minResubscribeDelay = minResubscribeDelay
         self.maxResubscribeDelay = maxResubscribeDelay
         self.token = token
+        self.tokenGetter = tokenGetter
         self.data = data
         self.since = since
         self.positioned = positioned
@@ -26,6 +31,7 @@ public struct CentrifugeSubscriptionConfig {
     public var since: CentrifugeStreamPosition? = nil
     public var positioned: Bool = false
     public var recoverable: Bool = false
+    public var tokenGetter: CentrifugeSubscriptionTokenGetter?
 }
 
 public enum CentrifugeSubscriptionState {
@@ -254,13 +260,28 @@ public class CentrifugeSubscription {
         }
     }
     
+    private func getSubscriptionToken(channel: String, completion: @escaping (Result<String, Error>)->()) {
+        self.centrifuge?.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.config.tokenGetter!.getSubscriptionToken(
+                CentrifugeSubscriptionTokenEvent(channel: channel)
+            ) {[weak self] result in
+                guard let strongSelf = self else { return }
+                strongSelf.centrifuge?.syncQueue.async { [weak self] in
+                    guard self != nil else { return }
+                    completion(result)
+                }
+            }
+        }
+    }
+    
     private func startSubscriptionRefresh(ttl: UInt32) {
         let refreshTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.centrifuge?.syncQueue.async { [weak self] in
                 guard let strongSelf = self else { return }
                 guard strongSelf.state == .subscribed else { return }
-                strongSelf.centrifuge?.getSubscriptionToken(channel: strongSelf.channel, completion: { [weak self] result in
+                strongSelf.getSubscriptionToken(channel: strongSelf.channel, completion: { [weak self] result in
                     guard let strongSelf = self else { return }
                     guard strongSelf.state == .subscribed else { return }
                     switch result {
@@ -331,13 +352,12 @@ public class CentrifugeSubscription {
     }
     
     func resubscribe() {
-        guard let centrifuge = self.centrifuge else { return }
-        if self.channel.hasPrefix(centrifuge.config.privateChannelPrefix) {
+        if self.token != nil || self.config.tokenGetter != nil {
             if self.token != nil {
                 let token = self.token!
                 self.sendSubscribe(channel: self.channel, token: token)
             } else {
-                centrifuge.getSubscriptionToken(channel: self.channel, completion: { [weak self] result in
+                self.getSubscriptionToken(channel: self.channel, completion: { [weak self] result in
                     guard let strongSelf = self, strongSelf.state == .subscribing else { return }
                     switch result {
                     case .success(let token):

@@ -29,26 +29,20 @@ public protocol CentrifugeConnectionTokenGetter {
     func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
 }
 
-public protocol CentrifugeSubscriptionTokenGetter {
-    func getSubscriptionToken(_ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
-}
-
 public struct CentrifugeClientConfig {
-    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, privateChannelPrefix: String = "$", name: String = "swift", version: String = "", token: String? = nil, data: Data? = nil, debug: Bool = false, connectionTokenGetter: CentrifugeConnectionTokenGetter? = nil, subscriptionTokenGetter: CentrifugeSubscriptionTokenGetter? = nil) {
+    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String? = nil, data: Data? = nil, debug: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil) {
         self.timeout = timeout
         self.headers = headers
         self.tlsSkipVerify = tlsSkipVerify
         self.minReconnectDelay = minReconnectDelay
         self.maxReconnectDelay = maxReconnectDelay
         self.maxServerPingDelay = maxServerPingDelay
-        self.privateChannelPrefix = privateChannelPrefix
         self.name = name
         self.version = version
         self.token = token
         self.data = data
         self.debug = debug
-        self.connectionTokenGetter = connectionTokenGetter
-        self.subscriptionTokenGetter = subscriptionTokenGetter
+        self.tokenGetter = tokenGetter
     }
     
     public var timeout = 5.0
@@ -57,14 +51,12 @@ public struct CentrifugeClientConfig {
     public var minReconnectDelay = 0.5
     public var maxReconnectDelay = 20.0
     public var maxServerPingDelay = 10.0
-    public var privateChannelPrefix = "$"
     public var name = "swift"
     public var version = ""
     public var token: String?  = nil
     public var data: Data? = nil
     public var debug: Bool = false
-    public var connectionTokenGetter: CentrifugeConnectionTokenGetter?
-    public var subscriptionTokenGetter: CentrifugeSubscriptionTokenGetter?
+    public var tokenGetter: CentrifugeConnectionTokenGetter?
 }
 
 public enum CentrifugeClientState {
@@ -495,27 +487,12 @@ internal extension CentrifugeClient {
             }
         })
     }
-    
-    func getSubscriptionToken(channel: String, completion: @escaping (Result<String, Error>)->()) {
-        self.syncQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            strongSelf.config.subscriptionTokenGetter!.getSubscriptionToken(
-                CentrifugeSubscriptionTokenEvent(channel: channel)
-            ) {[weak self] result in
-                guard let strongSelf = self else { return }
-                strongSelf.syncQueue.async { [weak self] in
-                    guard self != nil else { return }
-                    completion(result)
-                }
-            }
-        }
-    }
-    
+        
     func getConnectionToken(completion: @escaping (Result<String, Error>)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            guard strongSelf.config.connectionTokenGetter != nil else { return }
-            strongSelf.config.connectionTokenGetter!.getConnectionToken(
+            guard strongSelf.config.tokenGetter != nil else { return }
+            strongSelf.config.tokenGetter!.getConnectionToken(
                 CentrifugeConnectionTokenEvent()
             ) {[weak self] result in
                 guard let strongSelf = self else { return }
@@ -568,7 +545,7 @@ fileprivate extension CentrifugeClient {
             guard let strongSelf = self else { return }
             guard strongSelf.state == .connecting else { return }
             
-            if strongSelf.refreshRequired || (strongSelf.token == "" && strongSelf.config.connectionTokenGetter != nil) {
+            if strongSelf.refreshRequired || (strongSelf.token == "" && strongSelf.config.tokenGetter != nil) {
                 strongSelf.getConnectionToken(completion: { [weak self] result in
                     guard let strongSelf = self, strongSelf.state == .connecting else { return }
                     switch result {
@@ -963,8 +940,8 @@ fileprivate extension CentrifugeClient {
     private func startConnectionRefresh(ttl: UInt32) {
         let refreshTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
-            guard strongSelf.config.connectionTokenGetter != nil else { return }
-            strongSelf.config.connectionTokenGetter!.getConnectionToken(CentrifugeConnectionTokenEvent()) { [weak self] result in
+            guard strongSelf.config.tokenGetter != nil else { return }
+            strongSelf.config.tokenGetter!.getConnectionToken(CentrifugeConnectionTokenEvent()) { [weak self] result in
                 guard let strongSelf = self else { return }
                 guard strongSelf.state == .connected else { return }
                 switch result {
