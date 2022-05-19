@@ -10,6 +10,7 @@ import Foundation
 
 public struct CentrifugeConnectEvent{
     public var client: String
+    public var data: Data?
 }
 
 public struct CentrifugeDisconnectEvent{

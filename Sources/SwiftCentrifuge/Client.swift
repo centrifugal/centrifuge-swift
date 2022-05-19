@@ -416,7 +416,7 @@ fileprivate extension CentrifugeClient {
                     strongSelf.client = result.client
                     strongSelf.delegateQueue.addOperation { [weak self] in
                         guard let strongSelf = self else { return }
-                        strongSelf.delegate?.onConnect(strongSelf, CentrifugeConnectEvent(client: result.client))
+                        strongSelf.delegate?.onConnect(strongSelf, CentrifugeConnectEvent(client: result.client, data: result.data))
                     }
                     for cb in strongSelf.connectCallbacks.values {
                         cb(nil)
