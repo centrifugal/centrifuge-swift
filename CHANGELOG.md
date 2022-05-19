@@ -1,3 +1,8 @@
+0.4.6
+=====
+
+* Added data filed to `CentrifugeConnectEvent` [#67](https://github.com/centrifugal/centrifuge-swift/pull/67)
+
 0.4.5
 =====
 
