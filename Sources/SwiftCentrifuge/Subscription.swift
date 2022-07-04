@@ -13,7 +13,7 @@ public protocol CentrifugeSubscriptionTokenGetter {
 }
 
 public struct CentrifugeSubscriptionConfig {
-    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String? = nil, data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil) {
+    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String? = nil, data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil) {
         self.minResubscribeDelay = minResubscribeDelay
         self.maxResubscribeDelay = maxResubscribeDelay
         self.token = token
@@ -22,6 +22,7 @@ public struct CentrifugeSubscriptionConfig {
         self.since = since
         self.positioned = positioned
         self.recoverable = recoverable
+        self.joinLeave = joinLeave
     }
     
     public var minResubscribeDelay = 0.5
@@ -31,6 +32,7 @@ public struct CentrifugeSubscriptionConfig {
     public var since: CentrifugeStreamPosition? = nil
     public var positioned: Bool = false
     public var recoverable: Bool = false
+    public var joinLeave: Bool = false
     public var tokenGetter: CentrifugeSubscriptionTokenGetter?
 }
 
@@ -157,7 +159,7 @@ public class CentrifugeSubscription {
             streamPosition.offset = self.offset
             streamPosition.epoch = self.epoch
         }
-        self.centrifuge?.subscribe(channel: self.channel, token: token, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
+        self.centrifuge?.subscribe(channel: self.channel, token: token, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
             guard let centrifuge = centrifuge else { return }
             guard let strongSelf = self else { return }
             guard strongSelf.state == .subscribing else { return }

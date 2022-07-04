@@ -907,6 +907,8 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeRequest {
 
   var recoverable: Bool = false
 
+  var joinLeave: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -2527,6 +2529,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     8: .same(proto: "data"),
     9: .same(proto: "positioned"),
     10: .same(proto: "recoverable"),
+    11: .standard(proto: "join_leave"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2543,6 +2546,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
       case 8: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       case 9: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.recoverable) }()
+      case 11: try { try decoder.decodeSingularBoolField(value: &self.joinLeave) }()
       default: break
       }
     }
@@ -2573,6 +2577,9 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     if self.recoverable != false {
       try visitor.visitSingularBoolField(value: self.recoverable, fieldNumber: 10)
     }
+    if self.joinLeave != false {
+      try visitor.visitSingularBoolField(value: self.joinLeave, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2585,6 +2592,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     if lhs.data != rhs.data {return false}
     if lhs.positioned != rhs.positioned {return false}
     if lhs.recoverable != rhs.recoverable {return false}
+    if lhs.joinLeave != rhs.joinLeave {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
