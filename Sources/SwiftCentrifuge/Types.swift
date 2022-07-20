@@ -30,6 +30,10 @@ public struct CentrifugeClientInfo {
 
 public struct CentrifugePublishResult {}
 
+public struct CentrifugeRpcResult {
+    public var data: Data
+}
+
 public struct CentrifugePresenceResult {
     public var presence: [String: CentrifugeClientInfo]
 }
@@ -40,6 +44,11 @@ public struct CentrifugePresenceStatsResult {
 }
 
 public struct CentrifugeStreamPosition {
+    public init(offset: UInt64, epoch: String) {
+        self.offset = offset
+        self.epoch = epoch
+    }
+    
     public var offset: UInt64
     public var epoch: String
 }

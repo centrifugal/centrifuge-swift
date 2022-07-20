@@ -29,21 +29,166 @@ struct Centrifugal_Centrifuge_Protocol_Error {
 
   var message: String = String()
 
+  var temporary: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 }
 
+struct Centrifugal_Centrifuge_Protocol_EmulationRequest {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var node: String = String()
+
+  var session: String = String()
+
+  var data: Data = Data()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+/// Command sent from a client to a server.
+/// ProtocolVersion1 uses id, method and params fields.
+/// ProtocolVersion2 uses id and one of the possible request messages.
 struct Centrifugal_Centrifuge_Protocol_Command {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var id: UInt32 = 0
+  /// Id of command to let client match replies to commands.
+  var id: UInt32 {
+    get {return _storage._id}
+    set {_uniqueStorage()._id = newValue}
+  }
 
-  var method: Centrifugal_Centrifuge_Protocol_Command.MethodType = .connect
+  /// Method is used in ProtocolVersion1 only.
+  var method: Centrifugal_Centrifuge_Protocol_Command.MethodType {
+    get {return _storage._method}
+    set {_uniqueStorage()._method = newValue}
+  }
 
-  var params: Data = Data()
+  /// Params is used in ProtocolVersion1 only.
+  var params: Data {
+    get {return _storage._params}
+    set {_uniqueStorage()._params = newValue}
+  }
+
+  /// ProtocolVersion2 client can send one of the following requests. Server will
+  /// only take the first non-null request out of these and may return an error if
+  /// client passed more than one request. We are not using oneof here due to JSON
+  /// interoperability concerns.
+  var connect: Centrifugal_Centrifuge_Protocol_ConnectRequest {
+    get {return _storage._connect ?? Centrifugal_Centrifuge_Protocol_ConnectRequest()}
+    set {_uniqueStorage()._connect = newValue}
+  }
+  /// Returns true if `connect` has been explicitly set.
+  var hasConnect: Bool {return _storage._connect != nil}
+  /// Clears the value of `connect`. Subsequent reads from it will return its default value.
+  mutating func clearConnect() {_uniqueStorage()._connect = nil}
+
+  var subscribe: Centrifugal_Centrifuge_Protocol_SubscribeRequest {
+    get {return _storage._subscribe ?? Centrifugal_Centrifuge_Protocol_SubscribeRequest()}
+    set {_uniqueStorage()._subscribe = newValue}
+  }
+  /// Returns true if `subscribe` has been explicitly set.
+  var hasSubscribe: Bool {return _storage._subscribe != nil}
+  /// Clears the value of `subscribe`. Subsequent reads from it will return its default value.
+  mutating func clearSubscribe() {_uniqueStorage()._subscribe = nil}
+
+  var unsubscribe: Centrifugal_Centrifuge_Protocol_UnsubscribeRequest {
+    get {return _storage._unsubscribe ?? Centrifugal_Centrifuge_Protocol_UnsubscribeRequest()}
+    set {_uniqueStorage()._unsubscribe = newValue}
+  }
+  /// Returns true if `unsubscribe` has been explicitly set.
+  var hasUnsubscribe: Bool {return _storage._unsubscribe != nil}
+  /// Clears the value of `unsubscribe`. Subsequent reads from it will return its default value.
+  mutating func clearUnsubscribe() {_uniqueStorage()._unsubscribe = nil}
+
+  var publish: Centrifugal_Centrifuge_Protocol_PublishRequest {
+    get {return _storage._publish ?? Centrifugal_Centrifuge_Protocol_PublishRequest()}
+    set {_uniqueStorage()._publish = newValue}
+  }
+  /// Returns true if `publish` has been explicitly set.
+  var hasPublish: Bool {return _storage._publish != nil}
+  /// Clears the value of `publish`. Subsequent reads from it will return its default value.
+  mutating func clearPublish() {_uniqueStorage()._publish = nil}
+
+  var presence: Centrifugal_Centrifuge_Protocol_PresenceRequest {
+    get {return _storage._presence ?? Centrifugal_Centrifuge_Protocol_PresenceRequest()}
+    set {_uniqueStorage()._presence = newValue}
+  }
+  /// Returns true if `presence` has been explicitly set.
+  var hasPresence: Bool {return _storage._presence != nil}
+  /// Clears the value of `presence`. Subsequent reads from it will return its default value.
+  mutating func clearPresence() {_uniqueStorage()._presence = nil}
+
+  var presenceStats: Centrifugal_Centrifuge_Protocol_PresenceStatsRequest {
+    get {return _storage._presenceStats ?? Centrifugal_Centrifuge_Protocol_PresenceStatsRequest()}
+    set {_uniqueStorage()._presenceStats = newValue}
+  }
+  /// Returns true if `presenceStats` has been explicitly set.
+  var hasPresenceStats: Bool {return _storage._presenceStats != nil}
+  /// Clears the value of `presenceStats`. Subsequent reads from it will return its default value.
+  mutating func clearPresenceStats() {_uniqueStorage()._presenceStats = nil}
+
+  var history: Centrifugal_Centrifuge_Protocol_HistoryRequest {
+    get {return _storage._history ?? Centrifugal_Centrifuge_Protocol_HistoryRequest()}
+    set {_uniqueStorage()._history = newValue}
+  }
+  /// Returns true if `history` has been explicitly set.
+  var hasHistory: Bool {return _storage._history != nil}
+  /// Clears the value of `history`. Subsequent reads from it will return its default value.
+  mutating func clearHistory() {_uniqueStorage()._history = nil}
+
+  var ping: Centrifugal_Centrifuge_Protocol_PingRequest {
+    get {return _storage._ping ?? Centrifugal_Centrifuge_Protocol_PingRequest()}
+    set {_uniqueStorage()._ping = newValue}
+  }
+  /// Returns true if `ping` has been explicitly set.
+  var hasPing: Bool {return _storage._ping != nil}
+  /// Clears the value of `ping`. Subsequent reads from it will return its default value.
+  mutating func clearPing() {_uniqueStorage()._ping = nil}
+
+  var send: Centrifugal_Centrifuge_Protocol_SendRequest {
+    get {return _storage._send ?? Centrifugal_Centrifuge_Protocol_SendRequest()}
+    set {_uniqueStorage()._send = newValue}
+  }
+  /// Returns true if `send` has been explicitly set.
+  var hasSend: Bool {return _storage._send != nil}
+  /// Clears the value of `send`. Subsequent reads from it will return its default value.
+  mutating func clearSend() {_uniqueStorage()._send = nil}
+
+  var rpc: Centrifugal_Centrifuge_Protocol_RPCRequest {
+    get {return _storage._rpc ?? Centrifugal_Centrifuge_Protocol_RPCRequest()}
+    set {_uniqueStorage()._rpc = newValue}
+  }
+  /// Returns true if `rpc` has been explicitly set.
+  var hasRpc: Bool {return _storage._rpc != nil}
+  /// Clears the value of `rpc`. Subsequent reads from it will return its default value.
+  mutating func clearRpc() {_uniqueStorage()._rpc = nil}
+
+  var refresh: Centrifugal_Centrifuge_Protocol_RefreshRequest {
+    get {return _storage._refresh ?? Centrifugal_Centrifuge_Protocol_RefreshRequest()}
+    set {_uniqueStorage()._refresh = newValue}
+  }
+  /// Returns true if `refresh` has been explicitly set.
+  var hasRefresh: Bool {return _storage._refresh != nil}
+  /// Clears the value of `refresh`. Subsequent reads from it will return its default value.
+  mutating func clearRefresh() {_uniqueStorage()._refresh = nil}
+
+  var subRefresh: Centrifugal_Centrifuge_Protocol_SubRefreshRequest {
+    get {return _storage._subRefresh ?? Centrifugal_Centrifuge_Protocol_SubRefreshRequest()}
+    set {_uniqueStorage()._subRefresh = newValue}
+  }
+  /// Returns true if `subRefresh` has been explicitly set.
+  var hasSubRefresh: Bool {return _storage._subRefresh != nil}
+  /// Clears the value of `subRefresh`. Subsequent reads from it will return its default value.
+  mutating func clearSubRefresh() {_uniqueStorage()._subRefresh = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -106,6 +251,8 @@ struct Centrifugal_Centrifuge_Protocol_Command {
   }
 
   init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 #if swift(>=4.2)
@@ -130,41 +277,262 @@ extension Centrifugal_Centrifuge_Protocol_Command.MethodType: CaseIterable {
 
 #endif  // swift(>=4.2)
 
+/// Reply sent from a server to a client.
+/// ProtocolVersion1 uses id, error and result fields.
+/// ProtocolVersion2 uses id and one of the possible concrete result messages.
 struct Centrifugal_Centrifuge_Protocol_Reply {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var id: UInt32 = 0
+  /// Id will only be set to a value > 0 for replies to commands. For pushes
+  /// it will have zero value.
+  var id: UInt32 {
+    get {return _storage._id}
+    set {_uniqueStorage()._id = newValue}
+  }
 
+  /// Error can only be set in replies to commands. For pushes it will have zero value.
   var error: Centrifugal_Centrifuge_Protocol_Error {
-    get {return _error ?? Centrifugal_Centrifuge_Protocol_Error()}
-    set {_error = newValue}
+    get {return _storage._error ?? Centrifugal_Centrifuge_Protocol_Error()}
+    set {_uniqueStorage()._error = newValue}
   }
   /// Returns true if `error` has been explicitly set.
-  var hasError: Bool {return self._error != nil}
+  var hasError: Bool {return _storage._error != nil}
   /// Clears the value of `error`. Subsequent reads from it will return its default value.
-  mutating func clearError() {self._error = nil}
+  mutating func clearError() {_uniqueStorage()._error = nil}
 
-  var result: Data = Data()
+  /// Result is used in ProtocolVersion1 only.
+  var result: Data {
+    get {return _storage._result}
+    set {_uniqueStorage()._result = newValue}
+  }
+
+  /// ProtocolVersion2 server can send one of the following fields. We are not using
+  /// oneof here due to JSON interoperability concerns.
+  var push: Centrifugal_Centrifuge_Protocol_Push {
+    get {return _storage._push ?? Centrifugal_Centrifuge_Protocol_Push()}
+    set {_uniqueStorage()._push = newValue}
+  }
+  /// Returns true if `push` has been explicitly set.
+  var hasPush: Bool {return _storage._push != nil}
+  /// Clears the value of `push`. Subsequent reads from it will return its default value.
+  mutating func clearPush() {_uniqueStorage()._push = nil}
+
+  var connect: Centrifugal_Centrifuge_Protocol_ConnectResult {
+    get {return _storage._connect ?? Centrifugal_Centrifuge_Protocol_ConnectResult()}
+    set {_uniqueStorage()._connect = newValue}
+  }
+  /// Returns true if `connect` has been explicitly set.
+  var hasConnect: Bool {return _storage._connect != nil}
+  /// Clears the value of `connect`. Subsequent reads from it will return its default value.
+  mutating func clearConnect() {_uniqueStorage()._connect = nil}
+
+  var subscribe: Centrifugal_Centrifuge_Protocol_SubscribeResult {
+    get {return _storage._subscribe ?? Centrifugal_Centrifuge_Protocol_SubscribeResult()}
+    set {_uniqueStorage()._subscribe = newValue}
+  }
+  /// Returns true if `subscribe` has been explicitly set.
+  var hasSubscribe: Bool {return _storage._subscribe != nil}
+  /// Clears the value of `subscribe`. Subsequent reads from it will return its default value.
+  mutating func clearSubscribe() {_uniqueStorage()._subscribe = nil}
+
+  var unsubscribe: Centrifugal_Centrifuge_Protocol_UnsubscribeResult {
+    get {return _storage._unsubscribe ?? Centrifugal_Centrifuge_Protocol_UnsubscribeResult()}
+    set {_uniqueStorage()._unsubscribe = newValue}
+  }
+  /// Returns true if `unsubscribe` has been explicitly set.
+  var hasUnsubscribe: Bool {return _storage._unsubscribe != nil}
+  /// Clears the value of `unsubscribe`. Subsequent reads from it will return its default value.
+  mutating func clearUnsubscribe() {_uniqueStorage()._unsubscribe = nil}
+
+  var publish: Centrifugal_Centrifuge_Protocol_PublishResult {
+    get {return _storage._publish ?? Centrifugal_Centrifuge_Protocol_PublishResult()}
+    set {_uniqueStorage()._publish = newValue}
+  }
+  /// Returns true if `publish` has been explicitly set.
+  var hasPublish: Bool {return _storage._publish != nil}
+  /// Clears the value of `publish`. Subsequent reads from it will return its default value.
+  mutating func clearPublish() {_uniqueStorage()._publish = nil}
+
+  var presence: Centrifugal_Centrifuge_Protocol_PresenceResult {
+    get {return _storage._presence ?? Centrifugal_Centrifuge_Protocol_PresenceResult()}
+    set {_uniqueStorage()._presence = newValue}
+  }
+  /// Returns true if `presence` has been explicitly set.
+  var hasPresence: Bool {return _storage._presence != nil}
+  /// Clears the value of `presence`. Subsequent reads from it will return its default value.
+  mutating func clearPresence() {_uniqueStorage()._presence = nil}
+
+  var presenceStats: Centrifugal_Centrifuge_Protocol_PresenceStatsResult {
+    get {return _storage._presenceStats ?? Centrifugal_Centrifuge_Protocol_PresenceStatsResult()}
+    set {_uniqueStorage()._presenceStats = newValue}
+  }
+  /// Returns true if `presenceStats` has been explicitly set.
+  var hasPresenceStats: Bool {return _storage._presenceStats != nil}
+  /// Clears the value of `presenceStats`. Subsequent reads from it will return its default value.
+  mutating func clearPresenceStats() {_uniqueStorage()._presenceStats = nil}
+
+  var history: Centrifugal_Centrifuge_Protocol_HistoryResult {
+    get {return _storage._history ?? Centrifugal_Centrifuge_Protocol_HistoryResult()}
+    set {_uniqueStorage()._history = newValue}
+  }
+  /// Returns true if `history` has been explicitly set.
+  var hasHistory: Bool {return _storage._history != nil}
+  /// Clears the value of `history`. Subsequent reads from it will return its default value.
+  mutating func clearHistory() {_uniqueStorage()._history = nil}
+
+  var ping: Centrifugal_Centrifuge_Protocol_PingResult {
+    get {return _storage._ping ?? Centrifugal_Centrifuge_Protocol_PingResult()}
+    set {_uniqueStorage()._ping = newValue}
+  }
+  /// Returns true if `ping` has been explicitly set.
+  var hasPing: Bool {return _storage._ping != nil}
+  /// Clears the value of `ping`. Subsequent reads from it will return its default value.
+  mutating func clearPing() {_uniqueStorage()._ping = nil}
+
+  var rpc: Centrifugal_Centrifuge_Protocol_RPCResult {
+    get {return _storage._rpc ?? Centrifugal_Centrifuge_Protocol_RPCResult()}
+    set {_uniqueStorage()._rpc = newValue}
+  }
+  /// Returns true if `rpc` has been explicitly set.
+  var hasRpc: Bool {return _storage._rpc != nil}
+  /// Clears the value of `rpc`. Subsequent reads from it will return its default value.
+  mutating func clearRpc() {_uniqueStorage()._rpc = nil}
+
+  var refresh: Centrifugal_Centrifuge_Protocol_RefreshResult {
+    get {return _storage._refresh ?? Centrifugal_Centrifuge_Protocol_RefreshResult()}
+    set {_uniqueStorage()._refresh = newValue}
+  }
+  /// Returns true if `refresh` has been explicitly set.
+  var hasRefresh: Bool {return _storage._refresh != nil}
+  /// Clears the value of `refresh`. Subsequent reads from it will return its default value.
+  mutating func clearRefresh() {_uniqueStorage()._refresh = nil}
+
+  var subRefresh: Centrifugal_Centrifuge_Protocol_SubRefreshResult {
+    get {return _storage._subRefresh ?? Centrifugal_Centrifuge_Protocol_SubRefreshResult()}
+    set {_uniqueStorage()._subRefresh = newValue}
+  }
+  /// Returns true if `subRefresh` has been explicitly set.
+  var hasSubRefresh: Bool {return _storage._subRefresh != nil}
+  /// Clears the value of `subRefresh`. Subsequent reads from it will return its default value.
+  mutating func clearSubRefresh() {_uniqueStorage()._subRefresh = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
-  fileprivate var _error: Centrifugal_Centrifuge_Protocol_Error? = nil
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
+/// Push can be sent to a client as part of Reply in case of bidirectional transport or
+/// without additional wrapping in case of unidirectional transports.
+/// ProtocolVersion1 uses type, channel and data fields.
+/// ProtocolVersion2 uses channel and one of the possible concrete push messages.
 struct Centrifugal_Centrifuge_Protocol_Push {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var type: Centrifugal_Centrifuge_Protocol_Push.PushType = .publication
+  /// Type is used in ProtocolVersion1 only.
+  var type: Centrifugal_Centrifuge_Protocol_Push.PushType {
+    get {return _storage._type}
+    set {_uniqueStorage()._type = newValue}
+  }
 
-  var channel: String = String()
+  var channel: String {
+    get {return _storage._channel}
+    set {_uniqueStorage()._channel = newValue}
+  }
 
-  var data: Data = Data()
+  /// Data is used in ProtocolVersion1 only.
+  var data: Data {
+    get {return _storage._data}
+    set {_uniqueStorage()._data = newValue}
+  }
+
+  /// ProtocolVersion2 server can push one of the following fields to the client. We are
+  /// not using oneof here due to JSON interoperability concerns.
+  var pub: Centrifugal_Centrifuge_Protocol_Publication {
+    get {return _storage._pub ?? Centrifugal_Centrifuge_Protocol_Publication()}
+    set {_uniqueStorage()._pub = newValue}
+  }
+  /// Returns true if `pub` has been explicitly set.
+  var hasPub: Bool {return _storage._pub != nil}
+  /// Clears the value of `pub`. Subsequent reads from it will return its default value.
+  mutating func clearPub() {_uniqueStorage()._pub = nil}
+
+  var join: Centrifugal_Centrifuge_Protocol_Join {
+    get {return _storage._join ?? Centrifugal_Centrifuge_Protocol_Join()}
+    set {_uniqueStorage()._join = newValue}
+  }
+  /// Returns true if `join` has been explicitly set.
+  var hasJoin: Bool {return _storage._join != nil}
+  /// Clears the value of `join`. Subsequent reads from it will return its default value.
+  mutating func clearJoin() {_uniqueStorage()._join = nil}
+
+  var leave: Centrifugal_Centrifuge_Protocol_Leave {
+    get {return _storage._leave ?? Centrifugal_Centrifuge_Protocol_Leave()}
+    set {_uniqueStorage()._leave = newValue}
+  }
+  /// Returns true if `leave` has been explicitly set.
+  var hasLeave: Bool {return _storage._leave != nil}
+  /// Clears the value of `leave`. Subsequent reads from it will return its default value.
+  mutating func clearLeave() {_uniqueStorage()._leave = nil}
+
+  var unsubscribe: Centrifugal_Centrifuge_Protocol_Unsubscribe {
+    get {return _storage._unsubscribe ?? Centrifugal_Centrifuge_Protocol_Unsubscribe()}
+    set {_uniqueStorage()._unsubscribe = newValue}
+  }
+  /// Returns true if `unsubscribe` has been explicitly set.
+  var hasUnsubscribe: Bool {return _storage._unsubscribe != nil}
+  /// Clears the value of `unsubscribe`. Subsequent reads from it will return its default value.
+  mutating func clearUnsubscribe() {_uniqueStorage()._unsubscribe = nil}
+
+  var message: Centrifugal_Centrifuge_Protocol_Message {
+    get {return _storage._message ?? Centrifugal_Centrifuge_Protocol_Message()}
+    set {_uniqueStorage()._message = newValue}
+  }
+  /// Returns true if `message` has been explicitly set.
+  var hasMessage: Bool {return _storage._message != nil}
+  /// Clears the value of `message`. Subsequent reads from it will return its default value.
+  mutating func clearMessage() {_uniqueStorage()._message = nil}
+
+  var subscribe: Centrifugal_Centrifuge_Protocol_Subscribe {
+    get {return _storage._subscribe ?? Centrifugal_Centrifuge_Protocol_Subscribe()}
+    set {_uniqueStorage()._subscribe = newValue}
+  }
+  /// Returns true if `subscribe` has been explicitly set.
+  var hasSubscribe: Bool {return _storage._subscribe != nil}
+  /// Clears the value of `subscribe`. Subsequent reads from it will return its default value.
+  mutating func clearSubscribe() {_uniqueStorage()._subscribe = nil}
+
+  var connect: Centrifugal_Centrifuge_Protocol_Connect {
+    get {return _storage._connect ?? Centrifugal_Centrifuge_Protocol_Connect()}
+    set {_uniqueStorage()._connect = newValue}
+  }
+  /// Returns true if `connect` has been explicitly set.
+  var hasConnect: Bool {return _storage._connect != nil}
+  /// Clears the value of `connect`. Subsequent reads from it will return its default value.
+  mutating func clearConnect() {_uniqueStorage()._connect = nil}
+
+  var disconnect: Centrifugal_Centrifuge_Protocol_Disconnect {
+    get {return _storage._disconnect ?? Centrifugal_Centrifuge_Protocol_Disconnect()}
+    set {_uniqueStorage()._disconnect = newValue}
+  }
+  /// Returns true if `disconnect` has been explicitly set.
+  var hasDisconnect: Bool {return _storage._disconnect != nil}
+  /// Clears the value of `disconnect`. Subsequent reads from it will return its default value.
+  mutating func clearDisconnect() {_uniqueStorage()._disconnect = nil}
+
+  var refresh: Centrifugal_Centrifuge_Protocol_Refresh {
+    get {return _storage._refresh ?? Centrifugal_Centrifuge_Protocol_Refresh()}
+    set {_uniqueStorage()._refresh = newValue}
+  }
+  /// Returns true if `refresh` has been explicitly set.
+  var hasRefresh: Bool {return _storage._refresh != nil}
+  /// Clears the value of `refresh`. Subsequent reads from it will return its default value.
+  mutating func clearRefresh() {_uniqueStorage()._refresh = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -218,6 +586,8 @@ struct Centrifugal_Centrifuge_Protocol_Push {
   }
 
   init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 #if swift(>=4.2)
@@ -276,6 +646,8 @@ struct Centrifugal_Centrifuge_Protocol_Publication {
 
   var offset: UInt64 = 0
 
+  var tags: Dictionary<String,String> = [:]
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -325,11 +697,15 @@ struct Centrifugal_Centrifuge_Protocol_Leave {
   fileprivate var _info: Centrifugal_Centrifuge_Protocol_ClientInfo? = nil
 }
 
-/// Field 1 removed (bool resubscribe).
 struct Centrifugal_Centrifuge_Protocol_Unsubscribe {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
+
+  /// Field 1 removed (bool resubscribe).
+  var code: UInt32 = 0
+
+  var reason: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -385,6 +761,14 @@ struct Centrifugal_Centrifuge_Protocol_Connect {
   var expires: Bool = false
 
   var ttl: UInt32 = 0
+
+  var ping: UInt32 = 0
+
+  var pong: Bool = false
+
+  var session: String = String()
+
+  var node: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -458,6 +842,14 @@ struct Centrifugal_Centrifuge_Protocol_ConnectResult {
 
   var subs: Dictionary<String,Centrifugal_Centrifuge_Protocol_SubscribeResult> = [:]
 
+  var ping: UInt32 = 0
+
+  var pong: Bool = false
+
+  var session: String = String()
+
+  var node: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -509,6 +901,14 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeRequest {
 
   var offset: UInt64 = 0
 
+  var data: Data = Data()
+
+  var positioned: Bool = false
+
+  var recoverable: Bool = false
+
+  var joinLeave: Bool = false
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -537,6 +937,8 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeResult {
   var positioned: Bool = false
 
   var data: Data = Data()
+
+  var wasRecovering: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -792,6 +1194,7 @@ extension Centrifugal_Centrifuge_Protocol_Error: SwiftProtobuf.Message, SwiftPro
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "code"),
     2: .same(proto: "message"),
+    3: .same(proto: "temporary"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -802,6 +1205,7 @@ extension Centrifugal_Centrifuge_Protocol_Error: SwiftProtobuf.Message, SwiftPro
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularUInt32Field(value: &self.code) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.message) }()
+      case 3: try { try decoder.decodeSingularBoolField(value: &self.temporary) }()
       default: break
       }
     }
@@ -814,12 +1218,60 @@ extension Centrifugal_Centrifuge_Protocol_Error: SwiftProtobuf.Message, SwiftPro
     if !self.message.isEmpty {
       try visitor.visitSingularStringField(value: self.message, fieldNumber: 2)
     }
+    if self.temporary != false {
+      try visitor.visitSingularBoolField(value: self.temporary, fieldNumber: 3)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Centrifugal_Centrifuge_Protocol_Error, rhs: Centrifugal_Centrifuge_Protocol_Error) -> Bool {
     if lhs.code != rhs.code {return false}
     if lhs.message != rhs.message {return false}
+    if lhs.temporary != rhs.temporary {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Centrifugal_Centrifuge_Protocol_EmulationRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".EmulationRequest"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "node"),
+    2: .same(proto: "session"),
+    3: .same(proto: "data"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.node) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.session) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self.data) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.node.isEmpty {
+      try visitor.visitSingularStringField(value: self.node, fieldNumber: 1)
+    }
+    if !self.session.isEmpty {
+      try visitor.visitSingularStringField(value: self.session, fieldNumber: 2)
+    }
+    if !self.data.isEmpty {
+      try visitor.visitSingularBytesField(value: self.data, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Centrifugal_Centrifuge_Protocol_EmulationRequest, rhs: Centrifugal_Centrifuge_Protocol_EmulationRequest) -> Bool {
+    if lhs.node != rhs.node {return false}
+    if lhs.session != rhs.session {return false}
+    if lhs.data != rhs.data {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -831,39 +1283,175 @@ extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftP
     1: .same(proto: "id"),
     2: .same(proto: "method"),
     3: .same(proto: "params"),
+    4: .same(proto: "connect"),
+    5: .same(proto: "subscribe"),
+    6: .same(proto: "unsubscribe"),
+    7: .same(proto: "publish"),
+    8: .same(proto: "presence"),
+    9: .standard(proto: "presence_stats"),
+    10: .same(proto: "history"),
+    11: .same(proto: "ping"),
+    12: .same(proto: "send"),
+    13: .same(proto: "rpc"),
+    14: .same(proto: "refresh"),
+    15: .standard(proto: "sub_refresh"),
   ]
 
+  fileprivate class _StorageClass {
+    var _id: UInt32 = 0
+    var _method: Centrifugal_Centrifuge_Protocol_Command.MethodType = .connect
+    var _params: Data = Data()
+    var _connect: Centrifugal_Centrifuge_Protocol_ConnectRequest? = nil
+    var _subscribe: Centrifugal_Centrifuge_Protocol_SubscribeRequest? = nil
+    var _unsubscribe: Centrifugal_Centrifuge_Protocol_UnsubscribeRequest? = nil
+    var _publish: Centrifugal_Centrifuge_Protocol_PublishRequest? = nil
+    var _presence: Centrifugal_Centrifuge_Protocol_PresenceRequest? = nil
+    var _presenceStats: Centrifugal_Centrifuge_Protocol_PresenceStatsRequest? = nil
+    var _history: Centrifugal_Centrifuge_Protocol_HistoryRequest? = nil
+    var _ping: Centrifugal_Centrifuge_Protocol_PingRequest? = nil
+    var _send: Centrifugal_Centrifuge_Protocol_SendRequest? = nil
+    var _rpc: Centrifugal_Centrifuge_Protocol_RPCRequest? = nil
+    var _refresh: Centrifugal_Centrifuge_Protocol_RefreshRequest? = nil
+    var _subRefresh: Centrifugal_Centrifuge_Protocol_SubRefreshRequest? = nil
+
+    static let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _id = source._id
+      _method = source._method
+      _params = source._params
+      _connect = source._connect
+      _subscribe = source._subscribe
+      _unsubscribe = source._unsubscribe
+      _publish = source._publish
+      _presence = source._presence
+      _presenceStats = source._presenceStats
+      _history = source._history
+      _ping = source._ping
+      _send = source._send
+      _rpc = source._rpc
+      _refresh = source._refresh
+      _subRefresh = source._subRefresh
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.id) }()
-      case 2: try { try decoder.decodeSingularEnumField(value: &self.method) }()
-      case 3: try { try decoder.decodeSingularBytesField(value: &self.params) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularUInt32Field(value: &_storage._id) }()
+        case 2: try { try decoder.decodeSingularEnumField(value: &_storage._method) }()
+        case 3: try { try decoder.decodeSingularBytesField(value: &_storage._params) }()
+        case 4: try { try decoder.decodeSingularMessageField(value: &_storage._connect) }()
+        case 5: try { try decoder.decodeSingularMessageField(value: &_storage._subscribe) }()
+        case 6: try { try decoder.decodeSingularMessageField(value: &_storage._unsubscribe) }()
+        case 7: try { try decoder.decodeSingularMessageField(value: &_storage._publish) }()
+        case 8: try { try decoder.decodeSingularMessageField(value: &_storage._presence) }()
+        case 9: try { try decoder.decodeSingularMessageField(value: &_storage._presenceStats) }()
+        case 10: try { try decoder.decodeSingularMessageField(value: &_storage._history) }()
+        case 11: try { try decoder.decodeSingularMessageField(value: &_storage._ping) }()
+        case 12: try { try decoder.decodeSingularMessageField(value: &_storage._send) }()
+        case 13: try { try decoder.decodeSingularMessageField(value: &_storage._rpc) }()
+        case 14: try { try decoder.decodeSingularMessageField(value: &_storage._refresh) }()
+        case 15: try { try decoder.decodeSingularMessageField(value: &_storage._subRefresh) }()
+        default: break
+        }
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.id != 0 {
-      try visitor.visitSingularUInt32Field(value: self.id, fieldNumber: 1)
-    }
-    if self.method != .connect {
-      try visitor.visitSingularEnumField(value: self.method, fieldNumber: 2)
-    }
-    if !self.params.isEmpty {
-      try visitor.visitSingularBytesField(value: self.params, fieldNumber: 3)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if _storage._id != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._id, fieldNumber: 1)
+      }
+      if _storage._method != .connect {
+        try visitor.visitSingularEnumField(value: _storage._method, fieldNumber: 2)
+      }
+      if !_storage._params.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._params, fieldNumber: 3)
+      }
+      try { if let v = _storage._connect {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+      } }()
+      try { if let v = _storage._subscribe {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+      } }()
+      try { if let v = _storage._unsubscribe {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+      } }()
+      try { if let v = _storage._publish {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+      } }()
+      try { if let v = _storage._presence {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+      } }()
+      try { if let v = _storage._presenceStats {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+      } }()
+      try { if let v = _storage._history {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+      } }()
+      try { if let v = _storage._ping {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+      } }()
+      try { if let v = _storage._send {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+      } }()
+      try { if let v = _storage._rpc {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
+      } }()
+      try { if let v = _storage._refresh {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
+      } }()
+      try { if let v = _storage._subRefresh {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 15)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Centrifugal_Centrifuge_Protocol_Command, rhs: Centrifugal_Centrifuge_Protocol_Command) -> Bool {
-    if lhs.id != rhs.id {return false}
-    if lhs.method != rhs.method {return false}
-    if lhs.params != rhs.params {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._id != rhs_storage._id {return false}
+        if _storage._method != rhs_storage._method {return false}
+        if _storage._params != rhs_storage._params {return false}
+        if _storage._connect != rhs_storage._connect {return false}
+        if _storage._subscribe != rhs_storage._subscribe {return false}
+        if _storage._unsubscribe != rhs_storage._unsubscribe {return false}
+        if _storage._publish != rhs_storage._publish {return false}
+        if _storage._presence != rhs_storage._presence {return false}
+        if _storage._presenceStats != rhs_storage._presenceStats {return false}
+        if _storage._history != rhs_storage._history {return false}
+        if _storage._ping != rhs_storage._ping {return false}
+        if _storage._send != rhs_storage._send {return false}
+        if _storage._rpc != rhs_storage._rpc {return false}
+        if _storage._refresh != rhs_storage._refresh {return false}
+        if _storage._subRefresh != rhs_storage._subRefresh {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -892,39 +1480,175 @@ extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftPro
     1: .same(proto: "id"),
     2: .same(proto: "error"),
     3: .same(proto: "result"),
+    4: .same(proto: "push"),
+    5: .same(proto: "connect"),
+    6: .same(proto: "subscribe"),
+    7: .same(proto: "unsubscribe"),
+    8: .same(proto: "publish"),
+    9: .same(proto: "presence"),
+    10: .standard(proto: "presence_stats"),
+    11: .same(proto: "history"),
+    12: .same(proto: "ping"),
+    13: .same(proto: "rpc"),
+    14: .same(proto: "refresh"),
+    15: .standard(proto: "sub_refresh"),
   ]
 
+  fileprivate class _StorageClass {
+    var _id: UInt32 = 0
+    var _error: Centrifugal_Centrifuge_Protocol_Error? = nil
+    var _result: Data = Data()
+    var _push: Centrifugal_Centrifuge_Protocol_Push? = nil
+    var _connect: Centrifugal_Centrifuge_Protocol_ConnectResult? = nil
+    var _subscribe: Centrifugal_Centrifuge_Protocol_SubscribeResult? = nil
+    var _unsubscribe: Centrifugal_Centrifuge_Protocol_UnsubscribeResult? = nil
+    var _publish: Centrifugal_Centrifuge_Protocol_PublishResult? = nil
+    var _presence: Centrifugal_Centrifuge_Protocol_PresenceResult? = nil
+    var _presenceStats: Centrifugal_Centrifuge_Protocol_PresenceStatsResult? = nil
+    var _history: Centrifugal_Centrifuge_Protocol_HistoryResult? = nil
+    var _ping: Centrifugal_Centrifuge_Protocol_PingResult? = nil
+    var _rpc: Centrifugal_Centrifuge_Protocol_RPCResult? = nil
+    var _refresh: Centrifugal_Centrifuge_Protocol_RefreshResult? = nil
+    var _subRefresh: Centrifugal_Centrifuge_Protocol_SubRefreshResult? = nil
+
+    static let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _id = source._id
+      _error = source._error
+      _result = source._result
+      _push = source._push
+      _connect = source._connect
+      _subscribe = source._subscribe
+      _unsubscribe = source._unsubscribe
+      _publish = source._publish
+      _presence = source._presence
+      _presenceStats = source._presenceStats
+      _history = source._history
+      _ping = source._ping
+      _rpc = source._rpc
+      _refresh = source._refresh
+      _subRefresh = source._subRefresh
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.id) }()
-      case 2: try { try decoder.decodeSingularMessageField(value: &self._error) }()
-      case 3: try { try decoder.decodeSingularBytesField(value: &self.result) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularUInt32Field(value: &_storage._id) }()
+        case 2: try { try decoder.decodeSingularMessageField(value: &_storage._error) }()
+        case 3: try { try decoder.decodeSingularBytesField(value: &_storage._result) }()
+        case 4: try { try decoder.decodeSingularMessageField(value: &_storage._push) }()
+        case 5: try { try decoder.decodeSingularMessageField(value: &_storage._connect) }()
+        case 6: try { try decoder.decodeSingularMessageField(value: &_storage._subscribe) }()
+        case 7: try { try decoder.decodeSingularMessageField(value: &_storage._unsubscribe) }()
+        case 8: try { try decoder.decodeSingularMessageField(value: &_storage._publish) }()
+        case 9: try { try decoder.decodeSingularMessageField(value: &_storage._presence) }()
+        case 10: try { try decoder.decodeSingularMessageField(value: &_storage._presenceStats) }()
+        case 11: try { try decoder.decodeSingularMessageField(value: &_storage._history) }()
+        case 12: try { try decoder.decodeSingularMessageField(value: &_storage._ping) }()
+        case 13: try { try decoder.decodeSingularMessageField(value: &_storage._rpc) }()
+        case 14: try { try decoder.decodeSingularMessageField(value: &_storage._refresh) }()
+        case 15: try { try decoder.decodeSingularMessageField(value: &_storage._subRefresh) }()
+        default: break
+        }
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.id != 0 {
-      try visitor.visitSingularUInt32Field(value: self.id, fieldNumber: 1)
-    }
-    if let v = self._error {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    }
-    if !self.result.isEmpty {
-      try visitor.visitSingularBytesField(value: self.result, fieldNumber: 3)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if _storage._id != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._id, fieldNumber: 1)
+      }
+      try { if let v = _storage._error {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+      } }()
+      if !_storage._result.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._result, fieldNumber: 3)
+      }
+      try { if let v = _storage._push {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+      } }()
+      try { if let v = _storage._connect {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+      } }()
+      try { if let v = _storage._subscribe {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+      } }()
+      try { if let v = _storage._unsubscribe {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+      } }()
+      try { if let v = _storage._publish {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+      } }()
+      try { if let v = _storage._presence {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+      } }()
+      try { if let v = _storage._presenceStats {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+      } }()
+      try { if let v = _storage._history {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+      } }()
+      try { if let v = _storage._ping {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+      } }()
+      try { if let v = _storage._rpc {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
+      } }()
+      try { if let v = _storage._refresh {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
+      } }()
+      try { if let v = _storage._subRefresh {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 15)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Centrifugal_Centrifuge_Protocol_Reply, rhs: Centrifugal_Centrifuge_Protocol_Reply) -> Bool {
-    if lhs.id != rhs.id {return false}
-    if lhs._error != rhs._error {return false}
-    if lhs.result != rhs.result {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._id != rhs_storage._id {return false}
+        if _storage._error != rhs_storage._error {return false}
+        if _storage._result != rhs_storage._result {return false}
+        if _storage._push != rhs_storage._push {return false}
+        if _storage._connect != rhs_storage._connect {return false}
+        if _storage._subscribe != rhs_storage._subscribe {return false}
+        if _storage._unsubscribe != rhs_storage._unsubscribe {return false}
+        if _storage._publish != rhs_storage._publish {return false}
+        if _storage._presence != rhs_storage._presence {return false}
+        if _storage._presenceStats != rhs_storage._presenceStats {return false}
+        if _storage._history != rhs_storage._history {return false}
+        if _storage._ping != rhs_storage._ping {return false}
+        if _storage._rpc != rhs_storage._rpc {return false}
+        if _storage._refresh != rhs_storage._refresh {return false}
+        if _storage._subRefresh != rhs_storage._subRefresh {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -936,39 +1660,151 @@ extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProt
     1: .same(proto: "type"),
     2: .same(proto: "channel"),
     3: .same(proto: "data"),
+    4: .same(proto: "pub"),
+    5: .same(proto: "join"),
+    6: .same(proto: "leave"),
+    7: .same(proto: "unsubscribe"),
+    8: .same(proto: "message"),
+    9: .same(proto: "subscribe"),
+    10: .same(proto: "connect"),
+    11: .same(proto: "disconnect"),
+    12: .same(proto: "refresh"),
   ]
 
+  fileprivate class _StorageClass {
+    var _type: Centrifugal_Centrifuge_Protocol_Push.PushType = .publication
+    var _channel: String = String()
+    var _data: Data = Data()
+    var _pub: Centrifugal_Centrifuge_Protocol_Publication? = nil
+    var _join: Centrifugal_Centrifuge_Protocol_Join? = nil
+    var _leave: Centrifugal_Centrifuge_Protocol_Leave? = nil
+    var _unsubscribe: Centrifugal_Centrifuge_Protocol_Unsubscribe? = nil
+    var _message: Centrifugal_Centrifuge_Protocol_Message? = nil
+    var _subscribe: Centrifugal_Centrifuge_Protocol_Subscribe? = nil
+    var _connect: Centrifugal_Centrifuge_Protocol_Connect? = nil
+    var _disconnect: Centrifugal_Centrifuge_Protocol_Disconnect? = nil
+    var _refresh: Centrifugal_Centrifuge_Protocol_Refresh? = nil
+
+    static let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _type = source._type
+      _channel = source._channel
+      _data = source._data
+      _pub = source._pub
+      _join = source._join
+      _leave = source._leave
+      _unsubscribe = source._unsubscribe
+      _message = source._message
+      _subscribe = source._subscribe
+      _connect = source._connect
+      _disconnect = source._disconnect
+      _refresh = source._refresh
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
+
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularEnumField(value: &self.type) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.channel) }()
-      case 3: try { try decoder.decodeSingularBytesField(value: &self.data) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularEnumField(value: &_storage._type) }()
+        case 2: try { try decoder.decodeSingularStringField(value: &_storage._channel) }()
+        case 3: try { try decoder.decodeSingularBytesField(value: &_storage._data) }()
+        case 4: try { try decoder.decodeSingularMessageField(value: &_storage._pub) }()
+        case 5: try { try decoder.decodeSingularMessageField(value: &_storage._join) }()
+        case 6: try { try decoder.decodeSingularMessageField(value: &_storage._leave) }()
+        case 7: try { try decoder.decodeSingularMessageField(value: &_storage._unsubscribe) }()
+        case 8: try { try decoder.decodeSingularMessageField(value: &_storage._message) }()
+        case 9: try { try decoder.decodeSingularMessageField(value: &_storage._subscribe) }()
+        case 10: try { try decoder.decodeSingularMessageField(value: &_storage._connect) }()
+        case 11: try { try decoder.decodeSingularMessageField(value: &_storage._disconnect) }()
+        case 12: try { try decoder.decodeSingularMessageField(value: &_storage._refresh) }()
+        default: break
+        }
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.type != .publication {
-      try visitor.visitSingularEnumField(value: self.type, fieldNumber: 1)
-    }
-    if !self.channel.isEmpty {
-      try visitor.visitSingularStringField(value: self.channel, fieldNumber: 2)
-    }
-    if !self.data.isEmpty {
-      try visitor.visitSingularBytesField(value: self.data, fieldNumber: 3)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if _storage._type != .publication {
+        try visitor.visitSingularEnumField(value: _storage._type, fieldNumber: 1)
+      }
+      if !_storage._channel.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._channel, fieldNumber: 2)
+      }
+      if !_storage._data.isEmpty {
+        try visitor.visitSingularBytesField(value: _storage._data, fieldNumber: 3)
+      }
+      try { if let v = _storage._pub {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+      } }()
+      try { if let v = _storage._join {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+      } }()
+      try { if let v = _storage._leave {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+      } }()
+      try { if let v = _storage._unsubscribe {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+      } }()
+      try { if let v = _storage._message {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
+      } }()
+      try { if let v = _storage._subscribe {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 9)
+      } }()
+      try { if let v = _storage._connect {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+      } }()
+      try { if let v = _storage._disconnect {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+      } }()
+      try { if let v = _storage._refresh {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Centrifugal_Centrifuge_Protocol_Push, rhs: Centrifugal_Centrifuge_Protocol_Push) -> Bool {
-    if lhs.type != rhs.type {return false}
-    if lhs.channel != rhs.channel {return false}
-    if lhs.data != rhs.data {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._type != rhs_storage._type {return false}
+        if _storage._channel != rhs_storage._channel {return false}
+        if _storage._data != rhs_storage._data {return false}
+        if _storage._pub != rhs_storage._pub {return false}
+        if _storage._join != rhs_storage._join {return false}
+        if _storage._leave != rhs_storage._leave {return false}
+        if _storage._unsubscribe != rhs_storage._unsubscribe {return false}
+        if _storage._message != rhs_storage._message {return false}
+        if _storage._subscribe != rhs_storage._subscribe {return false}
+        if _storage._connect != rhs_storage._connect {return false}
+        if _storage._disconnect != rhs_storage._disconnect {return false}
+        if _storage._refresh != rhs_storage._refresh {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1044,6 +1880,7 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
     4: .same(proto: "data"),
     5: .same(proto: "info"),
     6: .same(proto: "offset"),
+    7: .same(proto: "tags"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1055,20 +1892,28 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
       case 4: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       case 5: try { try decoder.decodeSingularMessageField(value: &self._info) }()
       case 6: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
+      case 7: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.tags) }()
       default: break
       }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.data.isEmpty {
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 4)
     }
-    if let v = self._info {
+    try { if let v = self._info {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
-    }
+    } }()
     if self.offset != 0 {
       try visitor.visitSingularUInt64Field(value: self.offset, fieldNumber: 6)
+    }
+    if !self.tags.isEmpty {
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.tags, fieldNumber: 7)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -1077,6 +1922,7 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
     if lhs.data != rhs.data {return false}
     if lhs._info != rhs._info {return false}
     if lhs.offset != rhs.offset {return false}
+    if lhs.tags != rhs.tags {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1101,9 +1947,13 @@ extension Centrifugal_Centrifuge_Protocol_Join: SwiftProtobuf.Message, SwiftProt
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._info {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._info {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1133,9 +1983,13 @@ extension Centrifugal_Centrifuge_Protocol_Leave: SwiftProtobuf.Message, SwiftPro
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if let v = self._info {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._info {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
-    }
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1148,18 +2002,37 @@ extension Centrifugal_Centrifuge_Protocol_Leave: SwiftProtobuf.Message, SwiftPro
 
 extension Centrifugal_Centrifuge_Protocol_Unsubscribe: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Unsubscribe"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    2: .same(proto: "code"),
+    3: .same(proto: "reason"),
+  ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let _ = try decoder.nextFieldNumber() {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.code) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.reason) }()
+      default: break
+      }
     }
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.code != 0 {
+      try visitor.visitSingularUInt32Field(value: self.code, fieldNumber: 2)
+    }
+    if !self.reason.isEmpty {
+      try visitor.visitSingularStringField(value: self.reason, fieldNumber: 3)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Centrifugal_Centrifuge_Protocol_Unsubscribe, rhs: Centrifugal_Centrifuge_Protocol_Unsubscribe) -> Bool {
+    if lhs.code != rhs.code {return false}
+    if lhs.reason != rhs.reason {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1262,6 +2135,10 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     4: .same(proto: "subs"),
     5: .same(proto: "expires"),
     6: .same(proto: "ttl"),
+    7: .same(proto: "ping"),
+    8: .same(proto: "pong"),
+    9: .same(proto: "session"),
+    10: .same(proto: "node"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1276,6 +2153,10 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
       case 4: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: &self.subs) }()
       case 5: try { try decoder.decodeSingularBoolField(value: &self.expires) }()
       case 6: try { try decoder.decodeSingularUInt32Field(value: &self.ttl) }()
+      case 7: try { try decoder.decodeSingularUInt32Field(value: &self.ping) }()
+      case 8: try { try decoder.decodeSingularBoolField(value: &self.pong) }()
+      case 9: try { try decoder.decodeSingularStringField(value: &self.session) }()
+      case 10: try { try decoder.decodeSingularStringField(value: &self.node) }()
       default: break
       }
     }
@@ -1300,6 +2181,18 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     if self.ttl != 0 {
       try visitor.visitSingularUInt32Field(value: self.ttl, fieldNumber: 6)
     }
+    if self.ping != 0 {
+      try visitor.visitSingularUInt32Field(value: self.ping, fieldNumber: 7)
+    }
+    if self.pong != false {
+      try visitor.visitSingularBoolField(value: self.pong, fieldNumber: 8)
+    }
+    if !self.session.isEmpty {
+      try visitor.visitSingularStringField(value: self.session, fieldNumber: 9)
+    }
+    if !self.node.isEmpty {
+      try visitor.visitSingularStringField(value: self.node, fieldNumber: 10)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1310,6 +2203,10 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     if lhs.subs != rhs.subs {return false}
     if lhs.expires != rhs.expires {return false}
     if lhs.ttl != rhs.ttl {return false}
+    if lhs.ping != rhs.ping {return false}
+    if lhs.pong != rhs.pong {return false}
+    if lhs.session != rhs.session {return false}
+    if lhs.node != rhs.node {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1462,6 +2359,10 @@ extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, 
     4: .same(proto: "ttl"),
     5: .same(proto: "data"),
     6: .same(proto: "subs"),
+    7: .same(proto: "ping"),
+    8: .same(proto: "pong"),
+    9: .same(proto: "session"),
+    10: .same(proto: "node"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1476,6 +2377,10 @@ extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, 
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.ttl) }()
       case 5: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       case 6: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: &self.subs) }()
+      case 7: try { try decoder.decodeSingularUInt32Field(value: &self.ping) }()
+      case 8: try { try decoder.decodeSingularBoolField(value: &self.pong) }()
+      case 9: try { try decoder.decodeSingularStringField(value: &self.session) }()
+      case 10: try { try decoder.decodeSingularStringField(value: &self.node) }()
       default: break
       }
     }
@@ -1500,6 +2405,18 @@ extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, 
     if !self.subs.isEmpty {
       try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeResult>.self, value: self.subs, fieldNumber: 6)
     }
+    if self.ping != 0 {
+      try visitor.visitSingularUInt32Field(value: self.ping, fieldNumber: 7)
+    }
+    if self.pong != false {
+      try visitor.visitSingularBoolField(value: self.pong, fieldNumber: 8)
+    }
+    if !self.session.isEmpty {
+      try visitor.visitSingularStringField(value: self.session, fieldNumber: 9)
+    }
+    if !self.node.isEmpty {
+      try visitor.visitSingularStringField(value: self.node, fieldNumber: 10)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1510,6 +2427,10 @@ extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, 
     if lhs.ttl != rhs.ttl {return false}
     if lhs.data != rhs.data {return false}
     if lhs.subs != rhs.subs {return false}
+    if lhs.ping != rhs.ping {return false}
+    if lhs.pong != rhs.pong {return false}
+    if lhs.session != rhs.session {return false}
+    if lhs.node != rhs.node {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1605,6 +2526,10 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     3: .same(proto: "recover"),
     6: .same(proto: "epoch"),
     7: .same(proto: "offset"),
+    8: .same(proto: "data"),
+    9: .same(proto: "positioned"),
+    10: .same(proto: "recoverable"),
+    11: .standard(proto: "join_leave"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1618,6 +2543,10 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
       case 3: try { try decoder.decodeSingularBoolField(value: &self.recover) }()
       case 6: try { try decoder.decodeSingularStringField(value: &self.epoch) }()
       case 7: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
+      case 8: try { try decoder.decodeSingularBytesField(value: &self.data) }()
+      case 9: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
+      case 10: try { try decoder.decodeSingularBoolField(value: &self.recoverable) }()
+      case 11: try { try decoder.decodeSingularBoolField(value: &self.joinLeave) }()
       default: break
       }
     }
@@ -1639,6 +2568,18 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     if self.offset != 0 {
       try visitor.visitSingularUInt64Field(value: self.offset, fieldNumber: 7)
     }
+    if !self.data.isEmpty {
+      try visitor.visitSingularBytesField(value: self.data, fieldNumber: 8)
+    }
+    if self.positioned != false {
+      try visitor.visitSingularBoolField(value: self.positioned, fieldNumber: 9)
+    }
+    if self.recoverable != false {
+      try visitor.visitSingularBoolField(value: self.recoverable, fieldNumber: 10)
+    }
+    if self.joinLeave != false {
+      try visitor.visitSingularBoolField(value: self.joinLeave, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1648,6 +2589,10 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     if lhs.recover != rhs.recover {return false}
     if lhs.epoch != rhs.epoch {return false}
     if lhs.offset != rhs.offset {return false}
+    if lhs.data != rhs.data {return false}
+    if lhs.positioned != rhs.positioned {return false}
+    if lhs.recoverable != rhs.recoverable {return false}
+    if lhs.joinLeave != rhs.joinLeave {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1665,6 +2610,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     9: .same(proto: "offset"),
     10: .same(proto: "positioned"),
     11: .same(proto: "data"),
+    12: .standard(proto: "was_recovering"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1682,6 +2628,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
       case 9: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
       case 11: try { try decoder.decodeSingularBytesField(value: &self.data) }()
+      case 12: try { try decoder.decodeSingularBoolField(value: &self.wasRecovering) }()
       default: break
       }
     }
@@ -1715,6 +2662,9 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     if !self.data.isEmpty {
       try visitor.visitSingularBytesField(value: self.data, fieldNumber: 11)
     }
+    if self.wasRecovering != false {
+      try visitor.visitSingularBoolField(value: self.wasRecovering, fieldNumber: 12)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1728,6 +2678,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     if lhs.offset != rhs.offset {return false}
     if lhs.positioned != rhs.positioned {return false}
     if lhs.data != rhs.data {return false}
+    if lhs.wasRecovering != rhs.wasRecovering {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2114,15 +3065,19 @@ extension Centrifugal_Centrifuge_Protocol_HistoryRequest: SwiftProtobuf.Message,
   }
 
   func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.channel.isEmpty {
       try visitor.visitSingularStringField(value: self.channel, fieldNumber: 1)
     }
     if self.limit != 0 {
       try visitor.visitSingularInt32Field(value: self.limit, fieldNumber: 7)
     }
-    if let v = self._since {
+    try { if let v = self._since {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
-    }
+    } }()
     if self.reverse != false {
       try visitor.visitSingularBoolField(value: self.reverse, fieldNumber: 9)
     }
