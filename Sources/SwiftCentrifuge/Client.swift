@@ -926,8 +926,11 @@ fileprivate extension CentrifugeClient {
         self.pingTimer = DispatchSource.makeTimerSource()
         self.pingTimer?.setEventHandler { [weak self] in
             guard let strongSelf = self else { return }
-            guard strongSelf.state == .connected else { return }
-            strongSelf.processDisconnect(code: connectingCodeNoPing, reason: "no ping", reconnect: true)
+            strongSelf.syncQueue.async { [weak self] in
+                guard let strongSelf = self else { return }
+                guard strongSelf.state == .connected else { return }
+                strongSelf.processDisconnect(code: connectingCodeNoPing, reason: "no ping", reconnect: true)
+            }
         }
         self.pingTimer?.schedule(deadline: .now() + Double(self.pingInterval) + self.config.maxServerPingDelay)
         self.pingTimer?.resume()
@@ -980,13 +983,14 @@ fileprivate extension CentrifugeClient {
             return
         }
         
-        let previousStatus = self.state
+        let previousState = self.state
         
         if reconnect {
             self.state = .connecting
         } else {
             self.state = .disconnected
         }
+        let needEvent = previousState != self.state
         
         self.client = nil
         
@@ -1010,23 +1014,25 @@ fileprivate extension CentrifugeClient {
         }
         subscriptionsLock.unlock()
         
-        if previousStatus == .connected  {
+        if previousState == .connected  {
             for (channel, _) in self.serverSubs {
                 let event = CentrifugeServerSubscribingEvent(channel: channel)
                 self.delegate?.onSubscribing(self, event)
             }
         }
         
-        if (self.state == .disconnected) {
-            self.delegate?.onDisconnected(
-                self,
-                CentrifugeDisconnectedEvent(code: code, reason: reason)
-            )
-        } else {
-            self.delegate?.onConnecting(
-                self,
-                CentrifugeConnectingEvent(code: code, reason: reason)
-            )
+        if (needEvent) {
+            if (self.state == .disconnected) {
+                self.delegate?.onDisconnected(
+                    self,
+                    CentrifugeDisconnectedEvent(code: code, reason: reason)
+                )
+            } else {
+                self.delegate?.onConnecting(
+                    self,
+                    CentrifugeConnectingEvent(code: code, reason: reason)
+                )
+            }
         }
         
         self.conn?.disconnect()

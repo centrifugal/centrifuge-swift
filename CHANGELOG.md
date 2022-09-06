@@ -1,3 +1,9 @@
+0.5.1
+=====
+
+* Fix crashes caused by non-synchronized memory access upon getting `no ping` disconnect
+* Fix issuing duplicate state change events
+
 0.5.0
 =====
 
