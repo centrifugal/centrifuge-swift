@@ -572,13 +572,13 @@ fileprivate extension CentrifugeClient {
                         return
                     }
                 })
+            } else {
+                strongSelf.sendConnect(completion: { [weak self] res, error in
+                    guard let strongSelf = self else { return }
+                    guard strongSelf.state == .connecting else { return }
+                    strongSelf.handleConnectResult(res: res, error: error)
+                })
             }
-            
-            strongSelf.sendConnect(completion: { [weak self] res, error in
-                guard let strongSelf = self else { return }
-                guard strongSelf.state == .connecting else { return }
-                strongSelf.handleConnectResult(res: res, error: error)
-            })
         }
     }
     
