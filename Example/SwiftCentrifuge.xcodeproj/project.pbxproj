@@ -28,8 +28,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		2088A3F9D6BAFFD3C8BDC914 /* Pods_SwiftCentrifuge_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SwiftCentrifuge_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		2B299B03988D030DD3C1E365 /* Pods_SwiftCentrifuge_Tests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SwiftCentrifuge_Tests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A451D3F28D2EE33004F85A5 /* PrintLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrintLogger.swift; sourceTree = "<group>"; usesTabs = 0; };
 		607FACD01AFB9204008FA782 /* SwiftCentrifuge_Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftCentrifuge_Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		607FACD41AFB9204008FA782 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -62,22 +60,12 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0749E04CF9C31546C7DCE8D0 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				2088A3F9D6BAFFD3C8BDC914 /* Pods_SwiftCentrifuge_Example.framework */,
-				2B299B03988D030DD3C1E365 /* Pods_SwiftCentrifuge_Tests.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		607FACC71AFB9204008FA782 = {
 			isa = PBXGroup;
 			children = (
 				607FACD21AFB9204008FA782 /* Example for SwiftCentrifuge */,
 				607FACE81AFB9204008FA782 /* Tests */,
 				607FACD11AFB9204008FA782 /* Products */,
-				0749E04CF9C31546C7DCE8D0 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
