@@ -1,3 +1,8 @@
+0.5.3
+=====
+
+* Fix: unset refreshRequired flag after getting connection token [commit](https://github.com/centrifugal/centrifuge-swift/commit/c41cea5f5b2b29051937a630a5677f86dd92a377)
+
 0.5.2
 =====
 
