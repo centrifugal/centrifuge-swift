@@ -557,6 +557,7 @@ fileprivate extension CentrifugeClient {
                         strongSelf.syncQueue.async { [weak self] in
                             guard let strongSelf = self, strongSelf.state == .connecting else { return }
                             strongSelf.token = token
+                            strongSelf.refreshRequired = false
                             strongSelf.sendConnect(completion: { [weak self] res, error in
                                 guard let strongSelf = self else { return }
                                 strongSelf.handleConnectResult(res: res, error: error)
