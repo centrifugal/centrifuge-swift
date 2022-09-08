@@ -1,3 +1,8 @@
+0.5.2
+=====
+
+* Fix connect when initial connection token not set but provided `tokenGetter` [#71](https://github.com/centrifugal/centrifuge-swift/pull/71)
+
 0.5.1
 =====
 
