@@ -8,7 +8,6 @@
 
 import Foundation
 import SwiftProtobuf
-//import os.log
 
 public enum CentrifugeError: Error {
     case timeout
@@ -30,7 +29,7 @@ public protocol CentrifugeConnectionTokenGetter {
 }
 
 public struct CentrifugeClientConfig {
-    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String? = nil, data: Data? = nil, debug: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil) {
+    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String? = nil, data: Data? = nil, debug: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil, logger: CentrifugeLogger? = nil) {
         self.timeout = timeout
         self.headers = headers
         self.tlsSkipVerify = tlsSkipVerify
@@ -43,6 +42,7 @@ public struct CentrifugeClientConfig {
         self.data = data
         self.debug = debug
         self.tokenGetter = tokenGetter
+		self.logger = logger
     }
     
     public var timeout = 5.0
@@ -57,6 +57,7 @@ public struct CentrifugeClientConfig {
     public var data: Data? = nil
     public var debug: Bool = false
     public var tokenGetter: CentrifugeConnectionTokenGetter?
+	public var logger: CentrifugeLogger?
 }
 
 public enum CentrifugeClientState {
@@ -94,7 +95,8 @@ public class CentrifugeClient {
     fileprivate var pingInterval: UInt32 = 0
     fileprivate var sendPong: Bool = false
     fileprivate var reconnectTask: DispatchWorkItem?
-    
+    fileprivate var log: CentrifugeLogger
+
     static let barrierQueue = DispatchQueue(label: "com.centrifugal.centrifuge-swift.barrier<\(UUID().uuidString)>", attributes: .concurrent)
     
     public var state: CentrifugeClientState {
@@ -116,6 +118,7 @@ public class CentrifugeClient {
         self.url = endpoint
         self.config = config
         self.delegate = delegate
+        self.log = config.logger ?? EmptyLogger.instance
         
         if config.token != nil {
             self.token = config.token;
@@ -138,10 +141,12 @@ public class CentrifugeClient {
         }
         ws.onConnect = { [weak self] in
             guard let strongSelf = self else { return }
+            strongSelf.log.trace("WebSocket connected")
             strongSelf.onTransportOpen()
         }
         ws.onDisconnect = { [weak self] (error: Error?) in
             guard let strongSelf = self else { return }
+            strongSelf.log.trace("WebSocket disconnected")
             strongSelf.syncQueue.async { [weak self] in
                 guard let strongSelf = self else { return }
                 
@@ -206,7 +211,7 @@ public class CentrifugeClient {
             guard let strongSelf = self else { return }
             guard strongSelf.state != .connecting else { return }
             guard strongSelf.state != .connected else { return }
-            strongSelf.debugLog("start connecting")
+            strongSelf.log.debug("start connecting")
             strongSelf.state = .connecting
             strongSelf.delegate?.onConnecting(strongSelf, CentrifugeConnectingEvent(code: connectingCodeConnectCalled, reason: "connect called"))
             strongSelf.reconnectAttempts = 0
@@ -238,7 +243,8 @@ public class CentrifugeClient {
             centrifuge: self,
             channel: channel,
             config: config ?? CentrifugeSubscriptionConfig(),
-            delegate: delegate
+            delegate: delegate,
+            log: log
         )
         self.subscriptions.append(sub)
         return sub
@@ -458,12 +464,6 @@ internal extension CentrifugeClient {
         return min(maxDelay, minDelay + Double.random(in: 0 ... min(maxDelay, minDelay * pow(2, Double(currentStep)))));
     }
     
-    func debugLog(_ message: String) {
-        guard self.config.debug else { return }
-        //        os_log("CentrifugeClient: %{public}@", log: OSLog.default, type: .debug, message)
-        print(message)
-    }
-    
     func sendSubRefresh(token: String, channel: String, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubRefreshResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_SubRefreshRequest()
         req.token = token
@@ -660,7 +660,7 @@ fileprivate extension CentrifugeClient {
     func onData(data: Data) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            strongSelf.handleData(data: data as Data)
+            strongSelf.handleData(data: data)
         }
     }
     
@@ -757,11 +757,11 @@ fileprivate extension CentrifugeClient {
                 strongSelf.syncQueue.async { [weak self] in
                     guard let strongSelf = self else { return }
                     guard strongSelf.state == .connecting else { return }
-                    strongSelf.debugLog("start reconnecting")
+                    strongSelf.log.debug("start reconnecting")
                     strongSelf.conn?.connect()
                 }
             }
-            strongSelf.debugLog("schedule reconnect in \(delay) seconds")
+            strongSelf.log.debug("schedule reconnect in \(delay) seconds")
             strongSelf.syncQueue.asyncAfter(deadline: .now() + delay, execute: strongSelf.reconnectTask!)
         }
     }

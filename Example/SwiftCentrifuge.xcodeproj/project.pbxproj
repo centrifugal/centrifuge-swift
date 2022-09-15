@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3A451D4028D2EE33004F85A5 /* PrintLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A451D3F28D2EE33004F85A5 /* PrintLogger.swift */; };
 		607FACD61AFB9204008FA782 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607FACD51AFB9204008FA782 /* AppDelegate.swift */; };
 		607FACD81AFB9204008FA782 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607FACD71AFB9204008FA782 /* ViewController.swift */; };
 		607FACDB1AFB9204008FA782 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 607FACD91AFB9204008FA782 /* Main.storyboard */; };
@@ -31,6 +32,7 @@
 		2088A3F9D6BAFFD3C8BDC914 /* Pods_SwiftCentrifuge_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SwiftCentrifuge_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B299B03988D030DD3C1E365 /* Pods_SwiftCentrifuge_Tests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SwiftCentrifuge_Tests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2DA9DB6EEAF354323B2E91FC /* LICENSE */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = LICENSE; path = ../LICENSE; sourceTree = "<group>"; };
+		3A451D3F28D2EE33004F85A5 /* PrintLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrintLogger.swift; sourceTree = "<group>"; usesTabs = 0; };
 		422B2FC5698EFB6E1D48D6B2 /* Pods-SwiftCentrifuge_Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SwiftCentrifuge_Tests.debug.xcconfig"; path = "Pods/Target Support Files/Pods-SwiftCentrifuge_Tests/Pods-SwiftCentrifuge_Tests.debug.xcconfig"; sourceTree = "<group>"; };
 		44ADCCCA8DEE96C7A2B08A96 /* README.md */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
 		5D9C0209441C1A245C38AF53 /* Pods-SwiftCentrifuge_Example.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SwiftCentrifuge_Example.debug.xcconfig"; path = "Pods/Target Support Files/Pods-SwiftCentrifuge_Example/Pods-SwiftCentrifuge_Example.debug.xcconfig"; sourceTree = "<group>"; };
@@ -115,6 +117,7 @@
 			children = (
 				607FACD51AFB9204008FA782 /* AppDelegate.swift */,
 				607FACD71AFB9204008FA782 /* ViewController.swift */,
+				3A451D3F28D2EE33004F85A5 /* PrintLogger.swift */,
 				607FACD91AFB9204008FA782 /* Main.storyboard */,
 				607FACDC1AFB9204008FA782 /* Images.xcassets */,
 				607FACD31AFB9204008FA782 /* Supporting Files */,
@@ -335,6 +338,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				607FACD81AFB9204008FA782 /* ViewController.swift in Sources */,
+				3A451D4028D2EE33004F85A5 /* PrintLogger.swift in Sources */,
 				607FACD61AFB9204008FA782 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
