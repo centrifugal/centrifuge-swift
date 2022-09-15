@@ -62,12 +62,14 @@ public class CentrifugeSubscription {
     
     private var callbacks: [String: ((Error?) -> ())] = [:]
     private weak var centrifuge: CentrifugeClient?
+    private let log: CentrifugeLogger
     
-    init(centrifuge: CentrifugeClient, channel: String, config: CentrifugeSubscriptionConfig, delegate: CentrifugeSubscriptionDelegate) {
+    init(centrifuge: CentrifugeClient, channel: String, config: CentrifugeSubscriptionConfig, delegate: CentrifugeSubscriptionDelegate, log: CentrifugeLogger) {
         self.centrifuge = centrifuge
         self.channel = channel
         self.delegate = delegate
         self.config = config
+        self.log = log
         if let since = config.since {
             self.recover = true
             self.offset = since.offset
@@ -90,7 +92,7 @@ public class CentrifugeSubscription {
                 let strongSelf = self,
                 strongSelf.state == .unsubscribed
             else { return }
-            strongSelf.centrifuge?.debugLog("start subscribing \(strongSelf.channel)")
+            strongSelf.log.debug("start subscribing \(strongSelf.channel)")
             strongSelf.state = .subscribing
             if strongSelf.centrifuge?.state == .connected {
                 strongSelf.resubscribe()
@@ -243,7 +245,7 @@ public class CentrifugeSubscription {
                 // Only apply zero delay for cases when we got a first subscribe error.
                 delay = 0
             }
-            strongSelf.centrifuge?.debugLog("schedule resubscribe for \(strongSelf.channel) in \(delay) seconds")
+            strongSelf.log.debug("schedule resubscribe for \(strongSelf.channel) in \(delay) seconds")
             strongSelf.resubscribeAttempts += 1
             strongSelf.resubscribeTask?.cancel()
             strongSelf.resubscribeTask = DispatchWorkItem { [weak self] in
@@ -253,7 +255,7 @@ public class CentrifugeSubscription {
                     guard let strongSelf = self else { return }
                     guard strongSelf.state == .subscribing else { return }
                     if strongSelf.centrifuge?.state == .connected {
-                        strongSelf.centrifuge?.debugLog("resubscribing on \(strongSelf.channel)")
+                        strongSelf.log.debug("resubscribing on \(strongSelf.channel)")
                         strongSelf.resubscribe()
                     }
                 }
