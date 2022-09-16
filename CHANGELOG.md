@@ -1,3 +1,9 @@
+0.5.4
+=====
+
+* Add centrifuge logger interface [#73](https://github.com/centrifugal/centrifuge-swift/pull/73)
+* Example app: replace CocoaPods with SPM [#72](https://github.com/centrifugal/centrifuge-swift/pull/72)
+
 0.5.3
 =====
 
