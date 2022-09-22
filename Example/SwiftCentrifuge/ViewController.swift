@@ -26,7 +26,8 @@ class ViewController: UIViewController {
         
         let config = CentrifugeClientConfig(
             token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw",
-            tokenGetter: self
+            tokenGetter: self,
+			logger: PrintLogger()
         )
         let url = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
         self.client = CentrifugeClient(endpoint: url, config: config, delegate: self)

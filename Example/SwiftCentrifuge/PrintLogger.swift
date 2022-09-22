@@ -12,10 +12,12 @@ import SwiftCentrifuge
 final class PrintLogger: CentrifugeLogger {
     func log(level: CentrifugeLoggerLevel,
              message: @autoclosure () -> String,
-             file: String,
-             function: String,
+             file: StaticString,
+             function: StaticString,
              line: UInt) {
-        let file = (URL(string: file)?.lastPathComponent) ?? file
-        print("[\(level)] \(file):\(line) \(message())")
+
+        let file = "\(file)"
+        let fileName = (URL(string: file)?.lastPathComponent) ?? file
+        print("[\(level)] \(fileName):\(line) \(message())")
     }
 }
