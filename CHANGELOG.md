@@ -1,3 +1,8 @@
+0.5.5
+=====
+
+* Improve logger API: replace String with StaticString [#74](https://github.com/centrifugal/centrifuge-swift/pull/74)
+
 0.5.4
 =====
 
