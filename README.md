@@ -8,6 +8,8 @@ Check out [client SDK API specification](https://centrifugal.dev/docs/transports
 
 The features implemented by this SDK can be found in [SDK feature matrix](https://centrifugal.dev/docs/transports/client_sdk#sdk-feature-matrix).
 
+> **The latest `centrifuge-swift` is compatible only with the latest [Centrifugo](https://github.com/centrifugal/centrifugo) server (v4) and [Centrifuge](https://github.com/centrifugal/centrifuge) >= 0.25.0. For Centrifugo v2, Centrifugo v3 and Centrifuge < 0.25.0 you should use `centrifuge-swift` v0.4.6.**
+
 ## Installation
 
 There are several convenient ways.
