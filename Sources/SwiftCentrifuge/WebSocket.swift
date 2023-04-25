@@ -766,15 +766,20 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
             autoreleasepool {
                 let data = inputQueue[0]
                 var work = data
+                mutex.lock()
                 if let buffer = fragBuffer {
                     var combine = NSData(data: buffer) as Data
                     combine.append(data)
                     work = combine
                     fragBuffer = nil
                 }
+                mutex.unlock()
                 let buffer = UnsafeRawPointer((work as NSData).bytes).assumingMemoryBound(to: UInt8.self)
                 let length = work.count
-                if !connected {
+                mutex.lock()
+                let isConnected = connected
+                mutex.unlock()
+                if !isConnected {
                     processTCPHandshake(buffer, bufferLen: length)
                 } else {
                     processRawMessagesInBuffer(buffer, bufferLen: length)
