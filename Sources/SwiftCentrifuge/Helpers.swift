@@ -62,3 +62,9 @@ internal enum CentrifugeSerializer {
         return commands
     }
 }
+
+func assertIsOnQueue(_ queue: DispatchQueue) {
+#if DEBUG
+    dispatchPrecondition(condition: .onQueue(queue))
+#endif
+}
