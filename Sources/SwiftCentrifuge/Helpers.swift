@@ -65,6 +65,8 @@ internal enum CentrifugeSerializer {
 
 func assertIsOnQueue(_ queue: DispatchQueue) {
 #if DEBUG
-    dispatchPrecondition(condition: .onQueue(queue))
+    if #available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
+        dispatchPrecondition(condition: .onQueue(queue))
+    }
 #endif
 }
