@@ -19,6 +19,24 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 
     var onData: ((Data) -> Void)?
 
+    private lazy var session: URLSession = {
+        let operationQueue = OperationQueue()
+        operationQueue.underlyingQueue = queue
+
+        // For some reason, `URLSessionWebSocketTask` will only respect the proxy
+        // configuration if started with a URL and not a URLRequest. As a temporary
+        // workaround, port header information from the request to the session.
+        //
+        // We copied this workaround from Signal-iOS web socket implementation
+        let configuration = URLSessionConfiguration.default
+        configuration.httpAdditionalHeaders = request.allHTTPHeaderFields
+
+        let delegate = URLSessionDelegateBox(delegate: self)
+
+        return URLSession(
+            configuration: configuration, delegate: delegate, delegateQueue: operationQueue)
+    }()
+
     private let log: CentrifugeLogger
     private let request: URLRequest
     private let queue: DispatchQueue
@@ -27,12 +45,18 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     private var task: URLSessionWebSocketTask?
 
     init(request: URLRequest, queue: DispatchQueue, log: CentrifugeLogger) {
-        // TODO: add "centrifuge-protobuf"
         // TODO: add disableSSLCertValidation
         // TODO: use url request hack from Signal app
+
+        var request = request
+        request.setValue("Sec-WebSocket-Protocol", forHTTPHeaderField: "centrifuge-protobuf")
         self.request = request
         self.log = log
         self.queue = queue
+    }
+
+    deinit {
+        session.invalidateAndCancel()
     }
 
     func connect() {
@@ -44,11 +68,6 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 
         log.debug("Connecting...")
 
-        let operationQueue = OperationQueue()
-        operationQueue.underlyingQueue = queue
-        let session = URLSession(
-            configuration: URLSessionConfiguration.default, delegate: self,
-            delegateQueue: operationQueue)
         task = session.webSocketTask(with: request)
         doRead()
         task?.resume()
@@ -140,5 +159,34 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         self.task?.cancel()
         self.task = nil
         self.onDisconnect?(disconnect, error)
+    }
+}
+
+
+/// URLSession holds it's delegate by strong reference.
+/// We need a wrapper to break a reference cycle between `NativeWebSocket` and `URLSession`
+///
+@available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+private final class URLSessionDelegateBox: NSObject, URLSessionWebSocketDelegate {
+    private weak var delegate: URLSessionWebSocketDelegate?
+
+    init(delegate: URLSessionWebSocketDelegate?) {
+        self.delegate = delegate
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                    didOpenWithProtocol protocol: String?) {
+        delegate?.urlSession?(
+            session, webSocketTask: webSocketTask, didOpenWithProtocol: `protocol`)
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        delegate?.urlSession?(
+            session, webSocketTask: webSocketTask, didCloseWith: closeCode, reason: reason)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        delegate?.urlSession?(session, task: task, didCompleteWithError: error)
     }
 }
