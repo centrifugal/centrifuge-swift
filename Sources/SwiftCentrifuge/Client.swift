@@ -42,6 +42,7 @@ public struct CentrifugeClientConfig {
         self.token = token
         self.data = data
         self.debug = debug
+        self.useNativeWebSockets = useNativeWebSockets
         self.tokenGetter = tokenGetter
         self.logger = logger
     }
@@ -86,7 +87,7 @@ public class CentrifugeClient {
     fileprivate var commandIdLock: NSLock = NSLock()
     fileprivate var opCallbacks: [UInt32: ((CentrifugeResolveData) -> ())] = [:]
     fileprivate var connectCallbacks: [String: ((Error?) -> ())] = [:]
-    fileprivate var subscriptionsLock = NSLock()
+    fileprivate let subscriptionsLock = NSLock()
     fileprivate var subscriptions = [CentrifugeSubscription]()
     fileprivate var serverSubs = [String: ServerSubscription]()
     fileprivate var reconnectAttempts = 0
@@ -166,10 +167,6 @@ public class CentrifugeClient {
             if strongSelf.state != .disconnected {
                 strongSelf.processDisconnect(code: disconnect.code, reason: disconnect.reason, reconnect: disconnect.reconnect)
             }
-
-            if strongSelf.state == .connecting {
-                strongSelf.scheduleReconnect()
-            }
         }
         ws.onData = { [weak self] data in
             self?.onData(data: data)
@@ -181,7 +178,7 @@ public class CentrifugeClient {
      Connect to server.
      */
     public func connect() {
-        self.syncQueue.async{ [weak self] in
+        self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.state != .connecting else { return }
             guard strongSelf.state != .connected else { return }
@@ -223,7 +220,7 @@ public class CentrifugeClient {
     public func newSubscription(channel: String, delegate: CentrifugeSubscriptionDelegate, config: CentrifugeSubscriptionConfig? = nil) throws -> CentrifugeSubscription {
         defer { subscriptionsLock.unlock() }
         subscriptionsLock.lock()
-        guard self.subscriptions.filter({ $0.channel == channel }).count == 0 else { throw CentrifugeError.duplicateSub }
+        guard !self.subscriptions.contains(where: { $0.channel == channel }) else { throw CentrifugeError.duplicateSub }
         let sub = CentrifugeSubscription(
             centrifuge: self,
             channel: channel,
@@ -728,29 +725,25 @@ fileprivate extension CentrifugeClient {
     }
     
     private func scheduleReconnect() {
-        self.syncQueue.async { [weak self] in
+        assertIsOnQueue(syncQueue)
+
+        guard self.state == .connecting else { return }
+
+        let delay = self.getBackoffDelay(
+            step: self.reconnectAttempts,
+            minDelay: self.config.minReconnectDelay,
+            maxDelay: self.config.maxReconnectDelay
+        )
+        self.reconnectAttempts += 1
+        self.reconnectTask?.cancel()
+        self.reconnectTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.state == .connecting else { return }
-            let delay = strongSelf.getBackoffDelay(
-                step: strongSelf.reconnectAttempts,
-                minDelay: strongSelf.config.minReconnectDelay,
-                maxDelay: strongSelf.config.maxReconnectDelay
-            )
-            strongSelf.reconnectAttempts += 1
-            strongSelf.reconnectTask?.cancel()
-            strongSelf.reconnectTask = DispatchWorkItem { [weak self] in
-                guard let strongSelf = self else { return }
-                guard strongSelf.state == .connecting else { return }
-                strongSelf.syncQueue.async { [weak self] in
-                    guard let strongSelf = self else { return }
-                    guard strongSelf.state == .connecting else { return }
-                    strongSelf.log.debug("start reconnecting")
-                    strongSelf.conn?.connect()
-                }
-            }
-            strongSelf.log.debug("schedule reconnect in \(delay) seconds")
-            strongSelf.syncQueue.asyncAfter(deadline: .now() + delay, execute: strongSelf.reconnectTask!)
+            strongSelf.log.debug("start reconnecting")
+            strongSelf.conn?.connect()
         }
+        self.log.debug("schedule reconnect in \(delay) seconds")
+        self.syncQueue.asyncAfter(deadline: .now() + delay, execute: self.reconnectTask!)
     }
     
     private func handlePub(channel: String, pub: Centrifugal_Centrifuge_Protocol_Publication) {
@@ -992,12 +985,12 @@ fileprivate extension CentrifugeClient {
         for resolveFunc in self.opCallbacks.values {
             resolveFunc(CentrifugeResolveData(error: CentrifugeError.clientDisconnected, reply: nil))
         }
-        self.opCallbacks.removeAll(keepingCapacity: false)
+        self.opCallbacks.removeAll()
         
         for resolveFunc in self.connectCallbacks.values {
             resolveFunc(CentrifugeError.clientDisconnected)
         }
-        self.connectCallbacks.removeAll(keepingCapacity: false)
+        self.connectCallbacks.removeAll()
         
         self.stopReconnect()
         self.stopWaitPing()
@@ -1016,8 +1009,8 @@ fileprivate extension CentrifugeClient {
             }
         }
         
-        if (needEvent) {
-            if (self.state == .disconnected) {
+        if needEvent {
+            if self.state == .disconnected {
                 self.delegate?.onDisconnected(
                     self,
                     CentrifugeDisconnectedEvent(code: code, reason: reason)
@@ -1028,6 +1021,10 @@ fileprivate extension CentrifugeClient {
                     CentrifugeConnectingEvent(code: code, reason: reason)
                 )
             }
+        }
+
+        if self.state == .connecting {
+            self.scheduleReconnect()
         }
         
         self.conn?.disconnect()

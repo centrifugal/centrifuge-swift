@@ -45,9 +45,6 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     private var task: URLSessionWebSocketTask?
 
     init(request: URLRequest, queue: DispatchQueue, log: CentrifugeLogger) {
-        // TODO: add disableSSLCertValidation
-        // TODO: use url request hack from Signal app
-
         var request = request
         request.setValue("Sec-WebSocket-Protocol", forHTTPHeaderField: "centrifuge-protobuf")
         self.request = request
@@ -104,7 +101,6 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
                         case .string:
                             self.log.warning("Received unexpected string packet")
                         case .data(let data):
-                            self.log.trace("Received data packet")
                             self.onData?(data)
 
                         @unknown default:
