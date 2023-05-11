@@ -19,23 +19,7 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 
     var onData: ((Data) -> Void)?
 
-    private lazy var session: URLSession = {
-        let operationQueue = OperationQueue()
-        operationQueue.underlyingQueue = queue
-
-        // For some reason, `URLSessionWebSocketTask` will only respect the proxy
-        // configuration if started with a URL and not a URLRequest. As a temporary
-        // workaround, port header information from the request to the session.
-        //
-        // We copied this workaround from Signal-iOS web socket implementation
-        let configuration = URLSessionConfiguration.default
-        configuration.httpAdditionalHeaders = request.allHTTPHeaderFields
-
-        let delegate = URLSessionDelegateBox(delegate: self)
-
-        return URLSession(
-            configuration: configuration, delegate: delegate, delegateQueue: operationQueue)
-    }()
+    private var session: URLSession?
 
     private let log: CentrifugeLogger
     private let request: URLRequest
@@ -53,28 +37,32 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     }
 
     deinit {
-        session.invalidateAndCancel()
+        session?.invalidateAndCancel()
     }
 
     func connect() {
         assertIsOnQueue(queue)
-        guard task == nil else {
-            log.warning("The websocket is already connected, ignoring connect request")
+        if let task = task {
+            assertionFailure("Unexpected `connect()` invocation, `task` should be nil, it's state: \(task.state.asString)")
+            log.error("The websocket is already connected, ignoring connect request, socket state: \(task.state.asString)")
             return
         }
 
         log.debug("Connecting...")
 
-        task = session.webSocketTask(with: request)
+        task = getOrCreateSession().webSocketTask(with: request)
         doRead()
         task?.resume()
     }
 
     func disconnect() {
         assertIsOnQueue(queue)
+
+        guard task != nil else { return }
+
         log.debug("Disconnecting...")
+        // This will trigger "did close" delegate method invocation
         task?.cancel(with: .goingAway, reason: nil)
-        task = nil
     }
 
     func write(data: Data) {
@@ -113,6 +101,31 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 
             self.doRead()
         }
+    }
+
+    private func getOrCreateSession() -> URLSession {
+        if let session = session {
+            return session
+        }
+
+        let operationQueue = OperationQueue()
+        operationQueue.underlyingQueue = queue
+
+        // For some reason, `URLSessionWebSocketTask` will only respect the proxy
+        // configuration if started with a URL and not a URLRequest. As a temporary
+        // workaround, port header information from the request to the session.
+        //
+        // We copied this workaround from Signal-iOS web socket implementation
+        let configuration = URLSessionConfiguration.default
+        configuration.httpAdditionalHeaders = request.allHTTPHeaderFields
+
+        let delegate = URLSessionDelegateBox(delegate: self)
+
+        let session = URLSession(
+            configuration: configuration, delegate: delegate, delegateQueue: operationQueue)
+        self.session = session
+
+        return session
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
@@ -184,5 +197,20 @@ private final class URLSessionDelegateBox: NSObject, URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         delegate?.urlSession?(session, task: task, didCompleteWithError: error)
+    }
+}
+
+private extension URLSessionTask.State {
+    var asString: String {
+        switch self {
+            case .running:
+                return "running"
+            case .suspended:
+                return "suspended"
+            case .canceling:
+                return "cancelling"
+            case .completed:
+                return "completed"
+        }
     }
 }

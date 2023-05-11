@@ -169,6 +169,10 @@ public class CentrifugeClient {
             if strongSelf.state != .disconnected {
                 strongSelf.processDisconnect(code: disconnect.code, reason: disconnect.reason, reconnect: disconnect.reconnect)
             }
+
+            if strongSelf.state == .connecting {
+                strongSelf.scheduleReconnect()
+            }
         }
         ws.onData = { [weak self] data in
             self?.onData(data: data)
@@ -1025,10 +1029,6 @@ fileprivate extension CentrifugeClient {
             }
         }
 
-        if self.state == .connecting {
-            self.scheduleReconnect()
-        }
-        
         self.conn?.disconnect()
     }
     
