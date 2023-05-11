@@ -139,8 +139,10 @@ public class CentrifugeClient {
 
         let ws: WebSocketInterface
         if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *), config.useNativeWebSocket {
+            log.info("Using NativeWebSocket")
             ws = NativeWebSocket(request: request, queue: syncQueue, log: log)
         } else {
+            log.info("Using StarscreamWebSocket")
             ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
         }
         ws.onConnect = { [weak self] in
