@@ -30,7 +30,7 @@ public protocol CentrifugeConnectionTokenGetter {
 }
 
 public struct CentrifugeClientConfig {
-    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String = "", data: Data? = nil, debug: Bool = false, useNativeWebSockets: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil, logger: CentrifugeLogger? = nil) {
+    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String = "", data: Data? = nil, debug: Bool = false, useNativeWebSocket: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil, logger: CentrifugeLogger? = nil) {
         self.timeout = timeout
         self.headers = headers
         self.tlsSkipVerify = tlsSkipVerify
@@ -42,7 +42,7 @@ public struct CentrifugeClientConfig {
         self.token = token
         self.data = data
         self.debug = debug
-        self.useNativeWebSockets = useNativeWebSockets
+        self.useNativeWebSocket = useNativeWebSocket
         self.tokenGetter = tokenGetter
         self.logger = logger
     }
@@ -60,7 +60,7 @@ public struct CentrifugeClientConfig {
     public var data: Data? = nil
     public var debug: Bool = false
 	public var logger: CentrifugeLogger?
-	public var useNativeWebSockets: Bool = false
+	public var useNativeWebSocket: Bool = false
 }
 
 public enum CentrifugeClientState {
@@ -138,7 +138,7 @@ public class CentrifugeClient {
         }
 
         let ws: WebSocketInterface
-        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *), config.useNativeWebSockets {
+        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *), config.useNativeWebSocket {
             ws = NativeWebSocket(request: request, queue: syncQueue, log: log)
         } else {
             ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
