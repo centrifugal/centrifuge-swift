@@ -444,31 +444,36 @@ public class CentrifugeSubscription {
     }
     
     func processUnsubscribe(sendUnsubscribe: Bool, code: UInt32, reason: String) {
-        self.centrifuge?.syncQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
-            if strongSelf.state == .unsubscribed {
+        // `self` subscription should not be weakified before sending to `async`
+        // (i.e. keeping the strong reference should be safe)
+        //
+        // If we "weakify" `self` then important operations could be skipped:
+        // - no callbacks or delegates will be invoked
+        // - the client will not send "unsubscribe" command to the server
+        self.centrifuge?.syncQueue.async {
+            if self.state == .unsubscribed {
                 return
             }
-            
-            strongSelf.refreshTask?.cancel()
-            strongSelf.resubscribeTask?.cancel()
-            
-            strongSelf.state = .unsubscribed
-            strongSelf.resubscribeAttempts = 0
-            
-            for cb in strongSelf.callbacks.values {
+
+            self.refreshTask?.cancel()
+            self.resubscribeTask?.cancel()
+
+            self.state = .unsubscribed
+            self.resubscribeAttempts = 0
+
+            for cb in self.callbacks.values {
                 cb(CentrifugeError.subscriptionUnsubscribed)
             }
-            
-            strongSelf.callbacks.removeAll(keepingCapacity: true)
-            
-            strongSelf.delegate?.onUnsubscribed(
-                strongSelf,
+
+            self.callbacks.removeAll(keepingCapacity: true)
+
+            self.delegate?.onUnsubscribed(
+                self,
                 CentrifugeUnsubscribedEvent(code: code, reason: reason)
             )
-            
+
             if sendUnsubscribe {
-                strongSelf.centrifuge?.unsubscribe(sub: strongSelf)
+                self.centrifuge?.unsubscribe(sub: self)
             }
         }
     }
