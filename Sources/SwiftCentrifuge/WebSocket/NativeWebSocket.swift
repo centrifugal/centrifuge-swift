@@ -43,9 +43,7 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     func connect() {
         assertIsOnQueue(queue)
         if let task = task {
-            assertionFailure("Unexpected `connect()` invocation, `task` should be nil, it's state: \(task.state.asString)")
-            log.error("The websocket is already connected, ignoring connect request, socket state: \(task.state.asString)")
-            return
+            log.warning("Creating a new connection while the previous is active, socket state: \(task.state.asString)")
         }
 
         log.debug("Connecting...")
