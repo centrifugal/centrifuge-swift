@@ -222,16 +222,24 @@ public class CentrifugeClient {
     /**
      Disconnect from server.
      */
-    public func disconnect(resetConnectionToken: Bool = false) {
+    public func disconnect() {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            if resetConnectionToken {
-                strongSelf.token = "";
-            }
             strongSelf.processDisconnect(code: disconnectedCodeDisconnectCalled, reason: "disconnect called", reconnect: false)
         }
     }
     
+    /**
+     setToken allows updating connection token.
+     - parameter token: String
+     */
+    public func setToken(token: String) {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.token = token;
+        }
+    }
+
     /**
      Create subscription object to specific channel with delegate
      - parameter channel: String
