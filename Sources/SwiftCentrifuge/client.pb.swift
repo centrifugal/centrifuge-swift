@@ -53,7 +53,6 @@ struct Centrifugal_Centrifuge_Protocol_EmulationRequest {
 }
 
 /// Command sent from a client to a server.
-/// ProtocolVersion1 uses id, method and params fields.
 /// ProtocolVersion2 uses id and one of the possible request messages.
 struct Centrifugal_Centrifuge_Protocol_Command {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -64,18 +63,6 @@ struct Centrifugal_Centrifuge_Protocol_Command {
   var id: UInt32 {
     get {return _storage._id}
     set {_uniqueStorage()._id = newValue}
-  }
-
-  /// Method is used in ProtocolVersion1 only.
-  var method: Centrifugal_Centrifuge_Protocol_Command.MethodType {
-    get {return _storage._method}
-    set {_uniqueStorage()._method = newValue}
-  }
-
-  /// Params is used in ProtocolVersion1 only.
-  var params: Data {
-    get {return _storage._params}
-    set {_uniqueStorage()._params = newValue}
   }
 
   /// ProtocolVersion2 client can send one of the following requests. Server will
@@ -192,93 +179,12 @@ struct Centrifugal_Centrifuge_Protocol_Command {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  enum MethodType: SwiftProtobuf.Enum {
-    typealias RawValue = Int
-    case connect // = 0
-    case subscribe // = 1
-    case unsubscribe // = 2
-    case publish // = 3
-    case presence // = 4
-    case presenceStats // = 5
-    case history // = 6
-    case ping // = 7
-    case send // = 8
-    case rpc // = 9
-    case refresh // = 10
-    case subRefresh // = 11
-    case UNRECOGNIZED(Int)
-
-    init() {
-      self = .connect
-    }
-
-    init?(rawValue: Int) {
-      switch rawValue {
-      case 0: self = .connect
-      case 1: self = .subscribe
-      case 2: self = .unsubscribe
-      case 3: self = .publish
-      case 4: self = .presence
-      case 5: self = .presenceStats
-      case 6: self = .history
-      case 7: self = .ping
-      case 8: self = .send
-      case 9: self = .rpc
-      case 10: self = .refresh
-      case 11: self = .subRefresh
-      default: self = .UNRECOGNIZED(rawValue)
-      }
-    }
-
-    var rawValue: Int {
-      switch self {
-      case .connect: return 0
-      case .subscribe: return 1
-      case .unsubscribe: return 2
-      case .publish: return 3
-      case .presence: return 4
-      case .presenceStats: return 5
-      case .history: return 6
-      case .ping: return 7
-      case .send: return 8
-      case .rpc: return 9
-      case .refresh: return 10
-      case .subRefresh: return 11
-      case .UNRECOGNIZED(let i): return i
-      }
-    }
-
-  }
-
   init() {}
 
   fileprivate var _storage = _StorageClass.defaultInstance
 }
 
-#if swift(>=4.2)
-
-extension Centrifugal_Centrifuge_Protocol_Command.MethodType: CaseIterable {
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Centrifugal_Centrifuge_Protocol_Command.MethodType] = [
-    .connect,
-    .subscribe,
-    .unsubscribe,
-    .publish,
-    .presence,
-    .presenceStats,
-    .history,
-    .ping,
-    .send,
-    .rpc,
-    .refresh,
-    .subRefresh,
-  ]
-}
-
-#endif  // swift(>=4.2)
-
 /// Reply sent from a server to a client.
-/// ProtocolVersion1 uses id, error and result fields.
 /// ProtocolVersion2 uses id and one of the possible concrete result messages.
 struct Centrifugal_Centrifuge_Protocol_Reply {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -301,12 +207,6 @@ struct Centrifugal_Centrifuge_Protocol_Reply {
   var hasError: Bool {return _storage._error != nil}
   /// Clears the value of `error`. Subsequent reads from it will return its default value.
   mutating func clearError() {_uniqueStorage()._error = nil}
-
-  /// Result is used in ProtocolVersion1 only.
-  var result: Data {
-    get {return _storage._result}
-    set {_uniqueStorage()._result = newValue}
-  }
 
   /// ProtocolVersion2 server can send one of the following fields. We are not using
   /// oneof here due to JSON interoperability concerns.
@@ -427,28 +327,15 @@ struct Centrifugal_Centrifuge_Protocol_Reply {
 
 /// Push can be sent to a client as part of Reply in case of bidirectional transport or
 /// without additional wrapping in case of unidirectional transports.
-/// ProtocolVersion1 uses type, channel and data fields.
 /// ProtocolVersion2 uses channel and one of the possible concrete push messages.
 struct Centrifugal_Centrifuge_Protocol_Push {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// Type is used in ProtocolVersion1 only.
-  var type: Centrifugal_Centrifuge_Protocol_Push.PushType {
-    get {return _storage._type}
-    set {_uniqueStorage()._type = newValue}
-  }
-
   var channel: String {
     get {return _storage._channel}
     set {_uniqueStorage()._channel = newValue}
-  }
-
-  /// Data is used in ProtocolVersion1 only.
-  var data: Data {
-    get {return _storage._data}
-    set {_uniqueStorage()._data = newValue}
   }
 
   /// ProtocolVersion2 server can push one of the following fields to the client. We are
@@ -536,78 +423,10 @@ struct Centrifugal_Centrifuge_Protocol_Push {
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  enum PushType: SwiftProtobuf.Enum {
-    typealias RawValue = Int
-    case publication // = 0
-    case join // = 1
-    case leave // = 2
-    case unsubscribe // = 3
-    case message // = 4
-    case subscribe // = 5
-    case connect // = 6
-    case disconnect // = 7
-    case refresh // = 8
-    case UNRECOGNIZED(Int)
-
-    init() {
-      self = .publication
-    }
-
-    init?(rawValue: Int) {
-      switch rawValue {
-      case 0: self = .publication
-      case 1: self = .join
-      case 2: self = .leave
-      case 3: self = .unsubscribe
-      case 4: self = .message
-      case 5: self = .subscribe
-      case 6: self = .connect
-      case 7: self = .disconnect
-      case 8: self = .refresh
-      default: self = .UNRECOGNIZED(rawValue)
-      }
-    }
-
-    var rawValue: Int {
-      switch self {
-      case .publication: return 0
-      case .join: return 1
-      case .leave: return 2
-      case .unsubscribe: return 3
-      case .message: return 4
-      case .subscribe: return 5
-      case .connect: return 6
-      case .disconnect: return 7
-      case .refresh: return 8
-      case .UNRECOGNIZED(let i): return i
-      }
-    }
-
-  }
-
   init() {}
 
   fileprivate var _storage = _StorageClass.defaultInstance
 }
-
-#if swift(>=4.2)
-
-extension Centrifugal_Centrifuge_Protocol_Push.PushType: CaseIterable {
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static var allCases: [Centrifugal_Centrifuge_Protocol_Push.PushType] = [
-    .publication,
-    .join,
-    .leave,
-    .unsubscribe,
-    .message,
-    .subscribe,
-    .connect,
-    .disconnect,
-    .refresh,
-  ]
-}
-
-#endif  // swift(>=4.2)
 
 struct Centrifugal_Centrifuge_Protocol_ClientInfo {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -632,7 +451,6 @@ struct Centrifugal_Centrifuge_Protocol_Publication {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// 1-3 skipped here for backwards compatibility.
   var data: Data = Data()
 
   var info: Centrifugal_Centrifuge_Protocol_ClientInfo {
@@ -702,7 +520,6 @@ struct Centrifugal_Centrifuge_Protocol_Unsubscribe {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// Field 1 removed (bool resubscribe).
   var code: UInt32 = 0
 
   var reason: String = String()
@@ -719,7 +536,6 @@ struct Centrifugal_Centrifuge_Protocol_Subscribe {
 
   var recoverable: Bool = false
 
-  /// 2-3 skipped here for backwards compatibility.
   var epoch: String = String()
 
   var offset: UInt64 = 0
@@ -896,7 +712,6 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeRequest {
 
   var recover: Bool = false
 
-  /// 4-5 skipped here for backwards compatibility.
   var epoch: String = String()
 
   var offset: UInt64 = 0
@@ -925,7 +740,6 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeResult {
 
   var recoverable: Bool = false
 
-  /// 4-5 skipped here for backwards compatibility.
   var epoch: String = String()
 
   var publications: [Centrifugal_Centrifuge_Protocol_Publication] = []
@@ -1090,7 +904,6 @@ struct Centrifugal_Centrifuge_Protocol_HistoryRequest {
 
   var channel: String = String()
 
-  /// 2-6 skipped here for backwards compatibility.
   var limit: Int32 = 0
 
   var since: Centrifugal_Centrifuge_Protocol_StreamPosition {
@@ -1281,8 +1094,6 @@ extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftP
   static let protoMessageName: String = _protobuf_package + ".Command"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "id"),
-    2: .same(proto: "method"),
-    3: .same(proto: "params"),
     4: .same(proto: "connect"),
     5: .same(proto: "subscribe"),
     6: .same(proto: "unsubscribe"),
@@ -1299,8 +1110,6 @@ extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftP
 
   fileprivate class _StorageClass {
     var _id: UInt32 = 0
-    var _method: Centrifugal_Centrifuge_Protocol_Command.MethodType = .connect
-    var _params: Data = Data()
     var _connect: Centrifugal_Centrifuge_Protocol_ConnectRequest? = nil
     var _subscribe: Centrifugal_Centrifuge_Protocol_SubscribeRequest? = nil
     var _unsubscribe: Centrifugal_Centrifuge_Protocol_UnsubscribeRequest? = nil
@@ -1320,8 +1129,6 @@ extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftP
 
     init(copying source: _StorageClass) {
       _id = source._id
-      _method = source._method
-      _params = source._params
       _connect = source._connect
       _subscribe = source._subscribe
       _unsubscribe = source._unsubscribe
@@ -1353,8 +1160,6 @@ extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftP
         // enabled. https://github.com/apple/swift-protobuf/issues/1034
         switch fieldNumber {
         case 1: try { try decoder.decodeSingularUInt32Field(value: &_storage._id) }()
-        case 2: try { try decoder.decodeSingularEnumField(value: &_storage._method) }()
-        case 3: try { try decoder.decodeSingularBytesField(value: &_storage._params) }()
         case 4: try { try decoder.decodeSingularMessageField(value: &_storage._connect) }()
         case 5: try { try decoder.decodeSingularMessageField(value: &_storage._subscribe) }()
         case 6: try { try decoder.decodeSingularMessageField(value: &_storage._unsubscribe) }()
@@ -1381,12 +1186,6 @@ extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftP
       // https://github.com/apple/swift-protobuf/issues/1182
       if _storage._id != 0 {
         try visitor.visitSingularUInt32Field(value: _storage._id, fieldNumber: 1)
-      }
-      if _storage._method != .connect {
-        try visitor.visitSingularEnumField(value: _storage._method, fieldNumber: 2)
-      }
-      if !_storage._params.isEmpty {
-        try visitor.visitSingularBytesField(value: _storage._params, fieldNumber: 3)
       }
       try { if let v = _storage._connect {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
@@ -1434,8 +1233,6 @@ extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftP
         let _storage = _args.0
         let rhs_storage = _args.1
         if _storage._id != rhs_storage._id {return false}
-        if _storage._method != rhs_storage._method {return false}
-        if _storage._params != rhs_storage._params {return false}
         if _storage._connect != rhs_storage._connect {return false}
         if _storage._subscribe != rhs_storage._subscribe {return false}
         if _storage._unsubscribe != rhs_storage._unsubscribe {return false}
@@ -1457,29 +1254,11 @@ extension Centrifugal_Centrifuge_Protocol_Command: SwiftProtobuf.Message, SwiftP
   }
 }
 
-extension Centrifugal_Centrifuge_Protocol_Command.MethodType: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "CONNECT"),
-    1: .same(proto: "SUBSCRIBE"),
-    2: .same(proto: "UNSUBSCRIBE"),
-    3: .same(proto: "PUBLISH"),
-    4: .same(proto: "PRESENCE"),
-    5: .same(proto: "PRESENCE_STATS"),
-    6: .same(proto: "HISTORY"),
-    7: .same(proto: "PING"),
-    8: .same(proto: "SEND"),
-    9: .same(proto: "RPC"),
-    10: .same(proto: "REFRESH"),
-    11: .same(proto: "SUB_REFRESH"),
-  ]
-}
-
 extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Reply"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "id"),
     2: .same(proto: "error"),
-    3: .same(proto: "result"),
     4: .same(proto: "push"),
     5: .same(proto: "connect"),
     6: .same(proto: "subscribe"),
@@ -1497,7 +1276,6 @@ extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftPro
   fileprivate class _StorageClass {
     var _id: UInt32 = 0
     var _error: Centrifugal_Centrifuge_Protocol_Error? = nil
-    var _result: Data = Data()
     var _push: Centrifugal_Centrifuge_Protocol_Push? = nil
     var _connect: Centrifugal_Centrifuge_Protocol_ConnectResult? = nil
     var _subscribe: Centrifugal_Centrifuge_Protocol_SubscribeResult? = nil
@@ -1518,7 +1296,6 @@ extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftPro
     init(copying source: _StorageClass) {
       _id = source._id
       _error = source._error
-      _result = source._result
       _push = source._push
       _connect = source._connect
       _subscribe = source._subscribe
@@ -1551,7 +1328,6 @@ extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftPro
         switch fieldNumber {
         case 1: try { try decoder.decodeSingularUInt32Field(value: &_storage._id) }()
         case 2: try { try decoder.decodeSingularMessageField(value: &_storage._error) }()
-        case 3: try { try decoder.decodeSingularBytesField(value: &_storage._result) }()
         case 4: try { try decoder.decodeSingularMessageField(value: &_storage._push) }()
         case 5: try { try decoder.decodeSingularMessageField(value: &_storage._connect) }()
         case 6: try { try decoder.decodeSingularMessageField(value: &_storage._subscribe) }()
@@ -1582,9 +1358,6 @@ extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftPro
       try { if let v = _storage._error {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
       } }()
-      if !_storage._result.isEmpty {
-        try visitor.visitSingularBytesField(value: _storage._result, fieldNumber: 3)
-      }
       try { if let v = _storage._push {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
       } }()
@@ -1632,7 +1405,6 @@ extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftPro
         let rhs_storage = _args.1
         if _storage._id != rhs_storage._id {return false}
         if _storage._error != rhs_storage._error {return false}
-        if _storage._result != rhs_storage._result {return false}
         if _storage._push != rhs_storage._push {return false}
         if _storage._connect != rhs_storage._connect {return false}
         if _storage._subscribe != rhs_storage._subscribe {return false}
@@ -1657,9 +1429,7 @@ extension Centrifugal_Centrifuge_Protocol_Reply: SwiftProtobuf.Message, SwiftPro
 extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Push"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    1: .same(proto: "type"),
     2: .same(proto: "channel"),
-    3: .same(proto: "data"),
     4: .same(proto: "pub"),
     5: .same(proto: "join"),
     6: .same(proto: "leave"),
@@ -1672,9 +1442,7 @@ extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProt
   ]
 
   fileprivate class _StorageClass {
-    var _type: Centrifugal_Centrifuge_Protocol_Push.PushType = .publication
     var _channel: String = String()
-    var _data: Data = Data()
     var _pub: Centrifugal_Centrifuge_Protocol_Publication? = nil
     var _join: Centrifugal_Centrifuge_Protocol_Join? = nil
     var _leave: Centrifugal_Centrifuge_Protocol_Leave? = nil
@@ -1690,9 +1458,7 @@ extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProt
     private init() {}
 
     init(copying source: _StorageClass) {
-      _type = source._type
       _channel = source._channel
-      _data = source._data
       _pub = source._pub
       _join = source._join
       _leave = source._leave
@@ -1720,9 +1486,7 @@ extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProt
         // allocates stack space for every case branch when no optimizations are
         // enabled. https://github.com/apple/swift-protobuf/issues/1034
         switch fieldNumber {
-        case 1: try { try decoder.decodeSingularEnumField(value: &_storage._type) }()
         case 2: try { try decoder.decodeSingularStringField(value: &_storage._channel) }()
-        case 3: try { try decoder.decodeSingularBytesField(value: &_storage._data) }()
         case 4: try { try decoder.decodeSingularMessageField(value: &_storage._pub) }()
         case 5: try { try decoder.decodeSingularMessageField(value: &_storage._join) }()
         case 6: try { try decoder.decodeSingularMessageField(value: &_storage._leave) }()
@@ -1744,14 +1508,8 @@ extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProt
       // allocates stack space for every if/case branch local when no optimizations
       // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
       // https://github.com/apple/swift-protobuf/issues/1182
-      if _storage._type != .publication {
-        try visitor.visitSingularEnumField(value: _storage._type, fieldNumber: 1)
-      }
       if !_storage._channel.isEmpty {
         try visitor.visitSingularStringField(value: _storage._channel, fieldNumber: 2)
-      }
-      if !_storage._data.isEmpty {
-        try visitor.visitSingularBytesField(value: _storage._data, fieldNumber: 3)
       }
       try { if let v = _storage._pub {
         try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
@@ -1789,9 +1547,7 @@ extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProt
       let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
         let _storage = _args.0
         let rhs_storage = _args.1
-        if _storage._type != rhs_storage._type {return false}
         if _storage._channel != rhs_storage._channel {return false}
-        if _storage._data != rhs_storage._data {return false}
         if _storage._pub != rhs_storage._pub {return false}
         if _storage._join != rhs_storage._join {return false}
         if _storage._leave != rhs_storage._leave {return false}
@@ -1808,20 +1564,6 @@ extension Centrifugal_Centrifuge_Protocol_Push: SwiftProtobuf.Message, SwiftProt
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
-}
-
-extension Centrifugal_Centrifuge_Protocol_Push.PushType: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
-    0: .same(proto: "PUBLICATION"),
-    1: .same(proto: "JOIN"),
-    2: .same(proto: "LEAVE"),
-    3: .same(proto: "UNSUBSCRIBE"),
-    4: .same(proto: "MESSAGE"),
-    5: .same(proto: "SUBSCRIBE"),
-    6: .same(proto: "CONNECT"),
-    7: .same(proto: "DISCONNECT"),
-    8: .same(proto: "REFRESH"),
-  ]
 }
 
 extension Centrifugal_Centrifuge_Protocol_ClientInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {

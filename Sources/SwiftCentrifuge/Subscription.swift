@@ -13,7 +13,7 @@ public protocol CentrifugeSubscriptionTokenGetter {
 }
 
 public struct CentrifugeSubscriptionConfig {
-    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String? = nil, data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil) {
+    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String = "", data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil) {
         self.minResubscribeDelay = minResubscribeDelay
         self.maxResubscribeDelay = maxResubscribeDelay
         self.token = token
@@ -27,7 +27,7 @@ public struct CentrifugeSubscriptionConfig {
     
     public var minResubscribeDelay = 0.5
     public var maxResubscribeDelay = 20.0
-    public var token: String? = nil
+    public var token: String = ""
     public var data: Data? = nil
     public var since: CentrifugeStreamPosition? = nil
     public var positioned: Bool = false
@@ -297,6 +297,15 @@ public class CentrifugeSubscription {
                         strongSelf.refreshWithToken(token: token)
                     case .failure(let error):
                         guard strongSelf.centrifuge != nil else { return }
+                        if let centrifugeError = error as? CentrifugeError {
+                            switch centrifugeError {
+                            case .unauthorized:
+                                strongSelf.failUnauthorized(sendUnsubscribe: true);
+                                return
+                            default:
+                                break
+                            }
+                        }
                         let ttl = UInt32(floor((strongSelf.centrifuge!.getBackoffDelay(step: 0, minDelay: 5, maxDelay: 10))))
                         strongSelf.startSubscriptionRefresh(ttl: ttl)
                         guard let strongSelf = self else { return }
@@ -374,13 +383,20 @@ public class CentrifugeSubscription {
                             strongSelf.sendSubscribe(channel: strongSelf.channel, token: token)
                         }
                     case .failure(let error):
-                        //                        strongSelf.centrifuge?.delegateQueue.addOperation { [weak self] in
                         guard let strongSelf = self else { return }
+                        if let centrifugeError = error as? CentrifugeError {
+                            switch centrifugeError {
+                            case .unauthorized:
+                                strongSelf.failUnauthorized(sendUnsubscribe: false);
+                                return
+                            default:
+                                break
+                            }
+                        }
                         strongSelf.delegate?.onError(
                             strongSelf,
                             CentrifugeSubscriptionErrorEvent(error: CentrifugeError.subscriptionTokenError(error: error))
                         )
-                        //                        }
                         strongSelf.scheduleResubscribe()
                         return
                     }
