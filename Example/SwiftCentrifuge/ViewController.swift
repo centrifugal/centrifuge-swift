@@ -25,7 +25,6 @@ class ViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(self.connectClient(_:)), name: UIApplication.didBecomeActiveNotification, object: nil)
         
         let config = CentrifugeClientConfig(
-            token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw",
             tokenGetter: self,
 			logger: PrintLogger()
         )
@@ -92,7 +91,8 @@ class ViewController: UIViewController {
 
 extension ViewController: CentrifugeConnectionTokenGetter {
     func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
-        completion(.success(""))
+        let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw"
+        completion(.success(token))
     }
 }
 
