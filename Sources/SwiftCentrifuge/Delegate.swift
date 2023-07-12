@@ -51,7 +51,7 @@ public struct CentrifugePublicationEvent {
     public var data: Data
     public var offset: UInt64
     public var tags: [String: String]
-    var info: CentrifugeClientInfo?
+    public var info: CentrifugeClientInfo?
 }
 
 public struct CentrifugeSubscriptionTokenEvent {
@@ -104,7 +104,7 @@ public struct CentrifugeServerPublicationEvent {
     public var data: Data
     public var offset: UInt64
     public var tags: [String: String]
-    var info: CentrifugeClientInfo?
+    public var info: CentrifugeClientInfo?
 }
 
 public struct CentrifugeServerJoinEvent {
