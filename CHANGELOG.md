@@ -1,3 +1,8 @@
+0.6.1
+=====
+
+* Make `info` field of `CentrifugePublicationEvent` and `CentrifugeServerPublicationEvent` public.
+
 0.6.0
 =====
 
