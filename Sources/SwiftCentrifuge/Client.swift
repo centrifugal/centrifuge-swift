@@ -25,7 +25,7 @@ public enum CentrifugeError: Error {
     case replyError(code: UInt32, message: String, temporary: Bool)
 }
 
-public protocol CentrifugeConnectionTokenGetter {
+public protocol CentrifugeConnectionTokenGetter: NSObject {
     func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
 }
 
@@ -56,7 +56,7 @@ public struct CentrifugeClientConfig {
     public var name = "swift"
     public var version = ""
     public var token: String = ""
-    public var tokenGetter: CentrifugeConnectionTokenGetter?
+    public weak var tokenGetter: CentrifugeConnectionTokenGetter?
     public var data: Data? = nil
     public var debug: Bool = false
 	public var logger: CentrifugeLogger?
