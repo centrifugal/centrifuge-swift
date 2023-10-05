@@ -8,7 +8,7 @@
 
 import Foundation
 
-public protocol CentrifugeSubscriptionTokenGetter {
+public protocol CentrifugeSubscriptionTokenGetter: NSObject {
     func getSubscriptionToken(_ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
 }
 
@@ -33,7 +33,7 @@ public struct CentrifugeSubscriptionConfig {
     public var positioned: Bool = false
     public var recoverable: Bool = false
     public var joinLeave: Bool = false
-    public var tokenGetter: CentrifugeSubscriptionTokenGetter?
+    public weak var tokenGetter: CentrifugeSubscriptionTokenGetter?
 }
 
 public enum CentrifugeSubscriptionState {
