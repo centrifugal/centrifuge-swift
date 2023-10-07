@@ -1,3 +1,9 @@
+0.7.0
+=====
+
+* Add alternative websocket implementation via URLSessionWebSocketTask (should be explicitly enabled)
+* Prevent memory leaks when passing token getters
+
 0.6.1
 =====
 
