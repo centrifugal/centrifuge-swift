@@ -209,6 +209,8 @@ private extension URLSessionTask.State {
                 return "cancelling"
             case .completed:
                 return "completed"
+            @unknown default:
+                return "unknown"
         }
     }
 }
