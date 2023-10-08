@@ -22,10 +22,6 @@ To integrate SwiftCentrifuge into your Xcode project using CocoaPods, specify it
 pod 'SwiftCentrifuge'
 ```
 
-### Carthage
-
-Add the line `github "centrifugal/centrifuge-swift"` to your `Cartfile`. Then run `carthage update`.
-
 ### Swift Package Manager
 
 SwiftCentrifuge is compatible with SPM. If you get a warning complaining about missing pc file, you may need to install `pkg-config`. On macOS, this can be achieved with `brew install pkg-config`.
@@ -50,6 +46,10 @@ An [example app](Example) is included demonstrating basic client functionality.
 ## Usage in background
 
 When a mobile application goes to the background there are OS-specific limitations for established persistent connections - which can be silently closed shortly. Thus in most cases you need to disconnect from a server when app moves to the background and connect again when app goes to the foreground.
+
+## Using URLSessionWebSocketTask
+
+See `useNativeWebSocket` option of Client which allows using `URLSessionWebSocketTask` instead of our fork of Starscream v3. Please report if you have successful setup of `centrifuge-swift` with `URLSessionWebSocketTask` – so we could eventually make it default.
 
 ## License
 

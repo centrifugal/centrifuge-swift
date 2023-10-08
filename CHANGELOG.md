@@ -1,3 +1,9 @@
+0.7.1
+=====
+
+* Document `URLSessionWebSocketTask` in readme
+* Fix: add `@unknown default` to `URLSessionTask.State` ext switch
+
 0.7.0
 =====
 
