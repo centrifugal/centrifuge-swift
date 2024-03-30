@@ -11,93 +11,132 @@ import SwiftCentrifuge
 
 class ViewController: UIViewController {
     
-    @IBOutlet weak var connectionStatus: UILabel!
+    @IBOutlet weak var clientState: UILabel!
     @IBOutlet weak var lastMessage: UILabel!
     @IBOutlet weak var newMessage: UITextField!
     @IBOutlet weak var connectButton: UIButton!
     
     private var client: CentrifugeClient?
     private var sub: CentrifugeSubscription?
-    private var isConnected: Bool = false
-    private var subscriptionCreated: Bool = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        NotificationCenter.default.addObserver(self, selector: #selector(self.disconnectClient(_:)), name: UIApplication.willResignActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(self.connectClient(_:)), name: UIApplication.didBecomeActiveNotification, object: nil)
         
-        let config = CentrifugeClientConfig()
-        let url = "ws://127.0.0.1:8000/connection/websocket?format=protobuf"
-        self.client = CentrifugeClient(url: url, config: config, delegate: self)
-        let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw"
-        self.client?.setToken(token)
-    }
-    
-    @IBAction func send(_ sender: Any) {
-        let data = ["input": self.newMessage.text ?? ""]
-        self.newMessage.text = ""
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) else {return}
-        sub?.publish(data: jsonData, completion: { _, error in
-            if let err = error {
-                print("Unexpected publish error: \(err)")
-            }
-        })
-    }
-    
-    @IBAction func connect(_ sender: Any) {
-        if self.isConnected {
-            self.client?.disconnect()
-        } else {
-            self.client?.connect()
-            if !self.subscriptionCreated {
-                // Only subscribe once, after this client will internally keep all subscriptions
-                // so we don't need to subscribe again.
-                self.createSubscription()
-                self.subscriptionCreated = true
-            }
-        }
-    }
-    
-    private func createSubscription() {
+        let config = CentrifugeClientConfig(
+            token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw",
+            tokenGetter: self,
+			logger: PrintLogger()
+        )
+        let url = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
+        self.client = CentrifugeClient(endpoint: url, config: config, delegate: self)
         do {
             sub = try self.client?.newSubscription(channel: "chat:index", delegate: self)
+            sub!.subscribe()
         } catch {
             print("Can not create subscription: \(error)")
             return
         }
-        sub?.subscribe()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        client?.connect()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        NotificationCenter.default.removeObserver(self, name: UIApplication.willResignActiveNotification, object: nil)
+    }
+    
+    @objc func disconnectClient(_ notification: Notification) {
+        client?.disconnect()
+    }
+    
+    @objc func connectClient(_ notification: Notification) {
+        client?.connect()
+    }
+
+    @IBAction func send(_ sender: Any) {
+        let data = ["input": self.newMessage.text ?? ""]
+        self.newMessage.text = ""
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) else {return}
+        sub?.publish(data: jsonData, completion: { result in
+            switch result {
+            case .success(_):
+                break
+            case .failure(let err):
+                print("Unexpected publish error: \(err)")
+            }
+        })
+    }
+
+    @IBAction func connect(_ sender: Any) {
+        let state = self.client?.state;
+        if state == .connecting || state == .connected {
+            self.client?.disconnect()
+            DispatchQueue.main.async { [weak self] in
+                self?.clientState.text = "Disconnected"
+                self?.connectButton.setTitle("Connect", for: .normal)
+            }
+        } else {
+            self.client?.connect()
+            DispatchQueue.main.async { [weak self] in
+                self?.clientState.text = "Connecting"
+                self?.connectButton.setTitle("Disconnect", for: .normal)
+            }
+        }
+    }
+}
+
+extension ViewController: CentrifugeConnectionTokenGetter {
+    func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
+        completion(.success(""))
     }
 }
 
 extension ViewController: CentrifugeClientDelegate {
-    func onConnect(_ c: CentrifugeClient, _ e: CentrifugeConnectEvent) {
-        self.isConnected = true
+    func onConnected(_ c: CentrifugeClient, _ e: CentrifugeConnectedEvent) {
         print("connected with id", e.client)
         DispatchQueue.main.async { [weak self] in
-            self?.connectionStatus.text = "Connected"
+            self?.clientState.text = "Connected"
             self?.connectButton.setTitle("Disconnect", for: .normal)
         }
     }
     
-    func onDisconnect(_ c: CentrifugeClient, _ e: CentrifugeDisconnectEvent) {
-        self.isConnected = false
-        print("disconnected", e.reason, "reconnect", e.reconnect)
+    func onDisconnected(_ c: CentrifugeClient, _ e: CentrifugeDisconnectedEvent) {
+        print("disconnected with code", e.code, "and reason", e.reason)
         DispatchQueue.main.async { [weak self] in
-            self?.connectionStatus.text = "Disconnected"
+            self?.clientState.text = "Disconnected"
             self?.connectButton.setTitle("Connect", for: .normal)
         }
     }
-
-    func onSubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribeEvent) {
-        print("server-side subscribe to", event.channel, "recovered", event.recovered, "resubscribe", event.resubscribe)
+    
+    func onConnecting(_ c: CentrifugeClient, _ e: CentrifugeConnectingEvent) {
+        print("connecting with code", e.code, "and reason", e.reason)
+        DispatchQueue.main.async { [weak self] in
+            self?.clientState.text = "Connecting"
+            self?.connectButton.setTitle("Disconnect", for: .normal)
+        }
     }
 
-    func onPublish(_ client: CentrifugeClient, _ event: CentrifugeServerPublishEvent) {
-        print("server-side publication from", event.channel, "offset", event.offset)
+    func onSubscribed(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribedEvent) {
+        print("server-side subscribe to", event.channel, "recovered", event.recovered)
     }
 
-    func onUnsubscribe(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribeEvent) {
+    func onSubscribing(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribingEvent) {
+        print("server-side subscribing to", event.channel)
+    }
+    
+    func onUnsubscribed(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribedEvent) {
         print("server-side unsubscribe from", event.channel)
     }
 
+    func onPublication(_ client: CentrifugeClient, _ event: CentrifugeServerPublicationEvent) {
+        print("server-side publication from", event.channel, "offset", event.offset)
+    }
+    
     func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent) {
         print("server-side join in", event.channel, "client", event.client)
     }
@@ -105,41 +144,51 @@ extension ViewController: CentrifugeClientDelegate {
     func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent) {
         print("server-side leave in", event.channel, "client", event.client)
     }
+    
+    func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent) {
+        print("client error \(event.error)")
+    }
 }
 
 extension ViewController: CentrifugeSubscriptionDelegate {
-    func onPublish(_ s: CentrifugeSubscription, _ e: CentrifugePublishEvent) {
+    func onSubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribedEvent) {
+        print("successfully subscribed to channel \(s.channel), was recovering \(e.wasRecovering), recovered \(e.recovered)")
+        s.presence(completion: { result in
+            switch result {
+            case .success(let presence):
+                print(presence)
+            case .failure(let err):
+                print("Unexpected presence error: \(err)")
+            }
+        })
+        s.history(limit: 10, completion: { result in
+            switch result {
+            case .success(let res):
+                print("Num publications returned: \(res.publications.count)")
+            case .failure(let err):
+                print("Unexpected history error: \(err)")
+            }
+        })
+    }
+
+    func onSubscribing(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribingEvent) {
+        print("subscribing to channel", s.channel, e.code, e.reason)
+    }
+    
+    func onUnsubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeUnsubscribedEvent) {
+        print("unsubscribed from channel", s.channel, e.code, e.reason)
+    }
+    
+    func onError(_ s: CentrifugeSubscription, _ e: CentrifugeSubscriptionErrorEvent) {
+        print("subscription error: \(e.error)")
+    }
+    
+    func onPublication(_ s: CentrifugeSubscription, _ e: CentrifugePublicationEvent) {
         let data = String(data: e.data, encoding: .utf8) ?? ""
         print("message from channel", s.channel, data)
         DispatchQueue.main.async { [weak self] in
             self?.lastMessage.text = data
         }
-    }
-    
-    func onSubscribeSuccess(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribeSuccessEvent) {
-        s.presence(completion: { result, error in
-            if let err = error {
-                print("Unexpected presence error: \(err)")
-            } else if let presence = result {
-                print(presence)
-            }
-        })
-        s.history(limit: 10, completion: { result, error in
-            if let err = error {
-                print("Unexpected history error: \(err)")
-            } else if let res = result {
-                print("Num publications returned: \(res.publications.count)")
-            }
-        })
-        print("successfully subscribed to channel \(s.channel)")
-    }
-    
-    func onSubscribeError(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribeErrorEvent) {
-        print("failed to subscribe to channel", e.code, e.message)
-    }
-    
-    func onUnsubscribe(_ s: CentrifugeSubscription, _ e: CentrifugeUnsubscribeEvent) {
-        print("unsubscribed from channel", s.channel)
     }
     
     func onJoin(_ s: CentrifugeSubscription, _ e: CentrifugeJoinEvent) {

@@ -1,3 +1,78 @@
+0.7.1
+=====
+
+* Document `URLSessionWebSocketTask` in readme
+* Fix: add `@unknown default` to `URLSessionTask.State` ext switch
+
+0.7.0
+=====
+
+* Add alternative websocket implementation via URLSessionWebSocketTask (should be explicitly enabled)
+* Prevent memory leaks when passing token getters
+
+0.6.1
+=====
+
+* Make `info` field of `CentrifugePublicationEvent` and `CentrifugeServerPublicationEvent` public.
+
+0.6.0
+=====
+
+**Breaking change!** This release changes the semantics of working with connection tokens described in [Centrifugo v5 release post](https://centrifugal.dev/blog/2023/06/29/centrifugo-v5-released#token-behaviour-adjustments-in-sdks).
+
+Previously, returning an empty token string from `CentrifugeConnectionTokenGetter` callback resulted in client disconnection with unauthorized reason.
+
+Now returning an empty string from `CentrifugeConnectionTokenGetter` is a valid scenario which won't result into disconnect on the client side. It's still possible to disconnect client by returning a special `CentrifugeError.unauthorized` from `CentrifugeConnectionTokenGetter`.
+
+And we are putting back `SetToken` method to the SDK – so it's now possible to reset the token to be empty upon user logout.
+
+0.5.5
+=====
+
+* Improve logger API: replace String with StaticString [#74](https://github.com/centrifugal/centrifuge-swift/pull/74)
+
+0.5.4
+=====
+
+* Add centrifuge logger interface [#73](https://github.com/centrifugal/centrifuge-swift/pull/73)
+* Example app: replace CocoaPods with SPM [#72](https://github.com/centrifugal/centrifuge-swift/pull/72)
+
+0.5.3
+=====
+
+* Fix: unset refreshRequired flag after getting connection token [commit](https://github.com/centrifugal/centrifuge-swift/commit/c41cea5f5b2b29051937a630a5677f86dd92a377)
+
+0.5.2
+=====
+
+* Fix connect when initial connection token not set but provided `tokenGetter` [#71](https://github.com/centrifugal/centrifuge-swift/pull/71)
+
+0.5.1
+=====
+
+* Fix crashes caused by non-synchronized memory access upon getting `no ping` disconnect
+* Fix issuing duplicate state change events
+
+0.5.0
+=====
+
+**Breaking changes**
+
+This release adopts a new iteration of Centrifugal protocol and a new iteration of API. Client now behaves according to the client [SDK API specification](https://centrifugal.dev/docs/transports/client_api). The work has been done according to [Centrifugo v4 roadmap](https://github.com/centrifugal/centrifugo/issues/500).
+
+Check out [Centrifugo v4 release post](https://centrifugal.dev/blog/2022/07/19/centrifugo-v4-released) that covers the reasoning behind changes here.
+
+New release only works with Centrifugo >= v4.0.0 and [Centrifuge](https://github.com/centrifugal/centrifuge) >= 0.25.0. See [Centrifugo v4 migration guide](https://centrifugal.dev/docs/getting-started/migration_v4) for details about the changes in the ecosystem.
+
+Note, that Centrifugo v4 supports clients working over the previous protocol iteration, so you can update Centrifugo to v4 without any changes on the client side (but you need to turn on `use_client_protocol_v1_by_default` option in the configuration of Centrifugo, see Centrifugo v4 migration guide for details).
+
+Several important changes:
+
+* new API according to the new [SDK API specification](https://centrifugal.dev/docs/transports/client_api)
+* all core features of Centrifugal client protocol are now supported  
+* delegateQueue to which Client submitted events is removed, it's now up to developer to utilize queues for processing callbacks 
+* SDK now uses Swift 5.0
+
 0.4.5
 =====
 

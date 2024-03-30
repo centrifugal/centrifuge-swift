@@ -9,7 +9,13 @@
 import Foundation
 import SwiftProtobuf
 
-struct CentrifugeDisconnectOptions: Decodable {
+struct CentrifugeDisconnectOptionsV1: Decodable {
+    var reason: String
+    var reconnect: Bool
+}
+
+struct CentrifugeDisconnectOptions {
+    var code: UInt32
     var reason: String
     var reconnect: Bool
 }
@@ -19,7 +25,12 @@ struct CentrifugeResolveData {
     var reply: Centrifugal_Centrifuge_Protocol_Reply?
 }
 
-struct StreamPosition {
+public struct StreamPosition {
+    public init(offset: UInt64 = 0, epoch: String = "") {
+        self.offset = offset
+        self.epoch = epoch
+    }
+    
     var offset: UInt64 = 0
     var epoch: String = ""
 }
@@ -50,4 +61,12 @@ internal enum CentrifugeSerializer {
         }
         return commands
     }
+}
+
+func assertIsOnQueue(_ queue: DispatchQueue) {
+#if DEBUG
+    if #available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
+        dispatchPrecondition(condition: .onQueue(queue))
+    }
+#endif
 }
