@@ -44,6 +44,12 @@ final class StarscreamWebSocket: WebSocketInterface {
         socket.write(data: data)
     }
 
+    func update(headers: [String : String?]) {
+        for (key, value) in headers {
+            self.socket.request.setValue(value, forHTTPHeaderField: key)
+        }
+    }
+    
     private func setup() {
         socket.onConnect = { [weak self] in
             self?.onConnect?()
