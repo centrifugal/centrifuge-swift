@@ -218,6 +218,29 @@ public class CentrifugeClient {
     }
 
     /**
+     update(headers:) allows updating headers before next connect.
+     - parameter headers: [String: String]
+     */
+    public func update(headers: [String: String?]) {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            
+            if let conn = strongSelf.conn {
+                conn.update(headers: headers)
+            } else {
+                for (key, value) in headers {
+                    guard let value else {
+                        strongSelf.config.headers.removeValue(forKey: key)
+                        continue
+                    }
+                    strongSelf.config.headers[key] = value
+                }
+            }
+        }
+    }
+
+    
+    /**
      Create subscription object to specific channel with delegate
      - parameter channel: String
      - parameter delegate: CentrifugeSubscriptionDelegate

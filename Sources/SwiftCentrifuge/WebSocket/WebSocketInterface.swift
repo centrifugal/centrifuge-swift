@@ -13,6 +13,8 @@ protocol WebSocketInterface: AnyObject {
     var onDisconnect: ((CentrifugeDisconnectOptions, Error?) -> Void)? { get set }
     var onData: ((Data) -> Void)? { get set }
 
+    func update(headers: [String: String?])
+    
     func connect()
     func disconnect()
     func write(data: Data)

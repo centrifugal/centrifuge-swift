@@ -22,7 +22,7 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     private var session: URLSession?
 
     private let log: CentrifugeLogger
-    private let request: URLRequest
+    private var request: URLRequest //this is only to allow headers, timeout, etc to be modified on reconnect
     private let queue: DispatchQueue
 
     /// The websocket is considered 'active' when `task` is not nil
@@ -76,6 +76,12 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         })
     }
 
+    func update(headers: [String : String?]) {
+        for (key, value) in headers {
+            self.request.setValue(value, forHTTPHeaderField: key)
+        }
+    }
+    
     private func doRead() {
         task?.receive { [weak self] (result) in
             guard let self = self else { return }
