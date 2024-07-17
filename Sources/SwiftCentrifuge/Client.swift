@@ -892,17 +892,21 @@ fileprivate extension CentrifugeClient {
     }
     
     private func handleData(data: Data) {
-        guard let replies = try? CentrifugeSerializer.deserializeCommands(data: data) else { return }
-        for reply in replies {
-            if reply.id > 0 {
-                self.opCallbacks[reply.id]?(CentrifugeResolveData(error: nil, reply: reply))
-            } else {
-                if !reply.hasPush {
-                    self.handlePing()
+        do {
+            let replies = try CentrifugeSerializer.deserializeCommands(data: data)
+            for reply in replies {
+                if reply.id > 0 {
+                    self.opCallbacks[reply.id]?(CentrifugeResolveData(error: nil, reply: reply))
                 } else {
-                    self.handlePush(push: reply.push)
+                    if !reply.hasPush {
+                        self.handlePing()
+                    } else {
+                        self.handlePush(push: reply.push)
+                    }
                 }
             }
+        } catch {
+            self.log.error("error deserializeCommands: \(error)")
         }
     }
     
