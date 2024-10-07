@@ -677,6 +677,8 @@ struct Centrifugal_Centrifuge_Protocol_RefreshRequest {
   // methods supported on all messages.
 
   var token: String = String()
+    
+  var data: Data = Data()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 

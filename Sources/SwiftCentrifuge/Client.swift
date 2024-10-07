@@ -1,4 +1,4 @@
-//
+ //
 //  Client.swift
 //  SwiftCentrifuge
 //
@@ -29,8 +29,12 @@ public protocol CentrifugeConnectionTokenGetter: NSObject {
     func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
 }
 
+public protocol CentrifugeConnectionDataGetter: NSObject {
+    func getConnectionData(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<Data, Error>) -> ())
+}
+
 public struct CentrifugeClientConfig {
-    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String = "", data: Data? = nil, debug: Bool = false, useNativeWebSocket: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil, logger: CentrifugeLogger? = nil) {
+    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String = "", data: Data? = nil, debug: Bool = false, useNativeWebSocket: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil, dataGetter: CentrifugeConnectionDataGetter? = nil, logger: CentrifugeLogger? = nil) {
         self.timeout = timeout
         self.headers = headers
         self.tlsSkipVerify = tlsSkipVerify
@@ -44,6 +48,7 @@ public struct CentrifugeClientConfig {
         self.debug = debug
         self.useNativeWebSocket = useNativeWebSocket
         self.tokenGetter = tokenGetter
+        self.dataGetter = dataGetter
         self.logger = logger
     }
     
@@ -57,6 +62,7 @@ public struct CentrifugeClientConfig {
     public var version = ""
     public var token: String = ""
     public weak var tokenGetter: CentrifugeConnectionTokenGetter?
+    public weak var dataGetter: CentrifugeConnectionDataGetter?
     public var data: Data? = nil
     public var debug: Bool = false
 	public var logger: CentrifugeLogger?
@@ -81,7 +87,7 @@ public class CentrifugeClient {
     fileprivate(set) var internalState: CentrifugeClientState = .disconnected
     fileprivate var conn: WebSocketInterface?
     fileprivate var client: String?
-    fileprivate var token: String?
+    fileprivate var token: String
     fileprivate var data: Data?
     fileprivate var commandId: UInt32 = 0
     fileprivate var commandIdLock: NSLock = NSLock()
@@ -396,11 +402,12 @@ public class CentrifugeClient {
 
 internal extension CentrifugeClient {
     
-    func refreshWithToken(token: String) {
+    func refreshWithToken(token: String = "", or data: Data = Data()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.token = token
-            strongSelf.sendRefresh(token: token, completion: { [weak self] result, error in
+            strongSelf.data = data
+            strongSelf.sendRefresh(token: token, data: data, completion: { [weak self] result, error in
                 guard let strongSelf = self else { return }
                 guard strongSelf.state == .connected else { return }
                 if let err = error {
@@ -491,7 +498,24 @@ internal extension CentrifugeClient {
             }
         }
     }
-    
+
+    func getConnectionData(completion: @escaping (Result<Data, Error>)->()) {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            guard strongSelf.config.dataGetter != nil else { return }
+            strongSelf.config.dataGetter!.getConnectionData(
+                CentrifugeConnectionTokenEvent()
+            ) {[weak self] result in
+                guard let strongSelf = self else { return }
+                strongSelf.syncQueue.async { [weak self] in
+                    guard self != nil else { return }
+                    completion(result)
+                }
+            }
+        }
+    }
+
+
     func getClient() -> String? {
         return self.client;
     }
@@ -532,11 +556,48 @@ fileprivate extension CentrifugeClient {
         assertIsOnQueue(syncQueue)
 
         guard self.state == .connecting else { return }
-
-        if refreshRequired || (token == "" && config.tokenGetter != nil) {
-            getConnectionToken(completion: { [weak self] result in
-                guard let strongSelf = self, strongSelf.state == .connecting else { return }
-                switch result {
+        let updateData = data == nil && config.dataGetter != nil
+        let updateToken = token.isEmpty && config.tokenGetter != nil
+        if refreshRequired ||
+            updateData ||
+            updateToken {
+            if updateData {
+                getConnectionData { [weak self] result in
+                    guard let strongSelf = self, strongSelf.state == .connecting else { return }
+                    switch result {
+                    case .success(let data):
+                        strongSelf.syncQueue.async { [weak self] in
+                            guard let strongSelf = self, strongSelf.state == .connecting else { return }
+                            strongSelf.data = data
+                            strongSelf.refreshRequired = false
+                            strongSelf.sendConnect(completion: { [weak self] res, error in
+                                guard let strongSelf = self else { return }
+                                strongSelf.handleConnectResult(res: res, error: error)
+                            })
+                        }
+                    case .failure(let error):
+                        guard let strongSelf = self else { return }
+                        if let centrifugeError = error as? CentrifugeError {
+                            switch centrifugeError {
+                            case .unauthorized:
+                                strongSelf.failUnauthorized();
+                                return
+                            default:
+                                break
+                            }
+                        }
+                        strongSelf.delegate?.onError(
+                            strongSelf,
+                            CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
+                        )
+                        strongSelf.conn?.disconnect()
+                        return
+                    }
+                }
+            } else if updateToken {
+                getConnectionToken(completion: { [weak self] result in
+                    guard let strongSelf = self, strongSelf.state == .connecting else { return }
+                    switch result {
                     case .success(let token):
                         strongSelf.syncQueue.async { [weak self] in
                             guard let strongSelf = self, strongSelf.state == .connecting else { return }
@@ -564,8 +625,9 @@ fileprivate extension CentrifugeClient {
                         )
                         strongSelf.conn?.disconnect()
                         return
-                }
-            })
+                    }
+                })
+            }
         } else {
             sendConnect(completion: { [weak self] res, error in
                 guard let strongSelf = self else { return }
@@ -931,33 +993,65 @@ fileprivate extension CentrifugeClient {
     private func startConnectionRefresh(ttl: UInt32) {
         let refreshTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
-            guard strongSelf.config.tokenGetter != nil else { return }
-            strongSelf.config.tokenGetter!.getConnectionToken(CentrifugeConnectionTokenEvent()) { [weak self] result in
-                guard let strongSelf = self else { return }
-                guard strongSelf.state == .connected else { return }
-                switch result {
-                case .success(let token):
-                    if token == "" {
-                        strongSelf.failUnauthorized();
-                        return
-                    }
-                    strongSelf.refreshWithToken(token: token)
-                case .failure(let error):
+            let updateData = strongSelf.data == nil && strongSelf.config.dataGetter != nil
+            let updateToken = strongSelf.token.isEmpty && strongSelf.config.tokenGetter != nil
+            if updateData {
+                strongSelf.config.dataGetter!.getConnectionData(CentrifugeConnectionTokenEvent()) { [weak self] result in
                     guard let strongSelf = self else { return }
-                    if let centrifugeError = error as? CentrifugeError {
-                        switch centrifugeError {
-                        case .unauthorized:
+                    guard strongSelf.state == .connected else { return }
+                    switch result {
+                    case .success(let data):
+                        if data.isEmpty {
                             strongSelf.failUnauthorized();
                             return
-                        default:
-                            break
                         }
+                        strongSelf.refreshWithToken(or: data)
+                    case .failure(let error):
+                        guard let strongSelf = self else { return }
+                        if let centrifugeError = error as? CentrifugeError {
+                            switch centrifugeError {
+                            case .unauthorized:
+                                strongSelf.failUnauthorized();
+                                return
+                            default:
+                                break
+                            }
+                        }
+                        strongSelf.delegate?.onError(
+                            strongSelf,
+                            CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
+                        )
+                        break
                     }
-                    strongSelf.delegate?.onError(
-                        strongSelf,
-                        CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
-                    )
-                    break
+                }
+            } else if updateToken {
+                strongSelf.config.tokenGetter!.getConnectionToken(CentrifugeConnectionTokenEvent()) { [weak self] result in
+                    guard let strongSelf = self else { return }
+                    guard strongSelf.state == .connected else { return }
+                    switch result {
+                    case .success(let token):
+                        if token == "" {
+                            strongSelf.failUnauthorized();
+                            return
+                        }
+                        strongSelf.refreshWithToken(token: token)
+                    case .failure(let error):
+                        guard let strongSelf = self else { return }
+                        if let centrifugeError = error as? CentrifugeError {
+                            switch centrifugeError {
+                            case .unauthorized:
+                                strongSelf.failUnauthorized();
+                                return
+                            default:
+                                break
+                            }
+                        }
+                        strongSelf.delegate?.onError(
+                            strongSelf,
+                            CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
+                        )
+                        break
+                    }
                 }
             }
         }
@@ -1038,8 +1132,8 @@ fileprivate extension CentrifugeClient {
     
     private func sendConnect(completion: @escaping (Centrifugal_Centrifuge_Protocol_ConnectResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_ConnectRequest()
-        if self.token != nil {
-            req.token = self.token!
+        if !self.token.isEmpty {
+            req.token = self.token
         }
         if self.data != nil {
             req.data = self.data!
@@ -1077,10 +1171,10 @@ fileprivate extension CentrifugeClient {
         })
     }
     
-    private func sendRefresh(token: String, completion: @escaping (Centrifugal_Centrifuge_Protocol_RefreshResult?, Error?)->()) {
+    private func sendRefresh(token: String, data: Data, completion: @escaping (Centrifugal_Centrifuge_Protocol_RefreshResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_RefreshRequest()
         req.token = token
-        
+        req.data = data
         var command = Centrifugal_Centrifuge_Protocol_Command()
         command.id = self.nextCommandId()
         command.refresh = req
