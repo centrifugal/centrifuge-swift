@@ -624,6 +624,9 @@ fileprivate extension CentrifugeClient {
                     }
                     let pubEvent = CentrifugeServerPublicationEvent(channel: channel, data: pub.data, offset: pub.offset, tags: pub.tags, info: info)
                     self.delegate?.onPublication(self, pubEvent)
+                    if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
+                        self.serverSubs[channel]?.offset = pub.offset
+                    }
                 }
                 for (channel, _) in self.serverSubs {
                     if result.subs[channel] == nil {
@@ -758,7 +761,6 @@ fileprivate extension CentrifugeClient {
         if subs.count == 0 {
             subscriptionsLock.unlock()
             if let _ = self.serverSubs[channel] {
-                //                self.delegateQueue.addOperation {
                 var info: CentrifugeClientInfo? = nil;
                 if pub.hasInfo {
                     info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
@@ -768,7 +770,6 @@ fileprivate extension CentrifugeClient {
                 if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
                     self.serverSubs[channel]?.offset = pub.offset
                 }
-                //                }
             }
             return
         }
