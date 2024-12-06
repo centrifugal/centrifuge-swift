@@ -64,5 +64,5 @@ Push to master and create new version tag.
 Then run:
 
 ```
-pod trunk push SwiftCentrifuge.podspec
+pod trunk push SwiftCentrifuge.podspec --allow-warnings
 ```
