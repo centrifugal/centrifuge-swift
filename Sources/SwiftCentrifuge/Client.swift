@@ -207,6 +207,20 @@ public class CentrifugeClient {
     }
     
     /**
+     Clears the reconnect state, resetting attempts and delays.
+     Schedules a reconnect immediately if one was pending.
+     */
+    public func resetReconnectState() {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.reconnectAttempts = 0
+
+            guard strongSelf.reconnectTask != nil else { return }
+            strongSelf.scheduleReconnect(immediately: true)
+        }
+    }
+
+    /**
      setToken allows updating connection token.
      - parameter token: String
      */
@@ -733,12 +747,12 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func scheduleReconnect() {
+    private func scheduleReconnect(immediately: Bool = false) {
         assertIsOnQueue(syncQueue)
 
         guard self.state == .connecting else { return }
 
-        let delay = self.getBackoffDelay(
+        let delay = immediately ? 0.0 : self.getBackoffDelay(
             step: self.reconnectAttempts,
             minDelay: self.config.minReconnectDelay,
             maxDelay: self.config.maxReconnectDelay
