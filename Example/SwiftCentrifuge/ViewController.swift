@@ -15,12 +15,16 @@ class ViewController: UIViewController {
     @IBOutlet weak var lastMessage: UILabel!
     @IBOutlet weak var newMessage: UITextField!
     @IBOutlet weak var connectButton: UIButton!
-    
+    @IBOutlet weak var resetReconnectStateButton: UIButton!
+
     private var client: CentrifugeClient?
     private var sub: CentrifugeSubscription?
     
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        resetReconnectStateButton.isHidden = true
+
         NotificationCenter.default.addObserver(self, selector: #selector(self.disconnectClient(_:)), name: UIApplication.willResignActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(self.connectClient(_:)), name: UIApplication.didBecomeActiveNotification, object: nil)
         
@@ -88,6 +92,10 @@ class ViewController: UIViewController {
             }
         }
     }
+
+    @IBAction func resetReconnectState(_ sender: Any) {
+        self.client?.resetReconnectState()
+    }
 }
 
 extension ViewController: CentrifugeConnectionTokenGetter {
@@ -102,6 +110,7 @@ extension ViewController: CentrifugeClientDelegate {
         DispatchQueue.main.async { [weak self] in
             self?.clientState.text = "Connected"
             self?.connectButton.setTitle("Disconnect", for: .normal)
+            self?.resetReconnectStateButton.isHidden = true
         }
     }
     
@@ -110,6 +119,7 @@ extension ViewController: CentrifugeClientDelegate {
         DispatchQueue.main.async { [weak self] in
             self?.clientState.text = "Disconnected"
             self?.connectButton.setTitle("Connect", for: .normal)
+            self?.resetReconnectStateButton.isHidden = true
         }
     }
     
@@ -118,6 +128,7 @@ extension ViewController: CentrifugeClientDelegate {
         DispatchQueue.main.async { [weak self] in
             self?.clientState.text = "Connecting"
             self?.connectButton.setTitle("Disconnect", for: .normal)
+            self?.resetReconnectStateButton.isHidden = false
         }
     }
 
