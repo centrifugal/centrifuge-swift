@@ -30,7 +30,22 @@ public protocol CentrifugeConnectionTokenGetter: NSObject {
 }
 
 public struct CentrifugeClientConfig {
-    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String = "", data: Data? = nil, debug: Bool = false, useNativeWebSocket: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil, logger: CentrifugeLogger? = nil) {
+    public init(
+        timeout: Double =  Defaults.timeout,
+        headers: [String : String] = Defaults.headers,
+        tlsSkipVerify: Bool =  Defaults.tlsSkipVerify,
+        minReconnectDelay: Double =  Defaults.minReconnectDelay,
+        maxReconnectDelay: Double =  Defaults.maxReconnectDelay,
+        maxServerPingDelay: Double =  Defaults.maxServerPingDelay,
+        name: String =  Defaults.name,
+        version: String =  Defaults.version,
+        token: String =  Defaults.token,
+        data: Data? = Defaults.data,
+        debug: Bool =  Defaults.debug,
+        webSocketTransport: WebSocketTransport,
+        tokenGetter: CentrifugeConnectionTokenGetter? = Defaults.tokenGetter,
+        logger: CentrifugeLogger? = Defaults.logger
+    ) {
         self.timeout = timeout
         self.headers = headers
         self.tlsSkipVerify = tlsSkipVerify
@@ -42,25 +57,73 @@ public struct CentrifugeClientConfig {
         self.token = token
         self.data = data
         self.debug = debug
-        self.useNativeWebSocket = useNativeWebSocket
+        self.webSocketTransport = webSocketTransport
         self.tokenGetter = tokenGetter
         self.logger = logger
     }
-    
-    public var timeout = 5.0
-    public var headers = [String:String]()
-    public var tlsSkipVerify = false
-    public var minReconnectDelay = 0.5
-    public var maxReconnectDelay = 20.0
-    public var maxServerPingDelay = 10.0
-    public var name = "swift"
-    public var version = ""
+
+    public init(
+        timeout: Double = Defaults.timeout,
+        headers: [String : String] = Defaults.headers,
+        tlsSkipVerify: Bool = Defaults.tlsSkipVerify,
+        minReconnectDelay: Double = Defaults.minReconnectDelay,
+        maxReconnectDelay: Double = Defaults.maxReconnectDelay,
+        maxServerPingDelay: Double = Defaults.maxServerPingDelay,
+        name: String = Defaults.name,
+        version: String = Defaults.version,
+        token: String = Defaults.token,
+        data: Data? = Defaults.data,
+        debug: Bool = Defaults.debug,
+        useNativeWebSocket: Bool = Defaults.webSocketTransport.isNativeWebSocket,
+        tokenGetter: CentrifugeConnectionTokenGetter? = Defaults.tokenGetter,
+        logger: CentrifugeLogger? = Defaults.logger
+    ) {
+        self.timeout = timeout
+        self.headers = headers
+        self.tlsSkipVerify = tlsSkipVerify
+        self.minReconnectDelay = minReconnectDelay
+        self.maxReconnectDelay = maxReconnectDelay
+        self.maxServerPingDelay = maxServerPingDelay
+        self.name = name
+        self.version = version
+        self.token = token
+        self.data = data
+        self.debug = debug
+        self.webSocketTransport = useNativeWebSocket ? .native() : .starscream
+        self.tokenGetter = tokenGetter
+        self.logger = logger
+    }
+
+    public var timeout = Defaults.timeout
+    public var headers = Defaults.headers
+    public var tlsSkipVerify = Defaults.tlsSkipVerify
+    public var minReconnectDelay = Defaults.minReconnectDelay
+    public var maxReconnectDelay = Defaults.maxReconnectDelay
+    public var maxServerPingDelay = Defaults.maxServerPingDelay
+    public var name = Defaults.name
+    public var version = Defaults.version
     public var token: String = ""
     public weak var tokenGetter: CentrifugeConnectionTokenGetter?
     public var data: Data? = nil
     public var debug: Bool = false
 	public var logger: CentrifugeLogger?
-	public var useNativeWebSocket: Bool = false
+    public var webSocketTransport: WebSocketTransport = .starscream
+    public var useNativeWebSocket: Bool { webSocketTransport.isNativeWebSocket }
+}
+
+public enum WebSocketTransport {
+    public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
+
+    case native(urlSessionConfigurationProvider: URLSessionConfigurationProvider? = nil)
+    
+    case starscream
+
+    public var isNativeWebSocket: Bool {
+        switch self {
+        case .native: return true
+        case .starscream: return false
+        }
+    }
 }
 
 public enum CentrifugeClientState {
@@ -138,13 +201,25 @@ public class CentrifugeClient {
         }
 
         let ws: WebSocketInterface
-        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *), config.useNativeWebSocket {
-            log.info("Using NativeWebSocket")
-            ws = NativeWebSocket(request: request, queue: syncQueue, log: log)
+        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
+            switch config.webSocketTransport {
+            case .native(let urlSessionConfigurationProvider):
+                log.info("Using NativeWebSocket")
+                ws = NativeWebSocket(
+                    request: request,
+                    urlSessionConfigurationProvider: urlSessionConfigurationProvider,
+                    queue: syncQueue,
+                    log: log
+                )
+            case .starscream:
+                log.info("Using StarscreamWebSocket")
+                ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
+            }
         } else {
-            log.info("Using StarscreamWebSocket")
+            log.info("on iOS lower than 13.0 avaliable only StarscreamWebSocket")
             ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
         }
+
         ws.onConnect = { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.log.trace("WebSocket connected")
@@ -1333,5 +1408,24 @@ fileprivate extension CentrifugeClient {
     
     private func failUnauthorized() -> Void {
         self.processDisconnect(code: disconnectedCodeUnauthorized, reason: "unauthorized", reconnect: false)
+    }
+}
+
+public extension CentrifugeClientConfig {
+    enum Defaults {
+        public static let timeout: Double = 5.0
+        public static let headers: [String : String] = [String:String]()
+        public static let tlsSkipVerify: Bool = false
+        public static let minReconnectDelay: Double = 0.5
+        public static let maxReconnectDelay: Double = 20.0
+        public static let maxServerPingDelay: Double = 10.0
+        public static let name: String = "swift"
+        public static let version: String = ""
+        public static let token: String = ""
+        public static let data: Data? = nil
+        public static let debug: Bool = false
+        public static let webSocketTransport: WebSocketTransport = .starscream
+        public static let tokenGetter: CentrifugeConnectionTokenGetter? = nil
+        public static let logger: CentrifugeLogger? = nil
     }
 }
