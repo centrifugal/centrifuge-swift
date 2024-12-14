@@ -2,8 +2,6 @@
 //  ProxySettingsViewController.swift
 //  SwiftCentrifuge
 //
-//  Created by Andrei Pachtarou on 12/12/24.
-//
 
 import UIKit
 

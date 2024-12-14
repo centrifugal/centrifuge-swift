@@ -2,9 +2,6 @@
 //  URLSessionConfiguration+proxy.swift
 //  SwiftCentrifuge_Example
 //
-//  Created by Andrey Pochtarev on 07.12.2024.
-//  Copyright © 2024 CocoaPods. All rights reserved.
-//
 
 import Foundation
 import Network
