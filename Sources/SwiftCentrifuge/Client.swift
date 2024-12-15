@@ -69,6 +69,7 @@ public enum CentrifugeClientState {
     case connected
 }
 
+/// TODO: protocol
 public class CentrifugeClient {
     public weak var delegate: CentrifugeClientDelegate?
     
