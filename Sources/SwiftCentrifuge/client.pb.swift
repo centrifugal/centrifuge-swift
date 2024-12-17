@@ -636,6 +636,8 @@ struct Centrifugal_Centrifuge_Protocol_ConnectRequest {
 
   var version: String = String()
 
+  var delta: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -677,6 +679,7 @@ struct Centrifugal_Centrifuge_Protocol_RefreshRequest {
   // methods supported on all messages.
 
   var token: String = String()
+  var delta: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -724,6 +727,8 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeRequest {
 
   var joinLeave: Bool = false
 
+  var delta: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -767,6 +772,8 @@ struct Centrifugal_Centrifuge_Protocol_SubRefreshRequest {
   var channel: String = String()
 
   var token: String = String()
+  
+  var delta: String = String()
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -2044,6 +2051,7 @@ extension Centrifugal_Centrifuge_Protocol_ConnectRequest: SwiftProtobuf.Message,
     3: .same(proto: "subs"),
     4: .same(proto: "name"),
     5: .same(proto: "version"),
+    6: .same(proto: "delta")
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2057,6 +2065,7 @@ extension Centrifugal_Centrifuge_Protocol_ConnectRequest: SwiftProtobuf.Message,
       case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeRequest>.self, value: &self.subs) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.version) }()
+      case 6: try { try decoder.decodeSingularStringField(value: &self.delta) }()
       default: break
       }
     }
@@ -2077,6 +2086,9 @@ extension Centrifugal_Centrifuge_Protocol_ConnectRequest: SwiftProtobuf.Message,
     }
     if !self.version.isEmpty {
       try visitor.visitSingularStringField(value: self.version, fieldNumber: 5)
+    }
+    if !self.delta.isEmpty {
+        try visitor.visitSingularStringField(value: self.delta, fieldNumber: 6)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
@@ -2272,6 +2284,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     9: .same(proto: "positioned"),
     10: .same(proto: "recoverable"),
     11: .standard(proto: "join_leave"),
+    12: .same(proto: "delta"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2289,6 +2302,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
       case 9: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.recoverable) }()
       case 11: try { try decoder.decodeSingularBoolField(value: &self.joinLeave) }()
+      case 12: try { try decoder.decodeSingularStringField(value: &self.delta) }()
       default: break
       }
     }
@@ -2321,6 +2335,9 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     }
     if self.joinLeave != false {
       try visitor.visitSingularBoolField(value: self.joinLeave, fieldNumber: 11)
+    }
+    if !self.delta.isEmpty {
+      try visitor.visitSingularStringField(value: self.delta, fieldNumber: 12)
     }
     try unknownFields.traverse(visitor: &visitor)
   }

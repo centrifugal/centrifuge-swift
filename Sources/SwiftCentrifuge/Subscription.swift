@@ -28,6 +28,7 @@ public struct CentrifugeSubscriptionConfig {
     public var minResubscribeDelay = 0.5
     public var maxResubscribeDelay = 20.0
     public var token: String = ""
+    public var delta: String = ""
     public var data: Data? = nil
     public var since: CentrifugeStreamPosition? = nil
     public var positioned: Bool = false
@@ -53,6 +54,7 @@ public class CentrifugeSubscription {
     private var epoch: String = ""
     
     fileprivate var token: String?
+    fileprivate var delta: String?
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var resubscribeTask: DispatchWorkItem?
     fileprivate var resubscribeAttempts: Int = 0
@@ -74,6 +76,9 @@ public class CentrifugeSubscription {
             self.recover = true
             self.offset = since.offset
             self.epoch = since.epoch
+        }
+        if !config.delta.isEmpty {
+            self.delta = config.delta
         }
     }
     
@@ -155,13 +160,13 @@ public class CentrifugeSubscription {
         )
     }
     
-    func sendSubscribe(channel: String, token: String) {
+    func sendSubscribe(channel: String, token: String, delta: String?) {
         var streamPosition = StreamPosition()
         if self.recover {
             streamPosition.offset = self.offset
             streamPosition.epoch = self.epoch
         }
-        self.centrifuge?.subscribe(channel: self.channel, token: token, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
+        self.centrifuge?.subscribe(channel: self.channel, token: token, delta: delta, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
             guard let centrifuge = centrifuge else { return }
             guard let strongSelf = self else { return }
             guard strongSelf.state == .subscribing else { return }
@@ -368,7 +373,7 @@ public class CentrifugeSubscription {
         if self.token != nil || self.config.tokenGetter != nil {
             if self.token != nil {
                 let token = self.token!
-                self.sendSubscribe(channel: self.channel, token: token)
+                self.sendSubscribe(channel: self.channel, token: token, delta: delta)
             } else {
                 self.getSubscriptionToken(channel: self.channel, completion: { [weak self] result in
                     guard let strongSelf = self, strongSelf.state == .subscribing else { return }
@@ -380,7 +385,7 @@ public class CentrifugeSubscription {
                         }
                         strongSelf.centrifuge?.syncQueue.async { [weak self] in
                             guard let strongSelf = self, strongSelf.state == .subscribing else { return }
-                            strongSelf.sendSubscribe(channel: strongSelf.channel, token: token)
+                            strongSelf.sendSubscribe(channel: strongSelf.channel, token: token, delta: strongSelf.delta)
                         }
                     case .failure(let error):
                         guard let strongSelf = self else { return }
@@ -403,7 +408,7 @@ public class CentrifugeSubscription {
                 })
             }
         } else {
-            self.sendSubscribe(channel: self.channel, token: "")
+            self.sendSubscribe(channel: self.channel, token: "", delta: self.delta)
         }
     }
     

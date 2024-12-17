@@ -83,6 +83,7 @@ public class CentrifugeClient {
     fileprivate var client: String?
     fileprivate var token: String?
     fileprivate var data: Data?
+    fileprivate var originalSourceData: Data? // to check and handle delta fossil implementation
     fileprivate var commandId: UInt32 = 0
     fileprivate var commandIdLock: NSLock = NSLock()
     fileprivate var opCallbacks: [UInt32: ((CentrifugeResolveData) -> ())] = [:]
@@ -532,8 +533,8 @@ internal extension CentrifugeClient {
         subscriptionsLock.unlock()
     }
     
-    func subscribe(channel: String, token: String, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
-        self.sendSubscribe(channel: channel, token: token, data: data, recover: recover, streamPosition: streamPosition, positioned: positioned, recoverable: recoverable, joinLeave: joinLeave, completion: completion)
+    func subscribe(channel: String, token: String, delta: String?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
+        self.sendSubscribe(channel: channel, token: token, delta: delta, data: data, recover: recover, streamPosition: streamPosition, positioned: positioned, recoverable: recoverable, joinLeave: joinLeave, completion: completion)
     }
     
     func reconnect(code: UInt32, reason: String) {
@@ -793,7 +794,22 @@ fileprivate extension CentrifugeClient {
         if pub.hasInfo {
             info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
         }
-        let event = CentrifugePublicationEvent(data: pub.data, offset: pub.offset, tags: pub.tags, info: info)
+
+        var eventData: Data!
+        
+        if let originalSourceData {
+            // Assuming the pub.data contains delta-encoded data
+            do {
+                let data = try DeltaFossil.applyDelta(source: originalSourceData, delta: pub.data)
+                eventData = data
+            } catch {
+                eventData = pub.data
+            }
+        } else {
+            eventData = pub.data
+        }
+        self.originalSourceData = eventData
+        let event = CentrifugePublicationEvent(data: eventData, offset: pub.offset, tags: pub.tags, info: info)
         if pub.offset > 0 {
             sub.setOffset(offset: pub.offset)
         }
@@ -857,6 +873,7 @@ fileprivate extension CentrifugeClient {
     
     private func handleSubscribe(channel: String, sub: Centrifugal_Centrifuge_Protocol_Subscribe) {
         self.serverSubs[channel] = ServerSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
+        self.originalSourceData = nil // make sure data will be nil on a new subscription
         let event = CentrifugeServerSubscribedEvent(channel: channel, wasRecovering: false, recovered: false, positioned: sub.positioned, recoverable: sub.recoverable, streamPosition: sub.positioned || sub.recoverable ? StreamPosition(offset: sub.offset, epoch: sub.epoch): nil, data: sub.data)
         self.delegate?.onSubscribed(self, event)
     }
@@ -1138,7 +1155,7 @@ fileprivate extension CentrifugeClient {
         })
     }
     
-    private func sendSubscribe(channel: String, token: String, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
+    private func sendSubscribe(channel: String, token: String, delta: String?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_SubscribeRequest()
         req.channel = channel
         if recover {
@@ -1149,6 +1166,9 @@ fileprivate extension CentrifugeClient {
         req.positioned = positioned
         req.recoverable = recoverable
         req.joinLeave = joinLeave
+        if let delta {
+            req.delta = delta
+        }
         if data != nil {
             req.data = data!
         }
