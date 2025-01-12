@@ -42,8 +42,7 @@ public enum CentrifugeSubscriptionState {
     case subscribed
 }
 
-/// TODO: protocol
-public class CentrifugeSubscription {
+public class CentrifugeSubscription: ClientSubscription {
     
     public let channel: String
     
