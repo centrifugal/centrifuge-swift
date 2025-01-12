@@ -17,9 +17,9 @@ class ViewController: UIViewController {
     @IBOutlet weak var connectButton: UIButton!
     @IBOutlet weak var resetReconnectStateButton: UIButton!
 
-    private var client: CentrifugeClient?
-    private var sub: CentrifugeSubscription?
-    
+    private var client: SwiftCentrifuge.Client?
+    private var sub: SwiftCentrifuge.ClientSubscription?
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -29,19 +29,36 @@ class ViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(self.connectClient(_:)), name: UIApplication.didBecomeActiveNotification, object: nil)
         
         let config = CentrifugeClientConfig(
-            token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0c3VpdGVfand0In0.hPmHsVqvtY88PvK4EmJlcdwNuKFuy3BGaF7dMaKdPlw",
+            token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJleHAiOjE3MzczMTM1OTAsImlhdCI6MTczNjcwODc5MH0.4e0MRE0TnS6MsDtQasKq8FbL1AVRurWgH6qzW_i6sqA",
             tokenGetter: self,
 			logger: PrintLogger()
         )
         let url = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
-        self.client = CentrifugeClient(endpoint: url, config: config, delegate: self)
+        self.client = CentrifugeClient.newClient(endpoint: url, config: config, delegate: self)
+        self.subscribe()
+    }
+
+    func subscribe() {
+        guard sub == nil else { return }
+
+        let channel = "chat:index"
+
         do {
-            sub = try self.client?.newSubscription(channel: "chat:index", delegate: self)
-            sub!.subscribe()
+            sub = try self.client?.newClientSubscription(channel: channel, delegate: self)
+            sub?.subscribe()
+            print("Created subscription to \"\(channel)\"")
         } catch {
-            print("Can not create subscription: \(error)")
+            print("Can not create subscription to \"\(channel)\": \(error)")
             return
         }
+    }
+
+    func unsubscribe() {
+        guard let sub else { return }
+
+        client?.removeClientSubscription(sub)
+        self.sub = nil
+        print("Unsubscribed from \"\(sub.channel)\"")
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -55,10 +72,12 @@ class ViewController: UIViewController {
     }
     
     @objc func disconnectClient(_ notification: Notification) {
+        unsubscribe()
         client?.disconnect()
     }
     
     @objc func connectClient(_ notification: Notification) {
+        subscribe()
         client?.connect()
     }
 
