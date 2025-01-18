@@ -29,22 +29,43 @@ public protocol CentrifugeConnectionTokenGetter: NSObject {
     func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
 }
 
+/// Configuration structure for Centrifuge client.
 public struct CentrifugeClientConfig {
+
+    /// Initializes the configuration with the provided parameters.
+    /// - Parameters:
+    ///   - timeout: Timeout for server responses, in seconds
+    ///   - headers: Custom headers to include in requests
+    ///   - tlsSkipVerify: Flag to skip TLS certificate verification
+    ///   - minReconnectDelay: Minimum delay before attempting reconnection, in seconds
+    ///   - maxReconnectDelay: Maximum delay between reconnection attempts, in seconds
+    ///   - maxServerPingDelay: Maximum allowed time between pings from the server, in seconds
+    ///   - name: Custom client name for identification
+    ///   - version: Client version for tracking
+    ///   - token: Authentication token for connecting to the server
+    ///   - data: Custom binary data associated with the client
+    ///   - debug: Enables detailed logging for debugging purposes
+    ///   - useNativeWebSocket: Enables the use of native `URLSessionWebSocketTask` for WebSocket connections instead of Starscream v3. 
+    ///   If you need custom configuration for URLSessionWebSocketTask then use urlSessionConfigurationProvider option to configure desired behaviour.
+    ///   - urlSessionConfigurationProvider: Optional allows setting custom options for `URLSessionWebSocketTask` used by the native WebSocket,
+    ///   - tokenGetter: Callback for retrieving authentication tokens dynamically
+    ///   - logger: Logger instance for debugging and diagnostics
     public init(
-        timeout: Double =  Defaults.timeout,
-        headers: [String : String] = Defaults.headers,
-        tlsSkipVerify: Bool =  Defaults.tlsSkipVerify,
-        minReconnectDelay: Double =  Defaults.minReconnectDelay,
-        maxReconnectDelay: Double =  Defaults.maxReconnectDelay,
-        maxServerPingDelay: Double =  Defaults.maxServerPingDelay,
-        name: String =  Defaults.name,
-        version: String =  Defaults.version,
-        token: String =  Defaults.token,
-        data: Data? = Defaults.data,
-        debug: Bool =  Defaults.debug,
-        webSocketTransport: WebSocketTransport,
-        tokenGetter: CentrifugeConnectionTokenGetter? = Defaults.tokenGetter,
-        logger: CentrifugeLogger? = Defaults.logger
+        timeout: Double = 5.0,
+        headers: [String : String] = .init(),
+        tlsSkipVerify: Bool = false,
+        minReconnectDelay: Double = 0.5,
+        maxReconnectDelay: Double = 20.0,
+        maxServerPingDelay: Double = 10.0,
+        name: String = "swift",
+        version: String = "",
+        token: String = "",
+        data: Data? = nil,
+        debug: Bool = false,
+        useNativeWebSocket: Bool = false,
+        urlSessionConfigurationProvider: WebSocketTransport.URLSessionConfigurationProvider? = nil,
+        tokenGetter: CentrifugeConnectionTokenGetter? = nil,
+        logger: CentrifugeLogger? = nil
     ) {
         self.timeout = timeout
         self.headers = headers
@@ -57,67 +78,80 @@ public struct CentrifugeClientConfig {
         self.token = token
         self.data = data
         self.debug = debug
-        self.webSocketTransport = webSocketTransport
+
+        if useNativeWebSocket {
+            self.webSocketTransport = .native(urlSessionConfigurationProvider)
+        } else {
+            self.webSocketTransport = .starscream
+        }
+
         self.tokenGetter = tokenGetter
         self.logger = logger
     }
 
-    public init(
-        timeout: Double = Defaults.timeout,
-        headers: [String : String] = Defaults.headers,
-        tlsSkipVerify: Bool = Defaults.tlsSkipVerify,
-        minReconnectDelay: Double = Defaults.minReconnectDelay,
-        maxReconnectDelay: Double = Defaults.maxReconnectDelay,
-        maxServerPingDelay: Double = Defaults.maxServerPingDelay,
-        name: String = Defaults.name,
-        version: String = Defaults.version,
-        token: String = Defaults.token,
-        data: Data? = Defaults.data,
-        debug: Bool = Defaults.debug,
-        useNativeWebSocket: Bool = Defaults.webSocketTransport.isNativeWebSocket,
-        tokenGetter: CentrifugeConnectionTokenGetter? = Defaults.tokenGetter,
-        logger: CentrifugeLogger? = Defaults.logger
-    ) {
-        self.timeout = timeout
-        self.headers = headers
-        self.tlsSkipVerify = tlsSkipVerify
-        self.minReconnectDelay = minReconnectDelay
-        self.maxReconnectDelay = maxReconnectDelay
-        self.maxServerPingDelay = maxServerPingDelay
-        self.name = name
-        self.version = version
-        self.token = token
-        self.data = data
-        self.debug = debug
-        self.webSocketTransport = useNativeWebSocket ? .native() : .starscream
-        self.tokenGetter = tokenGetter
-        self.logger = logger
-    }
+    /// Timeout for server responses, in seconssssds.
+    public var timeout: Double
 
-    public var timeout = Defaults.timeout
-    public var headers = Defaults.headers
-    public var tlsSkipVerify = Defaults.tlsSkipVerify
-    public var minReconnectDelay = Defaults.minReconnectDelay
-    public var maxReconnectDelay = Defaults.maxReconnectDelay
-    public var maxServerPingDelay = Defaults.maxServerPingDelay
-    public var name = Defaults.name
-    public var version = Defaults.version
-    public var token: String = ""
+    /// Custom headers to include in requests.
+    public var headers: [String : String]
+
+    /// Flag to skip TLS certificate verification.
+    public var tlsSkipVerify: Bool
+
+    /// Minimum delay before attempting reconnection, in seconds.
+    public var minReconnectDelay: Double
+
+    /// Maximum delay between reconnection attempts, in seconds.
+    public var maxReconnectDelay: Double
+
+    /// Maximum allowed time between pings from the server, in seconds.
+    public var maxServerPingDelay: Double
+
+    /// Custom client name for identification.
+    public var name: String
+
+    /// Client version for tracking.
+    public var version: String
+
+    /// Authentication token for connecting to the server.
+    public var token: String
+
+    /// Callback for retrieving authentication tokens dynamically.
     public weak var tokenGetter: CentrifugeConnectionTokenGetter?
-    public var data: Data? = nil
-    public var debug: Bool = false
-	public var logger: CentrifugeLogger?
-    public var webSocketTransport: WebSocketTransport = .starscream
+
+    /// Custom binary data associated with the client.
+    public var data: Data?
+
+    /// Enables detailed logging for debugging purposes.
+    public var debug: Bool
+
+    /// Logger instance for debugging and diagnostics.
+    public var logger: CentrifugeLogger?
+
+    /// WebSocket transport configuration, either native or Starscream.
+    public var webSocketTransport: WebSocketTransport
+
+    /// Indicates whether the native WebSocket transport is being used.
     public var useNativeWebSocket: Bool { webSocketTransport.isNativeWebSocket }
 }
 
+/// Enum representing the WebSocket transport options for the Centrifuge client.
 public enum WebSocketTransport {
+    /// A typealias for a provider that returns a custom `URLSessionConfiguration`.
     public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
 
-    case native(urlSessionConfigurationProvider: URLSessionConfigurationProvider? = nil)
-    
+    /// Uses a native `URLSessionWebSocketTask` for establishing WebSocket connections.
+    /// - Parameters:
+    ///   - urlSessionConfigurationProvider: An optional closure that provides a custom `URLSessionConfiguration`.
+    ///   If not provided, `URLSessionConfiguration.default` will be used.
+    /// - Note: This option is available on iOS 13.0 and later. It provides a modern WebSocket implementation.
+    case native(_ urlSessionConfigurationProvider: URLSessionConfigurationProvider? = nil)
+
+    /// Uses a WebSocket implementation based on Starscream v3.
+    /// - Note: This option supports iOS versions earlier than 13.0 and maintains compatibility with legacy systems.
     case starscream
 
+    /// Indicates whether the native WebSocket transport is being used.
     public var isNativeWebSocket: Bool {
         switch self {
         case .native: return true
@@ -1408,24 +1442,5 @@ fileprivate extension CentrifugeClient {
     
     private func failUnauthorized() -> Void {
         self.processDisconnect(code: disconnectedCodeUnauthorized, reason: "unauthorized", reconnect: false)
-    }
-}
-
-public extension CentrifugeClientConfig {
-    enum Defaults {
-        public static let timeout: Double = 5.0
-        public static let headers: [String : String] = [String:String]()
-        public static let tlsSkipVerify: Bool = false
-        public static let minReconnectDelay: Double = 0.5
-        public static let maxReconnectDelay: Double = 20.0
-        public static let maxServerPingDelay: Double = 10.0
-        public static let name: String = "swift"
-        public static let version: String = ""
-        public static let token: String = ""
-        public static let data: Data? = nil
-        public static let debug: Bool = false
-        public static let webSocketTransport: WebSocketTransport = .starscream
-        public static let tokenGetter: CentrifugeConnectionTokenGetter? = nil
-        public static let logger: CentrifugeLogger? = nil
     }
 }

@@ -252,14 +252,15 @@ extension ViewController {
                 configuration.set(socksProxy: params)
                 return configuration
             }
-            config = CentrifugeClientConfig(
+            config = .init(
                 token: jwtToken,
-                webSocketTransport: .native(urlSessionConfigurationProvider: provider),
+                useNativeWebSocket: true,
+                urlSessionConfigurationProvider: provider,
                 tokenGetter: self,
                 logger: PrintLogger()
             )
         case .off:
-            config = CentrifugeClientConfig(
+            config = .init(
                 token: jwtToken,
                 tokenGetter: self,
                 logger: PrintLogger()
