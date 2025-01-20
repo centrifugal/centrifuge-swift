@@ -247,7 +247,7 @@ extension ViewController {
 
         switch proxySetting {
         case let .on(params):
-            let provider: WebSocketTransport.URLSessionConfigurationProvider = {
+            let provider: URLSessionConfigurationProvider = {
                 let configuration = URLSessionConfiguration.default
                 configuration.set(socksProxy: params)
                 return configuration

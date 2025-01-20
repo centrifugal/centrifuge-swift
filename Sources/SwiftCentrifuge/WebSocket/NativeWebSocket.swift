@@ -25,7 +25,7 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     /// The websocket is considered 'active' when `task` is not nil
     private var task: URLSessionWebSocketTask?
 
-    init(request: URLRequest, urlSessionConfigurationProvider: WebSocketTransport.URLSessionConfigurationProvider?,  queue: DispatchQueue, log: CentrifugeLogger) {
+    init(request: URLRequest, urlSessionConfigurationProvider: URLSessionConfigurationProvider?,  queue: DispatchQueue, log: CentrifugeLogger) {
         var request = request
         request.setValue("Sec-WebSocket-Protocol", forHTTPHeaderField: "centrifuge-protobuf")
         self.request = request

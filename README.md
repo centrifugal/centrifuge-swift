@@ -53,7 +53,7 @@ See `useNativeWebSocket` option of Client which allows using `URLSessionWebSocke
 
 ### URLSessionWebSocketTask: configuring Proxy Settings
 
-If you need to manually configure proxy settings for URLSessionWebSocketTask, follow these steps:
+If you need to manually configure proxy settings for `URLSessionWebSocketTask`, follow these steps:
 1.    Set up a proxy tool:
 Configure your preferred proxy tool (e.g., Charles Proxy, Proxyman, or mitmproxy) according to its documentation. Ensure that it is properly set up to intercept traffic from your device.
 2.    Verify proxy functionality:
@@ -61,7 +61,7 @@ Enable system-wide proxy settings on your device and check that traffic from sys
 3.    Disable system proxy:
 After verifying that the proxy tool works as expected, disable the system-wide proxy settings on your device.
 4.    Configure CentrifugeClient for proxying:
-Use the urlSessionConfigurationProvider option in WebSocketTransport to explicitly provide proxy settings for URLSessionWebSocketTask.
+Use the `urlSessionConfigurationProvider` option in `CentrifugeClientConfig` to explicitly provide proxy settings for `URLSessionWebSocketTask`.
 5.    Test the connection:
 Run your application and ensure that WebSocket traffic from centrifuge-swift is properly routed through your proxy tool.
 

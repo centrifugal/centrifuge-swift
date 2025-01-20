@@ -63,7 +63,7 @@ public struct CentrifugeClientConfig {
         data: Data? = nil,
         debug: Bool = false,
         useNativeWebSocket: Bool = false,
-        urlSessionConfigurationProvider: WebSocketTransport.URLSessionConfigurationProvider? = nil,
+        urlSessionConfigurationProvider: URLSessionConfigurationProvider? = nil,
         tokenGetter: CentrifugeConnectionTokenGetter? = nil,
         logger: CentrifugeLogger? = nil
     ) {
@@ -78,12 +78,8 @@ public struct CentrifugeClientConfig {
         self.token = token
         self.data = data
         self.debug = debug
-
-        if useNativeWebSocket {
-            self.webSocketTransport = .native(urlSessionConfigurationProvider)
-        } else {
-            self.webSocketTransport = .starscream
-        }
+        self.useNativeWebSocket = useNativeWebSocket
+        self.urlSessionConfigurationProvider = urlSessionConfigurationProvider
 
         self.tokenGetter = tokenGetter
         self.logger = logger
@@ -128,37 +124,20 @@ public struct CentrifugeClientConfig {
     /// Logger instance for debugging and diagnostics.
     public var logger: CentrifugeLogger?
 
-    /// WebSocket transport configuration, either native or Starscream.
-    public var webSocketTransport: WebSocketTransport
-
     /// Indicates whether the native WebSocket transport is being used.
-    public var useNativeWebSocket: Bool { webSocketTransport.isNativeWebSocket }
-}
+    public var useNativeWebSocket: Bool
 
-/// Enum representing the WebSocket transport options for the Centrifuge client.
-public enum WebSocketTransport {
-    /// A typealias for a provider that returns a custom `URLSessionConfiguration`.
-    public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
-
-    /// Uses a native `URLSessionWebSocketTask` for establishing WebSocket connections.
+    /// Applied when `useNativeWebSocket == true` and will uses a native `URLSessionWebSocketTask`   for establishing WebSocket connections.
     /// - Parameters:
     ///   - urlSessionConfigurationProvider: An optional closure that provides a custom `URLSessionConfiguration`.
     ///   If not provided, `URLSessionConfiguration.default` will be used.
     /// - Note: This option is available on iOS 13.0 and later. It provides a modern WebSocket implementation.
-    case native(_ urlSessionConfigurationProvider: URLSessionConfigurationProvider? = nil)
+    public var urlSessionConfigurationProvider: URLSessionConfigurationProvider?
 
-    /// Uses a WebSocket implementation based on Starscream v3.
-    /// - Note: This option supports iOS versions earlier than 13.0 and maintains compatibility with legacy systems.
-    case starscream
-
-    /// Indicates whether the native WebSocket transport is being used.
-    public var isNativeWebSocket: Bool {
-        switch self {
-        case .native: return true
-        case .starscream: return false
-        }
-    }
 }
+
+/// A typealias for a provider that returns a custom `URLSessionConfiguration`.
+public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
 
 public enum CentrifugeClientState {
     case disconnected
@@ -235,20 +214,14 @@ public class CentrifugeClient {
         }
 
         let ws: WebSocketInterface
-        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-            switch config.webSocketTransport {
-            case .native(let urlSessionConfigurationProvider):
-                log.info("Using NativeWebSocket")
-                ws = NativeWebSocket(
-                    request: request,
-                    urlSessionConfigurationProvider: urlSessionConfigurationProvider,
-                    queue: syncQueue,
-                    log: log
-                )
-            case .starscream:
-                log.info("Using StarscreamWebSocket")
-                ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
-            }
+        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *), config.useNativeWebSocket {
+            log.info("Using NativeWebSocket")
+            ws = NativeWebSocket(
+                request: request,
+                urlSessionConfigurationProvider: config.urlSessionConfigurationProvider,
+                queue: syncQueue,
+                log: log
+            )
         } else {
             log.info("on iOS lower than 13.0 avaliable only StarscreamWebSocket")
             ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
