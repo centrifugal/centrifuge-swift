@@ -2,7 +2,7 @@ Pod::Spec.new do |s|
     s.name                  = 'SwiftCentrifuge'
     s.module_name           = 'SwiftCentrifuge'
     s.swift_version         = '5.0'
-    s.version               = '0.7.4'
+    s.version               = '0.7.5'
 
     s.homepage              = 'https://github.com/centrifugal/centrifuge-swift'
     s.summary               = 'Centrifugo and Centrifuge client in Swift'
