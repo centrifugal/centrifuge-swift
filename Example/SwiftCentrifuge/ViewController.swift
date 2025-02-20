@@ -31,7 +31,6 @@ class ViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
         resetReconnectStateButton.isHidden = true
 
         NotificationCenter.default.addObserver(self, selector: #selector(self.disconnectClient(_:)), name: UIApplication.willResignActiveNotification, object: nil)
@@ -39,50 +38,13 @@ class ViewController: UIViewController {
 
         let config = centrifugeClientConfig(with: proxySetting)
         self.client = CentrifugeClient(endpoint: endpoint, config: config, delegate: self)
-
-
-
-
-
-
-
-
-
-
-
-
-
         do {
             sub = try self.client?.newSubscription(channel: "chat:index", delegate: self)
             sub!.subscribe()
-
         } catch {
             print("Can not create subscription: \(error)")
             return
         }
-    }
-
-    func subscribe() {
-        guard sub == nil else { return }
-
-        let channel = "chat:index"
-
-        do {
-            sub = try self.client?.newSubscription(channel: channel, delegate: self)
-            sub?.subscribe()
-            print("Created subscription to \"\(channel)\"")
-        } catch {
-            print("Can not create subscription to \"\(channel)\": \(error)")
-            return
-        }
-    }
-
-    func unsubscribe() {
-        guard let sub else { return }
-
-        client?.removeSubscription(sub)
-        self.sub = nil
-        print("Unsubscribed from \"\(sub.channel)\"")
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -96,12 +58,10 @@ class ViewController: UIViewController {
     }
 
     @objc func disconnectClient(_ notification: Notification) {
-        unsubscribe()
         client?.disconnect()
     }
 
     @objc func connectClient(_ notification: Notification) {
-        subscribe()
         client?.connect()
     }
 
@@ -329,5 +289,4 @@ extension ViewController {
         }
     }
 }
-
 
