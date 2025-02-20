@@ -10,7 +10,7 @@ import UIKit
 import SwiftCentrifuge
 
 class ViewController: UIViewController {
-
+    
     @IBOutlet weak var clientState: UILabel!
     @IBOutlet weak var lastMessage: UILabel!
     @IBOutlet weak var newMessage: UITextField!
