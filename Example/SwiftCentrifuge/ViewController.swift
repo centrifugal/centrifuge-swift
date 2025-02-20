@@ -10,15 +10,24 @@ import UIKit
 import SwiftCentrifuge
 
 class ViewController: UIViewController {
-    
+
     @IBOutlet weak var clientState: UILabel!
     @IBOutlet weak var lastMessage: UILabel!
     @IBOutlet weak var newMessage: UITextField!
     @IBOutlet weak var connectButton: UIButton!
     @IBOutlet weak var resetReconnectStateButton: UIButton!
+    @IBOutlet weak var configureProxyButton: UIButton!
 
-    private var client: SwiftCentrifuge.Client?
-    private var sub: SwiftCentrifuge.ClientSubscription?
+    private var client: CentrifugeClient?
+    private var sub: CentrifugeSubscription?
+    private let jwtToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0MiIsImV4cCI6MTczNDc3MTk5OCwiaWF0IjoxNzM0MTY3MTk4fQ.LYyqk4r91mjAx9FT6TSxT7lLbMaHDWUP7MdJ1_Ghs_E"
+    private let endpoint = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
+    private var proxySetting: ProxySetting = .off {
+        didSet {
+            guard oldValue != proxySetting else { return }
+            reconnect(with: proxySetting)
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,15 +36,30 @@ class ViewController: UIViewController {
 
         NotificationCenter.default.addObserver(self, selector: #selector(self.disconnectClient(_:)), name: UIApplication.willResignActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(self.connectClient(_:)), name: UIApplication.didBecomeActiveNotification, object: nil)
-        
-        let config = CentrifugeClientConfig(
-            token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJleHAiOjE3MzczMTM1OTAsImlhdCI6MTczNjcwODc5MH0.4e0MRE0TnS6MsDtQasKq8FbL1AVRurWgH6qzW_i6sqA",
-            tokenGetter: self,
-			logger: PrintLogger()
-        )
-        let url = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
-        self.client = CentrifugeClient.newClient(endpoint: url, config: config, delegate: self)
-        self.subscribe()
+
+        let config = centrifugeClientConfig(with: proxySetting)
+        self.client = CentrifugeClient(endpoint: endpoint, config: config, delegate: self)
+
+
+
+
+
+
+
+
+
+
+
+
+
+        do {
+            sub = try self.client?.newSubscription(channel: "chat:index", delegate: self)
+            sub!.subscribe()
+
+        } catch {
+            print("Can not create subscription: \(error)")
+            return
+        }
     }
 
     func subscribe() {
@@ -65,17 +89,17 @@ class ViewController: UIViewController {
         super.viewWillAppear(animated)
         client?.connect()
     }
-    
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         NotificationCenter.default.removeObserver(self, name: UIApplication.willResignActiveNotification, object: nil)
     }
-    
+
     @objc func disconnectClient(_ notification: Notification) {
         unsubscribe()
         client?.disconnect()
     }
-    
+
     @objc func connectClient(_ notification: Notification) {
         subscribe()
         client?.connect()
@@ -115,6 +139,27 @@ class ViewController: UIViewController {
     @IBAction func resetReconnectState(_ sender: Any) {
         self.client?.resetReconnectState()
     }
+
+    @IBAction func configureProxy(_ sender: Any) {
+        let proxyVC = ProxySettingsViewController(isProxyEnabled: proxySetting != .off)
+        let navigationController = UINavigationController(rootViewController: proxyVC)
+
+        proxyVC.onSave = { [weak self] proxySetting in
+            guard let self = self else { return }
+            self.proxySetting = proxySetting
+        }
+        present(navigationController, animated: true, completion: nil)
+    }
+
+    func updateProxyButtonTitleWith(isProxyOn: Bool) {
+        configureProxyButton.setTitle(
+            "Proxy: \(isProxyOn ? "ON" : "OFF")",
+            for: .normal
+        )
+        configureProxyButton.setTitleColor(isProxyOn ? .systemGreen : .systemRed, for: .normal)
+        configureProxyButton.titleLabel?.font = .systemFont(ofSize: 16, weight: isProxyOn ? .bold : .light)
+    }
+
 }
 
 extension ViewController: CentrifugeConnectionTokenGetter {
@@ -132,7 +177,7 @@ extension ViewController: CentrifugeClientDelegate {
             self?.resetReconnectStateButton.isHidden = true
         }
     }
-    
+
     func onDisconnected(_ c: CentrifugeClient, _ e: CentrifugeDisconnectedEvent) {
         print("disconnected with code", e.code, "and reason", e.reason)
         DispatchQueue.main.async { [weak self] in
@@ -141,7 +186,7 @@ extension ViewController: CentrifugeClientDelegate {
             self?.resetReconnectStateButton.isHidden = true
         }
     }
-    
+
     func onConnecting(_ c: CentrifugeClient, _ e: CentrifugeConnectingEvent) {
         print("connecting with code", e.code, "and reason", e.reason)
         DispatchQueue.main.async { [weak self] in
@@ -158,7 +203,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onSubscribing(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribingEvent) {
         print("server-side subscribing to", event.channel)
     }
-    
+
     func onUnsubscribed(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribedEvent) {
         print("server-side unsubscribe from", event.channel)
     }
@@ -166,7 +211,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onPublication(_ client: CentrifugeClient, _ event: CentrifugeServerPublicationEvent) {
         print("server-side publication from", event.channel, "offset", event.offset)
     }
-    
+
     func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent) {
         print("server-side join in", event.channel, "client", event.client)
     }
@@ -174,7 +219,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent) {
         print("server-side leave in", event.channel, "client", event.client)
     }
-    
+
     func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent) {
         print("client error \(event.error)")
     }
@@ -204,15 +249,15 @@ extension ViewController: CentrifugeSubscriptionDelegate {
     func onSubscribing(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribingEvent) {
         print("subscribing to channel", s.channel, e.code, e.reason)
     }
-    
+
     func onUnsubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeUnsubscribedEvent) {
         print("unsubscribed from channel", s.channel, e.code, e.reason)
     }
-    
+
     func onError(_ s: CentrifugeSubscription, _ e: CentrifugeSubscriptionErrorEvent) {
         print("subscription error: \(e.error)")
     }
-    
+
     func onPublication(_ s: CentrifugeSubscription, _ e: CentrifugePublicationEvent) {
         let data = String(data: e.data, encoding: .utf8) ?? ""
         print("message from channel", s.channel, data)
@@ -220,12 +265,69 @@ extension ViewController: CentrifugeSubscriptionDelegate {
             self?.lastMessage.text = data
         }
     }
-    
+
     func onJoin(_ s: CentrifugeSubscription, _ e: CentrifugeJoinEvent) {
         print("client joined channel \(s.channel), user ID \(e.user)")
     }
-    
+
     func onLeave(_ s: CentrifugeSubscription, _ e: CentrifugeLeaveEvent) {
         print("client left channel \(s.channel), user ID \(e.user)")
     }
 }
+
+extension ViewController {
+    enum ProxySetting: Equatable {
+        case on(URLSessionConfiguration.ProxyParams)
+        case off
+    }
+
+    func centrifugeClientConfig(with proxySetting: ProxySetting) -> CentrifugeClientConfig {
+        updateProxyButtonTitleWith(isProxyOn: proxySetting != .off)
+        let config: CentrifugeClientConfig
+
+        switch proxySetting {
+        case let .on(params):
+            let provider: URLSessionConfigurationProvider = {
+                let configuration = URLSessionConfiguration.default
+                configuration.set(socksProxy: params)
+                return configuration
+            }
+            config = .init(
+                token: jwtToken,
+                useNativeWebSocket: true,
+                urlSessionConfigurationProvider: provider,
+                tokenGetter: self,
+                logger: PrintLogger()
+            )
+        case .off:
+            config = .init(
+                token: jwtToken,
+                tokenGetter: self,
+                logger: PrintLogger()
+            )
+        }
+        return config
+    }
+
+    func reconnect(with proxySetting: ProxySetting) {
+        self.client?.disconnect()
+        self.client = nil
+
+        let config = centrifugeClientConfig(with: proxySetting)
+        self.client = CentrifugeClient(
+            endpoint: endpoint,
+            config: config,
+            delegate: self
+        )
+        self.client?.connect()
+        do {
+            sub = try self.client?.newSubscription(channel: "chat:1", delegate: self)
+            sub!.subscribe()
+        } catch {
+            print("Can not create subscription: \(error)")
+            return
+        }
+    }
+}
+
+
