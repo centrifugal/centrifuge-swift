@@ -42,7 +42,7 @@ public enum CentrifugeSubscriptionState {
     case subscribed
 }
 
-public class CentrifugeSubscription: ClientSubscription {
+public class CentrifugeSubscription {
     
     public let channel: String
     

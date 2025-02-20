@@ -145,7 +145,7 @@ public enum CentrifugeClientState {
     case connected
 }
 
-public class CentrifugeClient: Client {
+public class CentrifugeClient {
     public weak var delegate: CentrifugeClientDelegate?
     
     //MARK -

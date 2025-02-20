@@ -68,7 +68,7 @@ class ViewController: UIViewController {
         let channel = "chat:index"
 
         do {
-            sub = try self.client?.newClientSubscription(channel: channel, delegate: self)
+            sub = try self.client?.newSubscription(channel: channel, delegate: self)
             sub?.subscribe()
             print("Created subscription to \"\(channel)\"")
         } catch {
@@ -80,7 +80,7 @@ class ViewController: UIViewController {
     func unsubscribe() {
         guard let sub else { return }
 
-        client?.removeClientSubscription(sub)
+        client?.removeSubscription(sub)
         self.sub = nil
         print("Unsubscribed from \"\(sub.channel)\"")
     }
