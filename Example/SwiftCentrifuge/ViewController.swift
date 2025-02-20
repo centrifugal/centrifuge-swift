@@ -51,16 +51,16 @@ class ViewController: UIViewController {
         super.viewWillAppear(animated)
         client?.connect()
     }
-
+    
     override func viewWillDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         NotificationCenter.default.removeObserver(self, name: UIApplication.willResignActiveNotification, object: nil)
     }
-
+    
     @objc func disconnectClient(_ notification: Notification) {
         client?.disconnect()
     }
-
+    
     @objc func connectClient(_ notification: Notification) {
         client?.connect()
     }
@@ -137,7 +137,7 @@ extension ViewController: CentrifugeClientDelegate {
             self?.resetReconnectStateButton.isHidden = true
         }
     }
-
+    
     func onDisconnected(_ c: CentrifugeClient, _ e: CentrifugeDisconnectedEvent) {
         print("disconnected with code", e.code, "and reason", e.reason)
         DispatchQueue.main.async { [weak self] in
@@ -146,7 +146,7 @@ extension ViewController: CentrifugeClientDelegate {
             self?.resetReconnectStateButton.isHidden = true
         }
     }
-
+    
     func onConnecting(_ c: CentrifugeClient, _ e: CentrifugeConnectingEvent) {
         print("connecting with code", e.code, "and reason", e.reason)
         DispatchQueue.main.async { [weak self] in
@@ -163,7 +163,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onSubscribing(_ client: CentrifugeClient, _ event: CentrifugeServerSubscribingEvent) {
         print("server-side subscribing to", event.channel)
     }
-
+    
     func onUnsubscribed(_ client: CentrifugeClient, _ event: CentrifugeServerUnsubscribedEvent) {
         print("server-side unsubscribe from", event.channel)
     }
@@ -171,7 +171,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onPublication(_ client: CentrifugeClient, _ event: CentrifugeServerPublicationEvent) {
         print("server-side publication from", event.channel, "offset", event.offset)
     }
-
+    
     func onJoin(_ client: CentrifugeClient, _ event: CentrifugeServerJoinEvent) {
         print("server-side join in", event.channel, "client", event.client)
     }
@@ -179,7 +179,7 @@ extension ViewController: CentrifugeClientDelegate {
     func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent) {
         print("server-side leave in", event.channel, "client", event.client)
     }
-
+    
     func onError(_ client: CentrifugeClient, _ event: CentrifugeErrorEvent) {
         print("client error \(event.error)")
     }
@@ -209,15 +209,15 @@ extension ViewController: CentrifugeSubscriptionDelegate {
     func onSubscribing(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribingEvent) {
         print("subscribing to channel", s.channel, e.code, e.reason)
     }
-
+    
     func onUnsubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeUnsubscribedEvent) {
         print("unsubscribed from channel", s.channel, e.code, e.reason)
     }
-
+    
     func onError(_ s: CentrifugeSubscription, _ e: CentrifugeSubscriptionErrorEvent) {
         print("subscription error: \(e.error)")
     }
-
+    
     func onPublication(_ s: CentrifugeSubscription, _ e: CentrifugePublicationEvent) {
         let data = String(data: e.data, encoding: .utf8) ?? ""
         print("message from channel", s.channel, data)
@@ -225,11 +225,11 @@ extension ViewController: CentrifugeSubscriptionDelegate {
             self?.lastMessage.text = data
         }
     }
-
+    
     func onJoin(_ s: CentrifugeSubscription, _ e: CentrifugeJoinEvent) {
         print("client joined channel \(s.channel), user ID \(e.user)")
     }
-
+    
     func onLeave(_ s: CentrifugeSubscription, _ e: CentrifugeLeaveEvent) {
         print("client left channel \(s.channel), user ID \(e.user)")
     }
@@ -289,4 +289,5 @@ extension ViewController {
         }
     }
 }
+
 
