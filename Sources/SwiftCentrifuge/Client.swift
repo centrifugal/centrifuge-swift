@@ -29,8 +29,44 @@ public protocol CentrifugeConnectionTokenGetter: NSObject {
     func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
 }
 
+/// Configuration structure for Centrifuge client.
 public struct CentrifugeClientConfig {
-    public init(timeout: Double = 5.0, headers: [String : String] = [String:String](), tlsSkipVerify: Bool = false, minReconnectDelay: Double = 0.5, maxReconnectDelay: Double = 20.0, maxServerPingDelay: Double = 10.0, name: String = "swift", version: String = "", token: String = "", data: Data? = nil, debug: Bool = false, useNativeWebSocket: Bool = false, tokenGetter: CentrifugeConnectionTokenGetter? = nil, logger: CentrifugeLogger? = nil) {
+
+    /// Initializes the configuration with the provided parameters.
+    /// - Parameters:
+    ///   - timeout: Timeout for server responses, in seconds
+    ///   - headers: Custom headers to include in requests
+    ///   - tlsSkipVerify: Flag to skip TLS certificate verification
+    ///   - minReconnectDelay: Minimum delay before attempting reconnection, in seconds
+    ///   - maxReconnectDelay: Maximum delay between reconnection attempts, in seconds
+    ///   - maxServerPingDelay: Maximum allowed time between pings from the server, in seconds
+    ///   - name: Custom client name for identification
+    ///   - version: Client version for tracking
+    ///   - token: Authentication token for connecting to the server
+    ///   - data: Custom binary data associated with the client
+    ///   - debug: Enables detailed logging for debugging purposes
+    ///   - useNativeWebSocket: Enables the use of native `URLSessionWebSocketTask` for WebSocket connections instead of Starscream v3. 
+    ///   If you need custom configuration for URLSessionWebSocketTask then use urlSessionConfigurationProvider option to configure desired behaviour.
+    ///   - urlSessionConfigurationProvider: Optional allows setting custom options for `URLSessionWebSocketTask` used by the native WebSocket,
+    ///   - tokenGetter: Callback for retrieving authentication tokens dynamically
+    ///   - logger: Logger instance for debugging and diagnostics
+    public init(
+        timeout: Double = 5.0,
+        headers: [String : String] = .init(),
+        tlsSkipVerify: Bool = false,
+        minReconnectDelay: Double = 0.5,
+        maxReconnectDelay: Double = 20.0,
+        maxServerPingDelay: Double = 10.0,
+        name: String = "swift",
+        version: String = "",
+        token: String = "",
+        data: Data? = nil,
+        debug: Bool = false,
+        useNativeWebSocket: Bool = false,
+        urlSessionConfigurationProvider: URLSessionConfigurationProvider? = nil,
+        tokenGetter: CentrifugeConnectionTokenGetter? = nil,
+        logger: CentrifugeLogger? = nil
+    ) {
         self.timeout = timeout
         self.headers = headers
         self.tlsSkipVerify = tlsSkipVerify
@@ -43,25 +79,65 @@ public struct CentrifugeClientConfig {
         self.data = data
         self.debug = debug
         self.useNativeWebSocket = useNativeWebSocket
+        self.urlSessionConfigurationProvider = urlSessionConfigurationProvider
+
         self.tokenGetter = tokenGetter
         self.logger = logger
     }
-    
-    public var timeout = 5.0
-    public var headers = [String:String]()
-    public var tlsSkipVerify = false
-    public var minReconnectDelay = 0.5
-    public var maxReconnectDelay = 20.0
-    public var maxServerPingDelay = 10.0
-    public var name = "swift"
-    public var version = ""
-    public var token: String = ""
+
+    /// Timeout for server responses, in seconssssds.
+    public var timeout: Double
+
+    /// Custom headers to include in requests.
+    public var headers: [String : String]
+
+    /// Flag to skip TLS certificate verification.
+    public var tlsSkipVerify: Bool
+
+    /// Minimum delay before attempting reconnection, in seconds.
+    public var minReconnectDelay: Double
+
+    /// Maximum delay between reconnection attempts, in seconds.
+    public var maxReconnectDelay: Double
+
+    /// Maximum allowed time between pings from the server, in seconds.
+    public var maxServerPingDelay: Double
+
+    /// Custom client name for identification.
+    public var name: String
+
+    /// Client version for tracking.
+    public var version: String
+
+    /// Authentication token for connecting to the server.
+    public var token: String
+
+    /// Callback for retrieving authentication tokens dynamically.
     public weak var tokenGetter: CentrifugeConnectionTokenGetter?
-    public var data: Data? = nil
-    public var debug: Bool = false
-	public var logger: CentrifugeLogger?
-	public var useNativeWebSocket: Bool = false
+
+    /// Custom binary data associated with the client.
+    public var data: Data?
+
+    /// Enables detailed logging for debugging purposes.
+    public var debug: Bool
+
+    /// Logger instance for debugging and diagnostics.
+    public var logger: CentrifugeLogger?
+
+    /// Indicates whether the native WebSocket transport is being used.
+    public var useNativeWebSocket: Bool
+
+    /// Applied when `useNativeWebSocket == true` and will uses a native `URLSessionWebSocketTask`   for establishing WebSocket connections.
+    /// - Parameters:
+    ///   - urlSessionConfigurationProvider: An optional closure that provides a custom `URLSessionConfiguration`.
+    ///   If not provided, `URLSessionConfiguration.default` will be used.
+    /// - Note: This option is available on iOS 13.0 and later. It provides a modern WebSocket implementation.
+    public var urlSessionConfigurationProvider: URLSessionConfigurationProvider?
+
 }
+
+/// A typealias for a provider that returns a custom `URLSessionConfiguration`.
+public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
 
 public enum CentrifugeClientState {
     case disconnected
@@ -141,11 +217,17 @@ public class CentrifugeClient {
         let ws: WebSocketInterface
         if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *), config.useNativeWebSocket {
             log.info("Using NativeWebSocket")
-            ws = NativeWebSocket(request: request, queue: syncQueue, log: log)
+            ws = NativeWebSocket(
+                request: request,
+                urlSessionConfigurationProvider: config.urlSessionConfigurationProvider,
+                queue: syncQueue,
+                log: log
+            )
         } else {
-            log.info("Using StarscreamWebSocket")
+            log.info("on iOS lower than 13.0 avaliable only StarscreamWebSocket")
             ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
         }
+
         ws.onConnect = { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.log.trace("WebSocket connected")
@@ -207,6 +289,20 @@ public class CentrifugeClient {
         }
     }
     
+    /**
+     Clears the reconnect state, resetting attempts and delays.
+     Schedules a reconnect immediately if one was pending.
+     */
+    public func resetReconnectState() {
+        self.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.reconnectAttempts = 0
+
+            guard strongSelf.reconnectTask != nil else { return }
+            strongSelf.scheduleReconnect(immediately: true)
+        }
+    }
+
     /**
      setToken allows updating connection token.
      - parameter token: String
@@ -625,6 +721,9 @@ fileprivate extension CentrifugeClient {
                     }
                     let pubEvent = CentrifugeServerPublicationEvent(channel: channel, data: pub.data, offset: pub.offset, tags: pub.tags, info: info)
                     self.delegate?.onPublication(self, pubEvent)
+                    if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
+                        self.serverSubs[channel]?.offset = pub.offset
+                    }
                 }
                 for (channel, _) in self.serverSubs {
                     if result.subs[channel] == nil {
@@ -731,12 +830,12 @@ fileprivate extension CentrifugeClient {
         }
     }
     
-    private func scheduleReconnect() {
+    private func scheduleReconnect(immediately: Bool = false) {
         assertIsOnQueue(syncQueue)
 
         guard self.state == .connecting else { return }
 
-        let delay = self.getBackoffDelay(
+        let delay = immediately ? 0.0 : self.getBackoffDelay(
             step: self.reconnectAttempts,
             minDelay: self.config.minReconnectDelay,
             maxDelay: self.config.maxReconnectDelay
@@ -759,7 +858,6 @@ fileprivate extension CentrifugeClient {
         if subs.count == 0 {
             subscriptionsLock.unlock()
             if let _ = self.serverSubs[channel] {
-                //                self.delegateQueue.addOperation {
                 var info: CentrifugeClientInfo? = nil;
                 if pub.hasInfo {
                     info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
@@ -769,7 +867,6 @@ fileprivate extension CentrifugeClient {
                 if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
                     self.serverSubs[channel]?.offset = pub.offset
                 }
-                //                }
             }
             return
         }
