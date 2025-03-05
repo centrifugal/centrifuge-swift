@@ -2,7 +2,6 @@
 //  DeltaFossil.swift
 //  iOSApp
 //
-//  Created by Mehdi on 9/21/24.
 //
 
 import Foundation
