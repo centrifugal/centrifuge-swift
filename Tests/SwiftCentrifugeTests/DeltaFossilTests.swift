@@ -10,27 +10,31 @@ import XCTest
 
 final class DeltaFossilTests: XCTestCase {
     func testDeltaCreateAndApply() throws {
-        guard let origin = loadData(from: "origin"),
-              let target = loadData(from: "target"),
-              let goodDelta = loadData(from: "delta") else {
-            return
-        }
-        
-        // Test with Data
-        do {
-            let delta = try DeltaFossil.applyDelta(source: origin, delta: goodDelta)
-            XCTAssertEqual(delta, target)
-        } catch {
-            XCTFail("Error applying delta: \(error)")
+        let testDataPath = URL(fileURLWithPath: #file)
+            .deletingLastPathComponent() // Move up to SwiftCentrifugeTests/
+            .appendingPathComponent("testdata/fossil") // Navigate to testdata/fossil/
+
+        for i in 1...6 {
+            let casePath = testDataPath.appendingPathComponent("\(i)")
+            guard let origin = loadData(from: "origin", at: casePath),
+                  let target = loadData(from: "target", at: casePath),
+                  let goodDelta = loadData(from: "delta", at: casePath) else {
+                XCTFail("Missing files in test case \(i)")
+                continue
+            }
+
+            // Test with Data
+            do {
+                let delta = try DeltaFossil.applyDelta(source: origin, delta: goodDelta)
+                XCTAssertEqual(delta, target, "Test case \(i) failed: Delta does not match target")
+            } catch {
+                XCTFail("Test case \(i) failed: Error applying delta: \(error)")
+            }
         }
     }
-    
-    private func loadData(from fileName: String) -> Data? {
-        let fileURL = URL(fileURLWithPath: #file) // Get path of this Swift file
-            .deletingLastPathComponent() // Move up to SwiftCentrifugeTests/
-            .deletingLastPathComponent() // Move up to Tests/
-            .appendingPathComponent("testdata") // Navigate to testdata/
-            .appendingPathComponent(fileName) // Append the filename
+
+    private func loadData(from fileName: String, at path: URL) -> Data? {
+        let fileURL = path.appendingPathComponent(fileName)
 
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             XCTFail("Could not find file \(fileName) at \(fileURL.path)")
