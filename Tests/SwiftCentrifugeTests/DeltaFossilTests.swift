@@ -16,6 +16,8 @@ final class DeltaFossilTests: XCTestCase {
 
         for i in 1...6 {
             let casePath = testDataPath.appendingPathComponent("\(i)")
+            print("Running test case \(i)...") // Log test case start
+
             guard let origin = loadData(from: "origin", at: casePath),
                   let target = loadData(from: "target", at: casePath),
                   let goodDelta = loadData(from: "delta", at: casePath) else {
@@ -27,8 +29,10 @@ final class DeltaFossilTests: XCTestCase {
             do {
                 let delta = try DeltaFossil.applyDelta(source: origin, delta: goodDelta)
                 XCTAssertEqual(delta, target, "Test case \(i) failed: Delta does not match target")
+                print("✅ Test case \(i) passed!") // Log success
             } catch {
                 XCTFail("Test case \(i) failed: Error applying delta: \(error)")
+                print("❌ Test case \(i) failed with error: \(error)")
             }
         }
     }
@@ -38,6 +42,7 @@ final class DeltaFossilTests: XCTestCase {
 
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             XCTFail("Could not find file \(fileName) at \(fileURL.path)")
+            print("❌ Missing file: \(fileURL.path)")
             return nil
         }
         return try? Data(contentsOf: fileURL)
