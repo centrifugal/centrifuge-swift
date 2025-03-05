@@ -28,6 +28,8 @@ final class DeltaFossilTests: XCTestCase {
     private func loadData(from fileName: String) -> Data? {
         let fileURL = URL(fileURLWithPath: #file) // Get path of this Swift file
             .deletingLastPathComponent() // Move up to SwiftCentrifugeTests/
+            .deletingLastPathComponent() // Move up to Tests/
+            .appendingPathComponent("testdata") // Navigate to testdata/
             .appendingPathComponent(fileName) // Append the filename
 
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
