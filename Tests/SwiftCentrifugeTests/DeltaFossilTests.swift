@@ -25,13 +25,15 @@ final class DeltaFossilTests: XCTestCase {
         }
     }
     
-    // Helper function to load data from file
     private func loadData(from fileName: String) -> Data? {
-        let bundle = Bundle(for: DeltaFossilTests.self) // Get the bundle for this test class
-        guard let url = bundle.url(forResource: fileName, withExtension: nil, subdirectory: nil) else {
-            XCTFail("Could not find file \(fileName)")
+        let fileURL = URL(fileURLWithPath: #file) // Get path of this Swift file
+            .deletingLastPathComponent() // Move up to SwiftCentrifugeTests/
+            .appendingPathComponent(fileName) // Append the filename
+
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            XCTFail("Could not find file \(fileName) at \(fileURL.path)")
             return nil
         }
-        return try? Data(contentsOf: url)
+        return try? Data(contentsOf: fileURL)
     }
 }
