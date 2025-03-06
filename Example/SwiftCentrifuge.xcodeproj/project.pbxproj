@@ -14,9 +14,6 @@
 		607FACDB1AFB9204008FA782 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 607FACD91AFB9204008FA782 /* Main.storyboard */; };
 		607FACDD1AFB9204008FA782 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 607FACDC1AFB9204008FA782 /* Images.xcassets */; };
 		91D46D152CA2148500223592 /* DeltaFossilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D46D142CA2148500223592 /* DeltaFossilTests.swift */; };
-		91D46D312CA2216800223592 /* delta in Resources */ = {isa = PBXBuildFile; fileRef = 91D46D2E2CA2216800223592 /* delta */; };
-		91D46D322CA2216800223592 /* origin in Resources */ = {isa = PBXBuildFile; fileRef = 91D46D2F2CA2216800223592 /* origin */; };
-		91D46D332CA2216800223592 /* target in Resources */ = {isa = PBXBuildFile; fileRef = 91D46D302CA2216800223592 /* target */; };
 		B2D4E30C2D0B5FCB009D6119 /* URLSessionConfiguration+proxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E30A2D0B5FCB009D6119 /* URLSessionConfiguration+proxy.swift */; };
 		B2D4E30D2D0B5FCB009D6119 /* ProxySettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E3092D0B5FCB009D6119 /* ProxySettingsViewController.swift */; };
 		DE2E2CA9220FEAC8004541DE /* BasicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE7C1AA8220F0E1A0037AE1E /* BasicTests.swift */; };
@@ -42,9 +39,6 @@
 		607FACDA1AFB9204008FA782 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		607FACDC1AFB9204008FA782 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		91D46D142CA2148500223592 /* DeltaFossilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeltaFossilTests.swift; sourceTree = "<group>"; };
-		91D46D2E2CA2216800223592 /* delta */ = {isa = PBXFileReference; lastKnownFileType = file; path = delta; sourceTree = "<group>"; };
-		91D46D2F2CA2216800223592 /* origin */ = {isa = PBXFileReference; lastKnownFileType = file; path = origin; sourceTree = "<group>"; };
-		91D46D302CA2216800223592 /* target */ = {isa = PBXFileReference; lastKnownFileType = file; path = target; sourceTree = "<group>"; };
 		B2D4E3092D0B5FCB009D6119 /* ProxySettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxySettingsViewController.swift; sourceTree = "<group>"; };
 		B2D4E30A2D0B5FCB009D6119 /* URLSessionConfiguration+proxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSessionConfiguration+proxy.swift"; sourceTree = "<group>"; };
 		DE2E2C9F220FEAC4004541DE /* SwiftCentrifuge_Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SwiftCentrifuge_Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -145,9 +139,6 @@
 			children = (
 				DE7C1AA8220F0E1A0037AE1E /* BasicTests.swift */,
 				91D46D142CA2148500223592 /* DeltaFossilTests.swift */,
-				91D46D2E2CA2216800223592 /* delta */,
-				91D46D2F2CA2216800223592 /* origin */,
-				91D46D302CA2216800223592 /* target */,
 			);
 			name = SwiftCentrifugeTests;
 			path = ../../Tests/SwiftCentrifugeTests;
@@ -243,16 +234,6 @@
 				607FACDB1AFB9204008FA782 /* Main.storyboard in Resources */,
 				DE7C1AA4220F0D950037AE1E /* Launch Screen.storyboard in Resources */,
 				607FACDD1AFB9204008FA782 /* Images.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		DE2E2C9D220FEAC4004541DE /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				91D46D312CA2216800223592 /* delta in Resources */,
-				91D46D322CA2216800223592 /* origin in Resources */,
-				91D46D332CA2216800223592 /* target in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
