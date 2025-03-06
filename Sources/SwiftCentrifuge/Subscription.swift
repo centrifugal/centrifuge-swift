@@ -12,11 +12,11 @@ public protocol CentrifugeSubscriptionTokenGetter: NSObject {
     func getSubscriptionToken(_ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
 }
 
-public struct CentrifugeSubscriptionConfig {
-    public enum DeltaType: String {
-        case fossil
-    }
+public enum DeltaType: String {
+    case fossil
+}
 
+public struct CentrifugeSubscriptionConfig {
     public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String = "", data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil, delta: DeltaType? = nil) {
         self.minResubscribeDelay = minResubscribeDelay
         self.maxResubscribeDelay = maxResubscribeDelay
@@ -253,13 +253,9 @@ public class CentrifugeSubscription {
     private func applyDelta(pub: Centrifugal_Centrifuge_Protocol_Publication) -> Data {
         var eventData = pub.data
         if pub.delta && self.deltaNegotiated {
-            do {
-                let data = try DeltaFossil.applyDelta(source: prevValue!, delta: pub.data)
-                eventData = data
-                self.prevValue = data
-            } catch {
-                // TODO: Handle error.
-            }
+            let data = try! DeltaFossil.applyDelta(source: prevValue!, delta: pub.data)
+            eventData = data
+            self.prevValue = data
         } else if deltaNegotiated {
             self.prevValue = pub.data
         }
