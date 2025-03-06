@@ -39,7 +39,11 @@ class ViewController: UIViewController {
         let config = centrifugeClientConfig(with: proxySetting)
         self.client = CentrifugeClient(endpoint: endpoint, config: config, delegate: self)
         do {
-            sub = try self.client?.newSubscription(channel: "chat:index", delegate: self)
+            sub = try self.client?.newSubscription(
+                channel: "chat:index",
+                delegate: self
+//                config: CentrifugeSubscriptionConfig(delta: .fossil) // Example of using Subscription config.
+            )
             sub!.subscribe()
         } catch {
             print("Can not create subscription: \(error)")
@@ -281,7 +285,10 @@ extension ViewController {
         )
         self.client?.connect()
         do {
-            sub = try self.client?.newSubscription(channel: "chat:1", delegate: self)
+            sub = try self.client?.newSubscription(
+                channel: "chat:index",
+                delegate: self
+            )
             sub!.subscribe()
         } catch {
             print("Can not create subscription: \(error)")
@@ -289,5 +296,3 @@ extension ViewController {
         }
     }
 }
-
-
