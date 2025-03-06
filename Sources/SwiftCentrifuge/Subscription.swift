@@ -13,7 +13,11 @@ public protocol CentrifugeSubscriptionTokenGetter: NSObject {
 }
 
 public struct CentrifugeSubscriptionConfig {
-    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String = "", data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil) {
+    public enum DeltaType: String {
+        case fossil
+    }
+
+    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String = "", data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil, delta: DeltaType? = nil) {
         self.minResubscribeDelay = minResubscribeDelay
         self.maxResubscribeDelay = maxResubscribeDelay
         self.token = token
@@ -23,12 +27,13 @@ public struct CentrifugeSubscriptionConfig {
         self.positioned = positioned
         self.recoverable = recoverable
         self.joinLeave = joinLeave
+        self.delta = delta
     }
     
     public var minResubscribeDelay = 0.5
     public var maxResubscribeDelay = 20.0
     public var token: String = ""
-    public var delta: String = ""
+    public var delta: DeltaType? = nil
     public var data: Data? = nil
     public var since: CentrifugeStreamPosition? = nil
     public var positioned: Bool = false
@@ -52,9 +57,11 @@ public class CentrifugeSubscription {
     private var recover: Bool = false
     private var offset: UInt64 = 0
     private var epoch: String = ""
+    private var prevValue: Data?
     
     fileprivate var token: String?
     fileprivate var delta: String?
+    fileprivate var deltaNegotiated: Bool = false
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var resubscribeTask: DispatchWorkItem?
     fileprivate var resubscribeAttempts: Int = 0
@@ -77,8 +84,8 @@ public class CentrifugeSubscription {
             self.offset = since.offset
             self.epoch = since.epoch
         }
-        if !config.delta.isEmpty {
-            self.delta = config.delta
+        if (config.delta != nil) {
+            self.delta = config.delta?.rawValue
         }
     }
     
@@ -160,13 +167,13 @@ public class CentrifugeSubscription {
         )
     }
     
-    func sendSubscribe(channel: String, token: String, delta: String?) {
+    func sendSubscribe(channel: String, token: String) {
         var streamPosition = StreamPosition()
         if self.recover {
             streamPosition.offset = self.offset
             streamPosition.epoch = self.epoch
         }
-        self.centrifuge?.subscribe(channel: self.channel, token: token, delta: delta, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
+        self.centrifuge?.subscribe(channel: self.channel, token: token, delta: self.delta, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
             guard let centrifuge = centrifuge else { return }
             guard let strongSelf = self else { return }
             guard strongSelf.state == .subscribing else { return }
@@ -205,6 +212,7 @@ public class CentrifugeSubscription {
             strongSelf.recover = result.recoverable
             strongSelf.epoch = result.epoch
             strongSelf.offset = result.offset
+            strongSelf.deltaNegotiated = result.delta
             for cb in strongSelf.callbacks.values {
                 cb(nil)
             }
@@ -222,13 +230,7 @@ public class CentrifugeSubscription {
             )
             result.publications.forEach { [weak self] pub in
                 guard let strongSelf = self else { return }
-                var info: CentrifugeClientInfo? = nil;
-                if pub.hasInfo {
-                    info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
-                }
-                let event = CentrifugePublicationEvent(data: pub.data, offset: pub.offset, tags: pub.tags, info: info)
-                strongSelf.offset = pub.offset
-                strongSelf.delegate?.onPublication(strongSelf, event)
+                strongSelf.handlePublication(pub: pub)
             }
             if result.publications.isEmpty {
                 strongSelf.offset = result.offset
@@ -236,6 +238,34 @@ public class CentrifugeSubscription {
         })
     }
     
+    func handlePublication(pub: Centrifugal_Centrifuge_Protocol_Publication) {
+        var info: CentrifugeClientInfo? = nil;
+        if pub.hasInfo {
+            info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+        }
+        let event = CentrifugePublicationEvent(data: applyDelta(pub: pub), offset: pub.offset, tags: pub.tags, info: info)
+        if pub.offset > 0 {
+            self.setOffset(offset: pub.offset)
+        }
+        self.delegate?.onPublication(self, event)
+    }
+
+    private func applyDelta(pub: Centrifugal_Centrifuge_Protocol_Publication) -> Data {
+        var eventData = pub.data
+        if pub.delta && self.deltaNegotiated {
+            do {
+                let data = try DeltaFossil.applyDelta(source: prevValue!, delta: pub.data)
+                eventData = data
+                self.prevValue = data
+            } catch {
+                // TODO: Handle error.
+            }
+        } else if deltaNegotiated {
+            self.prevValue = pub.data
+        }
+        return eventData
+    }
+
     private func scheduleResubscribe(zeroDelay: Bool = false) {
         self.centrifuge?.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
@@ -373,7 +403,7 @@ public class CentrifugeSubscription {
         if self.token != nil || self.config.tokenGetter != nil {
             if self.token != nil {
                 let token = self.token!
-                self.sendSubscribe(channel: self.channel, token: token, delta: delta)
+                self.sendSubscribe(channel: self.channel, token: token)
             } else {
                 self.getSubscriptionToken(channel: self.channel, completion: { [weak self] result in
                     guard let strongSelf = self, strongSelf.state == .subscribing else { return }
@@ -385,7 +415,7 @@ public class CentrifugeSubscription {
                         }
                         strongSelf.centrifuge?.syncQueue.async { [weak self] in
                             guard let strongSelf = self, strongSelf.state == .subscribing else { return }
-                            strongSelf.sendSubscribe(channel: strongSelf.channel, token: token, delta: strongSelf.delta)
+                            strongSelf.sendSubscribe(channel: strongSelf.channel, token: token)
                         }
                     case .failure(let error):
                         guard let strongSelf = self else { return }
@@ -408,7 +438,7 @@ public class CentrifugeSubscription {
                 })
             }
         } else {
-            self.sendSubscribe(channel: self.channel, token: "", delta: self.delta)
+            self.sendSubscribe(channel: self.channel, token: "")
         }
     }
     

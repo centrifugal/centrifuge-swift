@@ -2,6 +2,8 @@
 //  DeltaFossil.swift
 //  iOSApp
 //
+// Fossil SCM delta compression algorithm, this is only the applyDelta part required by the client.
+// Author of the original algorithm: D. Richard Hipp
 //
 
 import Foundation

@@ -159,7 +159,6 @@ public class CentrifugeClient {
     fileprivate var client: String?
     fileprivate var token: String?
     fileprivate var data: Data?
-    fileprivate var originalSourceData: Data? // to check and handle delta fossil implementation
     fileprivate var commandId: UInt32 = 0
     fileprivate var commandIdLock: NSLock = NSLock()
     fileprivate var opCallbacks: [UInt32: ((CentrifugeResolveData) -> ())] = [:]
@@ -872,30 +871,7 @@ fileprivate extension CentrifugeClient {
         }
         let sub = subs[0]
         subscriptionsLock.unlock()
-        var info: CentrifugeClientInfo? = nil;
-        if pub.hasInfo {
-            info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
-        }
-
-        var eventData: Data!
-        
-        if let originalSourceData {
-            // Assuming the pub.data contains delta-encoded data
-            do {
-                let data = try DeltaFossil.applyDelta(source: originalSourceData, delta: pub.data)
-                eventData = data
-            } catch {
-                eventData = pub.data
-            }
-        } else {
-            eventData = pub.data
-        }
-        self.originalSourceData = eventData
-        let event = CentrifugePublicationEvent(data: eventData, offset: pub.offset, tags: pub.tags, info: info)
-        if pub.offset > 0 {
-            sub.setOffset(offset: pub.offset)
-        }
-        sub.delegate?.onPublication(sub, event)
+        sub.handlePublication(pub: pub)
     }
     
     private func handleJoin(channel: String, join: Centrifugal_Centrifuge_Protocol_Join) {
@@ -955,7 +931,6 @@ fileprivate extension CentrifugeClient {
     
     private func handleSubscribe(channel: String, sub: Centrifugal_Centrifuge_Protocol_Subscribe) {
         self.serverSubs[channel] = ServerSubscription(recoverable: sub.recoverable, offset: sub.offset, epoch: sub.epoch)
-        self.originalSourceData = nil // make sure data will be nil on a new subscription
         let event = CentrifugeServerSubscribedEvent(channel: channel, wasRecovering: false, recovered: false, positioned: sub.positioned, recoverable: sub.recoverable, streamPosition: sub.positioned || sub.recoverable ? StreamPosition(offset: sub.offset, epoch: sub.epoch): nil, data: sub.data)
         self.delegate?.onSubscribed(self, event)
     }
