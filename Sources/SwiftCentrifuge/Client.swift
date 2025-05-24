@@ -25,9 +25,8 @@ public enum CentrifugeError: Error {
     case replyError(code: UInt32, message: String, temporary: Bool)
 }
 
-public protocol CentrifugeConnectionTokenGetter: NSObject {
-    func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
-}
+public typealias CentrifugeConnectionTokenGetter = (_ event: CentrifugeConnectionTokenEvent, _ completion: @escaping (Result<String, Error>) -> Void) -> Void
+
 
 /// Configuration structure for Centrifuge client.
 public struct CentrifugeClientConfig {
@@ -113,7 +112,7 @@ public struct CentrifugeClientConfig {
     public var token: String
 
     /// Callback for retrieving authentication tokens dynamically.
-    public weak var tokenGetter: CentrifugeConnectionTokenGetter?
+    public var tokenGetter: CentrifugeConnectionTokenGetter?
 
     /// Custom binary data associated with the client.
     public var data: Data?
@@ -575,10 +574,7 @@ internal extension CentrifugeClient {
     func getConnectionToken(completion: @escaping (Result<String, Error>)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            guard strongSelf.config.tokenGetter != nil else { return }
-            strongSelf.config.tokenGetter!.getConnectionToken(
-                CentrifugeConnectionTokenEvent()
-            ) {[weak self] result in
+            strongSelf.config.tokenGetter?(CentrifugeConnectionTokenEvent()) { [weak self] result in
                 guard let strongSelf = self else { return }
                 strongSelf.syncQueue.async { [weak self] in
                     guard self != nil else { return }
@@ -1021,7 +1017,7 @@ fileprivate extension CentrifugeClient {
         let refreshTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.config.tokenGetter != nil else { return }
-            strongSelf.config.tokenGetter!.getConnectionToken(CentrifugeConnectionTokenEvent()) { [weak self] result in
+            strongSelf.config.tokenGetter?(CentrifugeConnectionTokenEvent()) { [weak self] result in
                 guard let strongSelf = self else { return }
                 guard strongSelf.state == .connected else { return }
                 switch result {

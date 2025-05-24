@@ -8,9 +8,8 @@
 
 import Foundation
 
-public protocol CentrifugeSubscriptionTokenGetter: NSObject {
-    func getSubscriptionToken(_ event: CentrifugeSubscriptionTokenEvent, completion: @escaping (Result<String, Error>) -> ())
-}
+public typealias CentrifugeSubscriptionTokenGetter = (_ event: CentrifugeSubscriptionTokenEvent, _ completion: @escaping (Result<String, Error>) -> Void) -> Void
+
 
 public enum DeltaType: String {
     case fossil
@@ -39,7 +38,7 @@ public struct CentrifugeSubscriptionConfig {
     public var positioned: Bool = false
     public var recoverable: Bool = false
     public var joinLeave: Bool = false
-    public weak var tokenGetter: CentrifugeSubscriptionTokenGetter?
+    public var tokenGetter: CentrifugeSubscriptionTokenGetter?
 }
 
 public enum CentrifugeSubscriptionState {
@@ -86,6 +85,9 @@ public class CentrifugeSubscription {
         }
         if (config.delta != nil) {
             self.delta = config.delta?.rawValue
+        }
+        if (config.token != "") {
+            self.token = config.token;
         }
     }
     
@@ -298,9 +300,7 @@ public class CentrifugeSubscription {
     private func getSubscriptionToken(channel: String, completion: @escaping (Result<String, Error>)->()) {
         self.centrifuge?.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
-            strongSelf.config.tokenGetter!.getSubscriptionToken(
-                CentrifugeSubscriptionTokenEvent(channel: channel)
-            ) {[weak self] result in
+            strongSelf.config.tokenGetter?(CentrifugeSubscriptionTokenEvent(channel: channel)) {[weak self] result in
                 guard let strongSelf = self else { return }
                 strongSelf.centrifuge?.syncQueue.async { [weak self] in
                     guard self != nil else { return }
