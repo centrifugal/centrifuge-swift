@@ -26,10 +26,12 @@ class ViewController: UIViewController {
     private let jwtToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzd2lmdCIsImlhdCI6MTc0Nzk3MzA5M30.mH5xZ2kesDg1xJgqkOEsdOZExNIo35crjTfgYPgBAgs"
     
     // Note, this sub token is only for example purposes, in reality it should be issued by your backend!!
-    // This token is built using "secret" as HMAC secret key.
+    // This token is built using "secret" as HMAC secret key for channel "index".
     private let subToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzd2lmdCIsImlhdCI6MTc0Nzk3MzEyOSwiY2hhbm5lbCI6ImluZGV4In0.m33zSZn45UmvbMWIB_G_Kn4RfU5pPCEVifJc8WqA3Q8"
     
     private let endpoint = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
+    private let channel = "index"
+
     private var proxySetting: ProxySetting = .off {
         didSet {
             guard oldValue != proxySetting else { return }
@@ -48,7 +50,7 @@ class ViewController: UIViewController {
         self.client = CentrifugeClient(endpoint: endpoint, config: config, delegate: self)
         do {
             sub = try self.client?.newSubscription(
-                channel: "index",
+                channel: self.channel,
                 delegate: self,
                 config: CentrifugeSubscriptionConfig( // Example of using Subscription config.
 //                    delta: .fossil,
@@ -301,10 +303,15 @@ extension ViewController {
         self.client?.connect()
         do {
             sub = try self.client?.newSubscription(
-                channel: "index",
+                channel: self.channel,
                 delegate: self,
-                config: CentrifugeSubscriptionConfig(
-                    token: subToken
+                config: CentrifugeSubscriptionConfig( // Example of using Subscription config.
+//                    delta: .fossil,
+                    token: subToken,
+                    tokenGetter: {[weak self] event, completion in
+                        guard let strongSelf = self else { return }
+                        completion(.success(strongSelf.subToken))
+                    }
                 )
             )
             sub!.subscribe()
