@@ -7,9 +7,6 @@
 
 import Foundation
 
-
-import Foundation
-
 @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
 final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDelegate {
 
@@ -20,19 +17,20 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     var onData: ((Data) -> Void)?
 
     private var session: URLSession?
-
     private let log: CentrifugeLogger
     private let request: URLRequest
+    private let urlSessionConfigurationProvider: (() -> URLSessionConfiguration)
     private let queue: DispatchQueue
 
     /// The websocket is considered 'active' when `task` is not nil
     private var task: URLSessionWebSocketTask?
 
-    init(request: URLRequest, queue: DispatchQueue, log: CentrifugeLogger) {
+    init(request: URLRequest, urlSessionConfigurationProvider: URLSessionConfigurationProvider?,  queue: DispatchQueue, log: CentrifugeLogger) {
         var request = request
         request.setValue("Sec-WebSocket-Protocol", forHTTPHeaderField: "centrifuge-protobuf")
         self.request = request
         self.log = log
+        self.urlSessionConfigurationProvider = urlSessionConfigurationProvider ?? { URLSessionConfiguration.default }
         self.queue = queue
     }
 
@@ -109,18 +107,23 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         let operationQueue = OperationQueue()
         operationQueue.underlyingQueue = queue
 
+        let configuration = urlSessionConfigurationProvider()
+
         // For some reason, `URLSessionWebSocketTask` will only respect the proxy
         // configuration if started with a URL and not a URLRequest. As a temporary
         // workaround, port header information from the request to the session.
         //
         // We copied this workaround from Signal-iOS web socket implementation
-        let configuration = URLSessionConfiguration.default
-        configuration.httpAdditionalHeaders = request.allHTTPHeaderFields
+        var httpAdditionalHeaders = configuration.httpAdditionalHeaders ?? .init()
+        request.allHTTPHeaderFields?.forEach { httpAdditionalHeaders[$0.key] = $0.value }
+        configuration.httpAdditionalHeaders = httpAdditionalHeaders
 
         let delegate = URLSessionDelegateBox(delegate: self)
-
         let session = URLSession(
-            configuration: configuration, delegate: delegate, delegateQueue: operationQueue)
+            configuration: configuration, 
+            delegate: delegate,
+            delegateQueue: operationQueue
+        )
         self.session = session
 
         return session

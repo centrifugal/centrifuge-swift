@@ -3,16 +3,19 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3A58470528C9CF4800D85C0E /* SwiftCentrifuge in Frameworks */ = {isa = PBXBuildFile; productRef = 3A58470428C9CF4800D85C0E /* SwiftCentrifuge */; };
 		3A451D4028D2EE33004F85A5 /* PrintLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A451D3F28D2EE33004F85A5 /* PrintLogger.swift */; };
+		3A58470528C9CF4800D85C0E /* SwiftCentrifuge in Frameworks */ = {isa = PBXBuildFile; productRef = 3A58470428C9CF4800D85C0E /* SwiftCentrifuge */; };
 		607FACD61AFB9204008FA782 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607FACD51AFB9204008FA782 /* AppDelegate.swift */; };
 		607FACD81AFB9204008FA782 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607FACD71AFB9204008FA782 /* ViewController.swift */; };
 		607FACDB1AFB9204008FA782 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 607FACD91AFB9204008FA782 /* Main.storyboard */; };
 		607FACDD1AFB9204008FA782 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 607FACDC1AFB9204008FA782 /* Images.xcassets */; };
+		91D46D152CA2148500223592 /* DeltaFossilTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D46D142CA2148500223592 /* DeltaFossilTests.swift */; };
+		B2D4E30C2D0B5FCB009D6119 /* URLSessionConfiguration+proxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E30A2D0B5FCB009D6119 /* URLSessionConfiguration+proxy.swift */; };
+		B2D4E30D2D0B5FCB009D6119 /* ProxySettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E3092D0B5FCB009D6119 /* ProxySettingsViewController.swift */; };
 		DE2E2CA9220FEAC8004541DE /* BasicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE7C1AA8220F0E1A0037AE1E /* BasicTests.swift */; };
 		DE7C1AA4220F0D950037AE1E /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = DE7C1AA3220F0D950037AE1E /* Launch Screen.storyboard */; };
 /* End PBXBuildFile section */
@@ -35,6 +38,9 @@
 		607FACD71AFB9204008FA782 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		607FACDA1AFB9204008FA782 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		607FACDC1AFB9204008FA782 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		91D46D142CA2148500223592 /* DeltaFossilTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeltaFossilTests.swift; sourceTree = "<group>"; };
+		B2D4E3092D0B5FCB009D6119 /* ProxySettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxySettingsViewController.swift; sourceTree = "<group>"; };
+		B2D4E30A2D0B5FCB009D6119 /* URLSessionConfiguration+proxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSessionConfiguration+proxy.swift"; sourceTree = "<group>"; };
 		DE2E2C9F220FEAC4004541DE /* SwiftCentrifuge_Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SwiftCentrifuge_Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE2E2CA3220FEAC4004541DE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DE7C1AA3220F0D950037AE1E /* Launch Screen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
@@ -81,6 +87,7 @@
 		607FACD21AFB9204008FA782 /* Example for SwiftCentrifuge */ = {
 			isa = PBXGroup;
 			children = (
+				B2D4E30B2D0B5FCB009D6119 /* proxy */,
 				607FACD51AFB9204008FA782 /* AppDelegate.swift */,
 				607FACD71AFB9204008FA782 /* ViewController.swift */,
 				3A451D3F28D2EE33004F85A5 /* PrintLogger.swift */,
@@ -118,10 +125,20 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		B2D4E30B2D0B5FCB009D6119 /* proxy */ = {
+			isa = PBXGroup;
+			children = (
+				B2D4E3092D0B5FCB009D6119 /* ProxySettingsViewController.swift */,
+				B2D4E30A2D0B5FCB009D6119 /* URLSessionConfiguration+proxy.swift */,
+			);
+			path = proxy;
+			sourceTree = "<group>";
+		};
 		DE7C1AA5220F0E1A0037AE1E /* SwiftCentrifugeTests */ = {
 			isa = PBXGroup;
 			children = (
 				DE7C1AA8220F0E1A0037AE1E /* BasicTests.swift */,
+				91D46D142CA2148500223592 /* DeltaFossilTests.swift */,
 			);
 			name = SwiftCentrifugeTests;
 			path = ../../Tests/SwiftCentrifugeTests;
@@ -220,13 +237,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		DE2E2C9D220FEAC4004541DE /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -234,6 +244,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B2D4E30C2D0B5FCB009D6119 /* URLSessionConfiguration+proxy.swift in Sources */,
+				B2D4E30D2D0B5FCB009D6119 /* ProxySettingsViewController.swift in Sources */,
 				607FACD81AFB9204008FA782 /* ViewController.swift in Sources */,
 				3A451D4028D2EE33004F85A5 /* PrintLogger.swift in Sources */,
 				607FACD61AFB9204008FA782 /* AppDelegate.swift in Sources */,
@@ -244,6 +256,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				91D46D152CA2148500223592 /* DeltaFossilTests.swift in Sources */,
 				DE2E2CA9220FEAC8004541DE /* BasicTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
