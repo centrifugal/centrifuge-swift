@@ -20,8 +20,18 @@ class ViewController: UIViewController {
 
     private var client: CentrifugeClient?
     private var sub: CentrifugeSubscription?
-    private let jwtToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0MiIsImV4cCI6MTczNDc3MTk5OCwiaWF0IjoxNzM0MTY3MTk4fQ.LYyqk4r91mjAx9FT6TSxT7lLbMaHDWUP7MdJ1_Ghs_E"
+    
+    // Note, this token is only for example purposes, in reality it should be issued by your backend!!
+    // This token is built using "secret" as HMAC secret key.
+    private let jwtToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzd2lmdCIsImlhdCI6MTc0Nzk3MzA5M30.mH5xZ2kesDg1xJgqkOEsdOZExNIo35crjTfgYPgBAgs"
+    
+    // Note, this sub token is only for example purposes, in reality it should be issued by your backend!!
+    // This token is built using "secret" as HMAC secret key for channel "index".
+    private let subToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzd2lmdCIsImlhdCI6MTc0Nzk3MzEyOSwiY2hhbm5lbCI6ImluZGV4In0.m33zSZn45UmvbMWIB_G_Kn4RfU5pPCEVifJc8WqA3Q8"
+    
     private let endpoint = "ws://127.0.0.1:8000/connection/websocket?cf_protocol=protobuf"
+    private let channel = "index"
+
     private var proxySetting: ProxySetting = .off {
         didSet {
             guard oldValue != proxySetting else { return }
@@ -39,7 +49,18 @@ class ViewController: UIViewController {
         let config = centrifugeClientConfig(with: proxySetting)
         self.client = CentrifugeClient(endpoint: endpoint, config: config, delegate: self)
         do {
-            sub = try self.client?.newSubscription(channel: "chat:index", delegate: self)
+            sub = try self.client?.newSubscription(
+                channel: self.channel,
+                delegate: self,
+                config: CentrifugeSubscriptionConfig( // Example of using Subscription config.
+//                    delta: .fossil,
+                    token: subToken,
+                    tokenGetter: {[weak self] event, completion in
+                        guard let strongSelf = self else { return }
+                        completion(.success(strongSelf.subToken))
+                    }
+                )
+            )
             sub!.subscribe()
         } catch {
             print("Can not create subscription: \(error)")
@@ -120,12 +141,6 @@ class ViewController: UIViewController {
         configureProxyButton.titleLabel?.font = .systemFont(ofSize: 16, weight: isProxyOn ? .bold : .light)
     }
 
-}
-
-extension ViewController: CentrifugeConnectionTokenGetter {
-    func getConnectionToken(_ event: CentrifugeConnectionTokenEvent, completion: @escaping (Result<String, Error>) -> ()) {
-        completion(.success(""))
-    }
 }
 
 extension ViewController: CentrifugeClientDelegate {
@@ -256,13 +271,19 @@ extension ViewController {
                 token: jwtToken,
                 useNativeWebSocket: true,
                 urlSessionConfigurationProvider: provider,
-                tokenGetter: self,
+                tokenGetter: {[weak self] event, completion in
+                    guard let strongSelf = self else { return }
+                    completion(.success(strongSelf.jwtToken))
+                },
                 logger: PrintLogger()
             )
         case .off:
             config = .init(
                 token: jwtToken,
-                tokenGetter: self,
+                tokenGetter: {[weak self] event, completion in
+                    guard let strongSelf = self else { return }
+                    completion(.success(strongSelf.jwtToken))
+                },
                 logger: PrintLogger()
             )
         }
@@ -281,7 +302,18 @@ extension ViewController {
         )
         self.client?.connect()
         do {
-            sub = try self.client?.newSubscription(channel: "chat:1", delegate: self)
+            sub = try self.client?.newSubscription(
+                channel: self.channel,
+                delegate: self,
+                config: CentrifugeSubscriptionConfig( // Example of using Subscription config.
+//                    delta: .fossil,
+                    token: subToken,
+                    tokenGetter: {[weak self] event, completion in
+                        guard let strongSelf = self else { return }
+                        completion(.success(strongSelf.subToken))
+                    }
+                )
+            )
             sub!.subscribe()
         } catch {
             print("Can not create subscription: \(error)")
@@ -289,5 +321,3 @@ extension ViewController {
         }
     }
 }
-
-

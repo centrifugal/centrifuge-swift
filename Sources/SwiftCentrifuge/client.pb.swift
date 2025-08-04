@@ -466,6 +466,15 @@ struct Centrifugal_Centrifuge_Protocol_Publication {
 
   var tags: Dictionary<String,String> = [:]
 
+  /// When set indicates that data in Publication is a delta from previous data.
+  var delta: Bool = false
+
+  /// Optional time of publication as Unix timestamp milliseconds.
+  var time: Int64 = 0
+
+  /// Optional channel name if Publication relates to wildcard subscription.
+  var channel: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -586,6 +595,9 @@ struct Centrifugal_Centrifuge_Protocol_Connect {
 
   var node: String = String()
 
+  /// Server time as Unix timestamp in milliseconds (not sent by default).
+  var time: Int64 = 0
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -636,6 +648,8 @@ struct Centrifugal_Centrifuge_Protocol_ConnectRequest {
 
   var version: String = String()
 
+  var headers: Dictionary<String,String> = [:]
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -665,6 +679,9 @@ struct Centrifugal_Centrifuge_Protocol_ConnectResult {
   var session: String = String()
 
   var node: String = String()
+
+  /// Server time as Unix timestamp in milliseconds (not sent by default).
+  var time: Int64 = 0
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -724,6 +741,8 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeRequest {
 
   var joinLeave: Bool = false
 
+  var delta: String = String()
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
@@ -753,6 +772,8 @@ struct Centrifugal_Centrifuge_Protocol_SubscribeResult {
   var data: Data = Data()
 
   var wasRecovering: Bool = false
+
+  var delta: Bool = false
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -1623,6 +1644,9 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
     5: .same(proto: "info"),
     6: .same(proto: "offset"),
     7: .same(proto: "tags"),
+    8: .same(proto: "delta"),
+    9: .same(proto: "time"),
+    10: .same(proto: "channel"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1635,6 +1659,9 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
       case 5: try { try decoder.decodeSingularMessageField(value: &self._info) }()
       case 6: try { try decoder.decodeSingularUInt64Field(value: &self.offset) }()
       case 7: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.tags) }()
+      case 8: try { try decoder.decodeSingularBoolField(value: &self.delta) }()
+      case 9: try { try decoder.decodeSingularInt64Field(value: &self.time) }()
+      case 10: try { try decoder.decodeSingularStringField(value: &self.channel) }()
       default: break
       }
     }
@@ -1657,6 +1684,15 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
     if !self.tags.isEmpty {
       try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.tags, fieldNumber: 7)
     }
+    if self.delta != false {
+      try visitor.visitSingularBoolField(value: self.delta, fieldNumber: 8)
+    }
+    if self.time != 0 {
+      try visitor.visitSingularInt64Field(value: self.time, fieldNumber: 9)
+    }
+    if !self.channel.isEmpty {
+      try visitor.visitSingularStringField(value: self.channel, fieldNumber: 10)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1665,6 +1701,9 @@ extension Centrifugal_Centrifuge_Protocol_Publication: SwiftProtobuf.Message, Sw
     if lhs._info != rhs._info {return false}
     if lhs.offset != rhs.offset {return false}
     if lhs.tags != rhs.tags {return false}
+    if lhs.delta != rhs.delta {return false}
+    if lhs.time != rhs.time {return false}
+    if lhs.channel != rhs.channel {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1881,6 +1920,7 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     8: .same(proto: "pong"),
     9: .same(proto: "session"),
     10: .same(proto: "node"),
+    11: .same(proto: "time"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -1899,6 +1939,7 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
       case 8: try { try decoder.decodeSingularBoolField(value: &self.pong) }()
       case 9: try { try decoder.decodeSingularStringField(value: &self.session) }()
       case 10: try { try decoder.decodeSingularStringField(value: &self.node) }()
+      case 11: try { try decoder.decodeSingularInt64Field(value: &self.time) }()
       default: break
       }
     }
@@ -1935,6 +1976,9 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     if !self.node.isEmpty {
       try visitor.visitSingularStringField(value: self.node, fieldNumber: 10)
     }
+    if self.time != 0 {
+      try visitor.visitSingularInt64Field(value: self.time, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1949,6 +1993,7 @@ extension Centrifugal_Centrifuge_Protocol_Connect: SwiftProtobuf.Message, SwiftP
     if lhs.pong != rhs.pong {return false}
     if lhs.session != rhs.session {return false}
     if lhs.node != rhs.node {return false}
+    if lhs.time != rhs.time {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2044,6 +2089,7 @@ extension Centrifugal_Centrifuge_Protocol_ConnectRequest: SwiftProtobuf.Message,
     3: .same(proto: "subs"),
     4: .same(proto: "name"),
     5: .same(proto: "version"),
+    6: .same(proto: "headers"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2057,6 +2103,7 @@ extension Centrifugal_Centrifuge_Protocol_ConnectRequest: SwiftProtobuf.Message,
       case 3: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMessageMap<SwiftProtobuf.ProtobufString,Centrifugal_Centrifuge_Protocol_SubscribeRequest>.self, value: &self.subs) }()
       case 4: try { try decoder.decodeSingularStringField(value: &self.name) }()
       case 5: try { try decoder.decodeSingularStringField(value: &self.version) }()
+      case 6: try { try decoder.decodeMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: &self.headers) }()
       default: break
       }
     }
@@ -2078,6 +2125,9 @@ extension Centrifugal_Centrifuge_Protocol_ConnectRequest: SwiftProtobuf.Message,
     if !self.version.isEmpty {
       try visitor.visitSingularStringField(value: self.version, fieldNumber: 5)
     }
+    if !self.headers.isEmpty {
+      try visitor.visitMapField(fieldType: SwiftProtobuf._ProtobufMap<SwiftProtobuf.ProtobufString,SwiftProtobuf.ProtobufString>.self, value: self.headers, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2087,6 +2137,7 @@ extension Centrifugal_Centrifuge_Protocol_ConnectRequest: SwiftProtobuf.Message,
     if lhs.subs != rhs.subs {return false}
     if lhs.name != rhs.name {return false}
     if lhs.version != rhs.version {return false}
+    if lhs.headers != rhs.headers {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2105,6 +2156,7 @@ extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, 
     8: .same(proto: "pong"),
     9: .same(proto: "session"),
     10: .same(proto: "node"),
+    11: .same(proto: "time"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2123,6 +2175,7 @@ extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, 
       case 8: try { try decoder.decodeSingularBoolField(value: &self.pong) }()
       case 9: try { try decoder.decodeSingularStringField(value: &self.session) }()
       case 10: try { try decoder.decodeSingularStringField(value: &self.node) }()
+      case 11: try { try decoder.decodeSingularInt64Field(value: &self.time) }()
       default: break
       }
     }
@@ -2159,6 +2212,9 @@ extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, 
     if !self.node.isEmpty {
       try visitor.visitSingularStringField(value: self.node, fieldNumber: 10)
     }
+    if self.time != 0 {
+      try visitor.visitSingularInt64Field(value: self.time, fieldNumber: 11)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2173,6 +2229,7 @@ extension Centrifugal_Centrifuge_Protocol_ConnectResult: SwiftProtobuf.Message, 
     if lhs.pong != rhs.pong {return false}
     if lhs.session != rhs.session {return false}
     if lhs.node != rhs.node {return false}
+    if lhs.time != rhs.time {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2272,6 +2329,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     9: .same(proto: "positioned"),
     10: .same(proto: "recoverable"),
     11: .standard(proto: "join_leave"),
+    12: .same(proto: "delta"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2289,6 +2347,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
       case 9: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
       case 10: try { try decoder.decodeSingularBoolField(value: &self.recoverable) }()
       case 11: try { try decoder.decodeSingularBoolField(value: &self.joinLeave) }()
+      case 12: try { try decoder.decodeSingularStringField(value: &self.delta) }()
       default: break
       }
     }
@@ -2322,6 +2381,9 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     if self.joinLeave != false {
       try visitor.visitSingularBoolField(value: self.joinLeave, fieldNumber: 11)
     }
+    if !self.delta.isEmpty {
+      try visitor.visitSingularStringField(value: self.delta, fieldNumber: 12)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2335,6 +2397,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeRequest: SwiftProtobuf.Messag
     if lhs.positioned != rhs.positioned {return false}
     if lhs.recoverable != rhs.recoverable {return false}
     if lhs.joinLeave != rhs.joinLeave {return false}
+    if lhs.delta != rhs.delta {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -2353,6 +2416,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     10: .same(proto: "positioned"),
     11: .same(proto: "data"),
     12: .standard(proto: "was_recovering"),
+    13: .same(proto: "delta"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2371,6 +2435,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
       case 10: try { try decoder.decodeSingularBoolField(value: &self.positioned) }()
       case 11: try { try decoder.decodeSingularBytesField(value: &self.data) }()
       case 12: try { try decoder.decodeSingularBoolField(value: &self.wasRecovering) }()
+      case 13: try { try decoder.decodeSingularBoolField(value: &self.delta) }()
       default: break
       }
     }
@@ -2407,6 +2472,9 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     if self.wasRecovering != false {
       try visitor.visitSingularBoolField(value: self.wasRecovering, fieldNumber: 12)
     }
+    if self.delta != false {
+      try visitor.visitSingularBoolField(value: self.delta, fieldNumber: 13)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -2421,6 +2489,7 @@ extension Centrifugal_Centrifuge_Protocol_SubscribeResult: SwiftProtobuf.Message
     if lhs.positioned != rhs.positioned {return false}
     if lhs.data != rhs.data {return false}
     if lhs.wasRecovering != rhs.wasRecovering {return false}
+    if lhs.delta != rhs.delta {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
