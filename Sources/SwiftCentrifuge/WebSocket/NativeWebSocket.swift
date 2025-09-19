@@ -27,7 +27,7 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 
     init(request: URLRequest, urlSessionConfigurationProvider: URLSessionConfigurationProvider?,  queue: DispatchQueue, log: CentrifugeLogger) {
         var request = request
-        request.setValue("Sec-WebSocket-Protocol", forHTTPHeaderField: "centrifuge-protobuf")
+        request.setValue("centrifuge-protobuf", forHTTPHeaderField: "Sec-WebSocket-Protocol")
         self.request = request
         self.log = log
         self.urlSessionConfigurationProvider = urlSessionConfigurationProvider ?? { URLSessionConfiguration.default }
