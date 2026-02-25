@@ -1,4 +1,4 @@
-// swift-tools-version:4.0
+// swift-tools-version:6.0
 
 import PackageDescription
 
@@ -8,12 +8,14 @@ let package = Package(
         .library(name: "SwiftCentrifuge", targets: ["SwiftCentrifuge"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-protobuf", from:"1.7.0")
+        .package(url: "https://github.com/apple/swift-protobuf", from:"1.35.0")
     ],
     targets: [
         .target(
             name: "SwiftCentrifuge",
-            dependencies: ["SwiftProtobuf"]
+            dependencies: [
+                .product(name: "SwiftProtobuf", package: "swift-protobuf")
+            ]
         ),
         .testTarget(
             name: "SwiftCentrifugeTests",
