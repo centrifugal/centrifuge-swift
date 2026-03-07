@@ -3088,3 +3088,7 @@ extension Centrifugal_Centrifuge_Protocol_SendRequest: SwiftProtobuf.Message, Sw
     return true
   }
 }
+
+extension Centrifugal_Centrifuge_Protocol_Command._StorageClass: @unchecked Sendable {}
+extension Centrifugal_Centrifuge_Protocol_Reply._StorageClass: @unchecked Sendable {}
+extension Centrifugal_Centrifuge_Protocol_Push._StorageClass: @unchecked Sendable {}

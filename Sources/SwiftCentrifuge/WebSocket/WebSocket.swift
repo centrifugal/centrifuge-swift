@@ -967,11 +967,11 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
      */
     private func processOneRawMessage(inBuffer buffer: UnsafeBufferPointer<UInt8>) -> UnsafeBufferPointer<UInt8> {
         let response = readStack.last
-        guard let baseAddress = buffer.baseAddress else {return emptyBuffer}
+        guard let baseAddress = buffer.baseAddress else {return emptyBuffer()}
         let bufferLen = buffer.count
         if response != nil && bufferLen < 2 {
             fragBuffer = Data(buffer: buffer)
-            return emptyBuffer
+            return emptyBuffer()
         }
         if let response = response, response.bytesLeft > 0 {
             var len = response.bytesLeft
@@ -998,7 +998,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
                 let errCode = CloseCode.protocolError.rawValue
                 doDisconnect(WSError(type: .protocolError, message: "masked and rsv data is not currently supported", code: Int(errCode)))
                 writeError(errCode)
-                return emptyBuffer
+                return emptyBuffer()
             }
             let isControlFrame = (receivedOpcode == .connectionClose || receivedOpcode == .ping)
             if !isControlFrame && (receivedOpcode != .binaryFrame && receivedOpcode != .continueFrame &&
@@ -1006,13 +1006,13 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
                     let errCode = CloseCode.protocolError.rawValue
                     doDisconnect(WSError(type: .protocolError, message: "unknown opcode: \(receivedOpcodeRawValue)", code: Int(errCode)))
                     writeError(errCode)
-                    return emptyBuffer
+                    return emptyBuffer()
             }
             if isControlFrame && isFin == 0 {
                 let errCode = CloseCode.protocolError.rawValue
                 doDisconnect(WSError(type: .protocolError, message: "control frames can't be fragmented", code: Int(errCode)))
                 writeError(errCode)
-                return emptyBuffer
+                return emptyBuffer()
             }
             var closeCode = CloseCode.normal.rawValue
             if receivedOpcode == .connectionClose {
@@ -1027,11 +1027,11 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
                 if payloadLen < 2 {
                     doDisconnect(WSError(type: .protocolError, message: "connection closed by server", code: Int(closeCode)))
                     writeError(closeCode)
-                    return emptyBuffer
+                    return emptyBuffer()
                 }
             } else if isControlFrame && payloadLen > 125 {
                 writeError(CloseCode.protocolError.rawValue)
-                return emptyBuffer
+                return emptyBuffer()
             }
             var dataLength = UInt64(payloadLen)
             if dataLength == 127 {
@@ -1043,7 +1043,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
             }
             if bufferLen < offset || UInt64(bufferLen - offset) < dataLength {
                 fragBuffer = Data(bytes: baseAddress, count: bufferLen)
-                return emptyBuffer
+                return emptyBuffer()
             }
             var len = dataLength
             if dataLength > UInt64(bufferLen) {
@@ -1066,7 +1066,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
                     let closeCode = CloseCode.encoding.rawValue
                     doDisconnect(WSError(type: .protocolError, message: closeReason, code: Int(closeCode)))
                     writeError(closeCode)
-                    return emptyBuffer
+                    return emptyBuffer()
                 }
             } else {
                 data = Data(bytes: baseAddress+offset, count: Int(len))
@@ -1081,7 +1081,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
                 }
                 doDisconnect(WSError(type: .protocolError, message: closeReason, code: Int(closeCode)))
                 writeError(closeCode)
-                return emptyBuffer
+                return emptyBuffer()
             }
             if receivedOpcode == .pong {
                 if canDispatch {
@@ -1102,7 +1102,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
                 let errCode = CloseCode.protocolError.rawValue
                 doDisconnect(WSError(type: .protocolError, message: "continue frame before a binary or text frame", code: Int(errCode)))
                 writeError(errCode)
-                return emptyBuffer
+                return emptyBuffer()
             }
             var isNew = false
             if response == nil {
@@ -1110,7 +1110,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
                     let errCode = CloseCode.protocolError.rawValue
                     doDisconnect(WSError(type: .protocolError, message: "first frame can't be a continue frame", code: Int(errCode)))
                     writeError(errCode)
-                    return emptyBuffer
+                    return emptyBuffer()
                 }
                 isNew = true
                 response = WSResponse()
@@ -1124,7 +1124,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
                     let errCode = CloseCode.protocolError.rawValue
                     doDisconnect(WSError(type: .protocolError, message: "second and beyond of fragment message must be a continue frame", code: Int(errCode)))
                     writeError(errCode)
-                    return emptyBuffer
+                    return emptyBuffer()
                 }
                 response!.buffer!.append(data)
             }
@@ -1342,7 +1342,9 @@ private extension UnsafeBufferPointer {
 
 }
 
-private let emptyBuffer = UnsafeBufferPointer<UInt8>(start: nil, count: 0)
+private func emptyBuffer() -> UnsafeBufferPointer<UInt8> {
+    UnsafeBufferPointer<UInt8>(start: nil, count: 0)
+}
 
 #if swift(>=4)
 #else
