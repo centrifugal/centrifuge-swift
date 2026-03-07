@@ -22,7 +22,10 @@ let package = Package(
         ),
         .testTarget(
             name: "SwiftCentrifugeTests",
-            dependencies: ["SwiftCentrifuge"]
+            dependencies: ["SwiftCentrifuge"],
+            resources: [
+                .copy("testdata")
+            ]
         )
     ]
 )

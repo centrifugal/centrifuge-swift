@@ -3,9 +3,8 @@ import XCTest
 
 final class DeltaFossilTests: XCTestCase {
     func testDeltaCreateAndApply() throws {
-        let testDataPath = URL(fileURLWithPath: #file)
-            .deletingLastPathComponent() // Move up to SwiftCentrifugeTests/
-            .appendingPathComponent("testdata/fossil") // Navigate to testdata/fossil/
+        let testDataPath = Bundle.module.resourceURL!
+            .appendingPathComponent("testdata/fossil")
 
         for i in 1...6 {
             let casePath = testDataPath.appendingPathComponent("\(i)")
