@@ -86,7 +86,7 @@ internal enum CentrifugeSerializer {
             let messageData = data[(currentIndex + lengthBytes)..<(currentIndex + totalLength)]
             // Parse the Protobuf message payload to Centrifuge Reply.
             do {
-                let reply = try Centrifugal_Centrifuge_Protocol_Reply(serializedData: messageData)
+                let reply = try Centrifugal_Centrifuge_Protocol_Reply(serializedBytes: messageData)
                 replies.append(reply)
             } catch {
                 throw ProtobufDecodeError.failedToParseMessage(error)

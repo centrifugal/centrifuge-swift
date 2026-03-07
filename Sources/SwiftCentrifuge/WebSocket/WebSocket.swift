@@ -74,10 +74,10 @@ protocol WebSocketClient: AnyObject {
     
     func connect()
     func disconnect(forceTimeout: TimeInterval?, closeCode: UInt16)
-    func write(string: String, completion: (() -> ())?)
-    func write(data: Data, completion: (() -> ())?)
-    func write(ping: Data, completion: (() -> ())?)
-    func write(pong: Data, completion: (() -> ())?)
+    func write(string: String, completion: (@Sendable () -> ())?)
+    func write(data: Data, completion: (@Sendable () -> ())?)
+    func write(ping: Data, completion: (@Sendable () -> ())?)
+    func write(pong: Data, completion: (@Sendable () -> ())?)
 }
 
 //implements some of the base behaviors
@@ -134,7 +134,7 @@ protocol WSStream {
     #endif
 }
 
-class FoundationStream : NSObject, WSStream, StreamDelegate  {
+class FoundationStream : NSObject, WSStream, StreamDelegate, @unchecked Sendable  {
     private let workQueue = DispatchQueue(label: "com.vluxe.starscream.websocket", attributes: [])
     private var inputStream: InputStream?
     private var outputStream: OutputStream?
@@ -338,7 +338,7 @@ protocol WebSocketAdvancedDelegate: AnyObject {
 }
 
 
-class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
+class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @unchecked Sendable {
 
     enum OpCode : UInt8 {
         case continueFrame = 0x0
@@ -381,7 +381,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
     let httpSwitchProtocolCode  = 101
     let supportedSSLSchemes     = ["wss", "https"]
 
-    class WSResponse {
+    class WSResponse: @unchecked Sendable {
         var isFin = false
         var code: OpCode = .continueFrame
         var bytesLeft = 0
@@ -534,7 +534,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
      - parameter string:        The string to write.
      - parameter completion: The (optional) completion handler.
      */
-    func write(string: String, completion: (() -> ())? = nil) {
+    func write(string: String, completion: (@Sendable () -> ())? = nil) {
         guard isConnected else { return }
         dequeueWrite(string.data(using: String.Encoding.utf8)!, code: .textFrame, writeCompletion: completion)
     }
@@ -547,7 +547,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
      - parameter data:       The data to write.
      - parameter completion: The (optional) completion handler.
      */
-    func write(data: Data, completion: (() -> ())? = nil) {
+    func write(data: Data, completion: (@Sendable () -> ())? = nil) {
         guard isConnected else { return }
         dequeueWrite(data, code: .binaryFrame, writeCompletion: completion)
     }
@@ -556,7 +556,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
      Write a ping to the websocket. This sends it as a control frame.
      Yodel a   sound  to the planet.    This sends it as an astroid. http://youtu.be/Eu5ZJELRiJ8?t=42s
      */
-    func write(ping: Data, completion: (() -> ())? = nil) {
+    func write(ping: Data, completion: (@Sendable () -> ())? = nil) {
         guard isConnected else { return }
         dequeueWrite(ping, code: .ping, writeCompletion: completion)
     }
@@ -565,7 +565,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
      Write a pong to the websocket. This sends it as a control frame.
      Respond to a Yodel.
      */
-    func write(pong: Data, completion: (() -> ())? = nil) {
+    func write(pong: Data, completion: (@Sendable () -> ())? = nil) {
         guard isConnected else { return }
         dequeueWrite(pong, code: .pong, writeCompletion: completion)
     }
@@ -1209,7 +1209,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate {
     /**
      Used to write things to the stream
      */
-    private func dequeueWrite(_ data: Data, code: OpCode, writeCompletion: (() -> ())? = nil) {
+    private func dequeueWrite(_ data: Data, code: OpCode, writeCompletion: (@Sendable () -> ())? = nil) {
         let operation = BlockOperation()
         operation.addExecutionBlock { [weak self, weak operation] in
             //stream isn't ready, let's wait

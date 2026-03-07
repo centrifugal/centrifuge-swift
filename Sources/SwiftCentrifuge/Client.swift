@@ -138,13 +138,13 @@ public struct CentrifugeClientConfig {
 /// A typealias for a provider that returns a custom `URLSessionConfiguration`.
 public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
 
-public enum CentrifugeClientState {
+public enum CentrifugeClientState: Sendable {
     case disconnected
     case connecting
     case connected
 }
 
-public class CentrifugeClient {
+public class CentrifugeClient: @unchecked Sendable {
     public weak var delegate: CentrifugeClientDelegate?
     
     //MARK -

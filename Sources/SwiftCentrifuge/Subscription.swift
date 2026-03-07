@@ -41,13 +41,13 @@ public struct CentrifugeSubscriptionConfig {
     public var tokenGetter: CentrifugeSubscriptionTokenGetter?
 }
 
-public enum CentrifugeSubscriptionState {
+public enum CentrifugeSubscriptionState: Sendable {
     case unsubscribed
     case subscribing
     case subscribed
 }
 
-public class CentrifugeSubscription {
+public class CentrifugeSubscription: @unchecked Sendable {
     
     public let channel: String
     

@@ -77,7 +77,7 @@ public struct CentrifugePresenceStatsResult {
     }
 }
 
-public struct CentrifugeStreamPosition {
+public struct CentrifugeStreamPosition: Sendable {
     public let offset: UInt64
     public let epoch: String
 
