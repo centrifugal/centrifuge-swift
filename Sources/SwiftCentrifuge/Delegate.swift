@@ -108,6 +108,14 @@ public struct CentrifugeSubscriptionTokenEvent {
     }
 }
 
+public struct CentrifugeSubscriptionGetStateEvent {
+    public let channel: String
+
+    public init(channel: String) {
+        self.channel = channel
+    }
+}
+
 public struct CentrifugeSubscriptionErrorEvent {
     public let error: Error
 

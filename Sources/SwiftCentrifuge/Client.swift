@@ -21,6 +21,7 @@ public enum CentrifugeError: Error {
     case refreshError(error: Error)
     case subscriptionSubscribeError(error: Error)
     case subscriptionTokenError(error: Error)
+    case subscriptionGetStateError(error: Error)
     case subscriptionRefreshError(error: Error)
     case replyError(code: UInt32, message: String, temporary: Bool)
 }
@@ -610,8 +611,8 @@ internal extension CentrifugeClient {
         subscriptionsLock.unlock()
     }
     
-    func subscribe(channel: String, token: String, delta: String?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
-        self.sendSubscribe(channel: channel, token: token, delta: delta, data: data, recover: recover, streamPosition: streamPosition, positioned: positioned, recoverable: recoverable, joinLeave: joinLeave, completion: completion)
+    func subscribe(channel: String, token: String, delta: String?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, flag: Int64, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
+        self.sendSubscribe(channel: channel, token: token, delta: delta, data: data, recover: recover, streamPosition: streamPosition, positioned: positioned, recoverable: recoverable, joinLeave: joinLeave, flag: flag, completion: completion)
     }
     
     func reconnect(code: UInt32, reason: String) {
@@ -1208,7 +1209,7 @@ fileprivate extension CentrifugeClient {
         })
     }
     
-    private func sendSubscribe(channel: String, token: String, delta: String?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
+    private func sendSubscribe(channel: String, token: String, delta: String?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, flag: Int64, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_SubscribeRequest()
         req.channel = channel
         if recover {
@@ -1219,6 +1220,7 @@ fileprivate extension CentrifugeClient {
         req.positioned = positioned
         req.recoverable = recoverable
         req.joinLeave = joinLeave
+        req.flag = flag
         if let delta {
             req.delta = delta
         }

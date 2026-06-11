@@ -25,6 +25,13 @@ let unsubscribedCodeUnsubscribeCalled: UInt32 = 0
 let unsubscribedCodeUnauthorized: UInt32 = 1
 let unsubscribedCodeClientClosed: UInt32 = 2
 
+// Subscription feature flags — bitmask sent in SubscribeRequest flag field.
+let subscriptionFlagRejectUnrecovered: Int64 = 2
+
+// Server error code returned when recovery from the provided position is
+// impossible (only sent when subscriptionFlagRejectUnrecovered was requested).
+let errorCodeUnrecoverablePosition: UInt32 = 112
+
 func interpretCloseCode(_ code: UInt32) -> (code: UInt32, reconnect: Bool) {
     // We act according to Disconnect code semantics.
     // See https://github.com/centrifugal/centrifuge/blob/master/disconnect.go.
