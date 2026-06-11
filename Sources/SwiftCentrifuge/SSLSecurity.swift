@@ -28,7 +28,7 @@ protocol SSLTrustValidator {
     func isValid(_ trust: SecTrust, domain: String?) -> Bool
 }
 
-class SSLCert {
+class SSLCert: @unchecked Sendable {
     var certData: Data?
     var key: SecKey?
     
@@ -55,7 +55,7 @@ class SSLCert {
     }
 }
 
-class SSLSecurity : SSLTrustValidator {
+class SSLSecurity : SSLTrustValidator, @unchecked Sendable {
     var validatedDN = true //should the domain name be validated?
     var validateEntireChain = true //should the entire cert chain be validated
 

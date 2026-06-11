@@ -70,3 +70,5 @@ final class EmptyLogger: CentrifugeLogger {
         // ignore
     }
 }
+
+extension EmptyLogger: @unchecked Sendable {}

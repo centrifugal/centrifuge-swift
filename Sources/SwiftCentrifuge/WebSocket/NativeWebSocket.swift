@@ -8,7 +8,7 @@
 import Foundation
 
 @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
-final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDelegate {
+final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDelegate, @unchecked Sendable {
 
     var onConnect: (() -> Void)?
 
@@ -177,7 +177,7 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 /// We need a wrapper to break a reference cycle between `NativeWebSocket` and `URLSession`
 ///
 @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
-private final class URLSessionDelegateBox: NSObject, URLSessionWebSocketDelegate {
+private final class URLSessionDelegateBox: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
     private weak var delegate: URLSessionWebSocketDelegate?
 
     init(delegate: URLSessionWebSocketDelegate?) {

@@ -8,8 +8,4 @@ final class SwiftCentrifugeTests: XCTestCase {
         // results.
         XCTAssertEqual(1+1, 2)
     }
-
-    static var allTests = [
-        ("testExample", testExample),
-    ]
 }
