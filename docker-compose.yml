@@ -1,0 +1,20 @@
+services:
+  centrifugo:
+    image: centrifugo/centrifugo:v6
+    command:
+      - centrifugo
+    ports:
+      - "8000:8000"
+    environment:
+      - CENTRIFUGO_CLIENT_INSECURE=true
+      - CENTRIFUGO_LOG_LEVEL=debug
+      # Default channel (without namespace).
+      - CENTRIFUGO_CHANNEL_WITHOUT_NAMESPACE_HISTORY_SIZE=100
+      - CENTRIFUGO_CHANNEL_WITHOUT_NAMESPACE_HISTORY_TTL=300s
+      - CENTRIFUGO_CHANNEL_WITHOUT_NAMESPACE_FORCE_RECOVERY=true
+      # Define namespace names (space-separated).
+      - CENTRIFUGO_CHANNEL_NAMESPACES=smallhistory
+      # smallhistory: stream with tiny history for unrecoverable position testing.
+      - CENTRIFUGO_CHANNEL_NAMESPACES_SMALLHISTORY_FORCE_RECOVERY=true
+      - CENTRIFUGO_CHANNEL_NAMESPACES_SMALLHISTORY_HISTORY_SIZE=2
+      - CENTRIFUGO_CHANNEL_NAMESPACES_SMALLHISTORY_HISTORY_TTL=300s

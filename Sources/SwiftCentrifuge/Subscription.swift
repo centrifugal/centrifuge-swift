@@ -10,13 +10,15 @@ import Foundation
 
 public typealias CentrifugeSubscriptionTokenGetter = (_ event: CentrifugeSubscriptionTokenEvent, _ completion: @escaping (Result<String, Error>) -> Void) -> Void
 
+public typealias CentrifugeSubscriptionStateGetter = (_ event: CentrifugeSubscriptionGetStateEvent, _ completion: @escaping (Result<CentrifugeStreamPosition, Error>) -> Void) -> Void
+
 
 public enum DeltaType: String {
     case fossil
 }
 
 public struct CentrifugeSubscriptionConfig {
-    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String = "", data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil, delta: DeltaType? = nil) {
+    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String = "", data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil, delta: DeltaType? = nil, stateGetter: CentrifugeSubscriptionStateGetter? = nil) {
         self.minResubscribeDelay = minResubscribeDelay
         self.maxResubscribeDelay = maxResubscribeDelay
         self.token = token
@@ -27,8 +29,9 @@ public struct CentrifugeSubscriptionConfig {
         self.recoverable = recoverable
         self.joinLeave = joinLeave
         self.delta = delta
+        self.stateGetter = stateGetter
     }
-    
+
     public var minResubscribeDelay = 0.5
     public var maxResubscribeDelay = 20.0
     public var token: String = ""
@@ -39,6 +42,38 @@ public struct CentrifugeSubscriptionConfig {
     public var recoverable: Bool = false
     public var joinLeave: Bool = false
     public var tokenGetter: CentrifugeSubscriptionTokenGetter?
+
+    /// Called to load the app's current state and stream position.
+    /// Requires Centrifugo >= 6.8.0.
+    ///
+    /// The SDK calls the getter:
+    /// - On initial subscribe (no saved position)
+    /// - On reconnect when recovery fails (server returns error 112 —
+    ///   unrecoverable position)
+    ///
+    /// NOT called on reconnects where the server successfully recovers missed
+    /// publications — in that case the recovered publications arrive as events
+    /// and the getter is skipped.
+    ///
+    /// The app should load its data from its own source of truth (database,
+    /// API), render it, and complete with the stream position. The SDK
+    /// subscribes with recovery from the returned position, so any publications
+    /// between the state read and the subscribe are delivered as publication
+    /// events.
+    ///
+    /// IMPORTANT: inside the getter, read the stream position FIRST, then read
+    /// your data. This ensures the position is a lower bound — any data loaded
+    /// after the position read is guaranteed to be included. The reverse order
+    /// can produce gaps.
+    ///
+    /// Recovered publications may overlap with data already loaded by the
+    /// getter. This works correctly when updates are idempotent (applying the
+    /// same update twice produces the same result). For non-idempotent updates,
+    /// deduplicate by publication offset.
+    ///
+    /// On error, the SDK emits an error event with
+    /// `CentrifugeError.subscriptionGetStateError` and retries with backoff.
+    public var stateGetter: CentrifugeSubscriptionStateGetter?
 }
 
 public enum CentrifugeSubscriptionState: Sendable {
@@ -175,7 +210,14 @@ public class CentrifugeSubscription: @unchecked Sendable {
             streamPosition.offset = self.offset
             streamPosition.epoch = self.epoch
         }
-        self.centrifuge?.subscribe(channel: self.channel, token: token, delta: self.delta, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
+        var flag: Int64 = 0
+        if self.config.stateGetter != nil {
+            // Ask the server to reject the subscribe with error 112 when recovery
+            // from the provided position is impossible, instead of returning
+            // recovered=false — so we can call the state getter again to reload state.
+            flag |= subscriptionFlagRejectUnrecovered
+        }
+        self.centrifuge?.subscribe(channel: self.channel, token: token, delta: self.delta, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, flag: flag, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
             guard let centrifuge = centrifuge else { return }
             guard let strongSelf = self else { return }
             guard strongSelf.state == .subscribing else { return }
@@ -183,6 +225,17 @@ public class CentrifugeSubscription: @unchecked Sendable {
             if let err = error {
                 switch err {
                 case CentrifugeError.replyError(let code, let message, let temporary):
+                    if code == errorCodeUnrecoverablePosition && strongSelf.config.stateGetter != nil {
+                        // Unrecoverable position with state getter: reset position so the
+                        // next subscribe attempt calls the getter to reload app state from
+                        // scratch. No error event emitted — matches other SDKs.
+                        strongSelf.recover = false
+                        strongSelf.offset = 0
+                        strongSelf.epoch = ""
+                        strongSelf.prevValue = nil
+                        strongSelf.scheduleResubscribe()
+                        return
+                    }
                     if code == 109 { // Token expired.
                         strongSelf.token = nil
                         strongSelf.scheduleResubscribe(zeroDelay: true)
@@ -396,6 +449,47 @@ public class CentrifugeSubscription: @unchecked Sendable {
     }
     
     func resubscribe() {
+        // stateGetter: ask the app for its current state position. Only called
+        // when we don't have a saved position (first subscribe or after a
+        // position reset due to unrecoverable position error 112). On normal
+        // reconnects with a valid saved position we skip the getter and let the
+        // server try recovery — the getter is only called again if recovery fails.
+        if self.config.stateGetter != nil && !self.recover {
+            self.getSubscriptionState(channel: self.channel, completion: { [weak self] result in
+                guard let strongSelf = self, strongSelf.state == .subscribing else { return }
+                switch result {
+                case .success(let position):
+                    strongSelf.recover = true
+                    strongSelf.offset = position.offset
+                    strongSelf.epoch = position.epoch
+                    strongSelf.continueResubscribe()
+                case .failure(let error):
+                    strongSelf.delegate?.onError(
+                        strongSelf,
+                        CentrifugeSubscriptionErrorEvent(error: CentrifugeError.subscriptionGetStateError(error: error))
+                    )
+                    strongSelf.scheduleResubscribe()
+                }
+            })
+            return
+        }
+        self.continueResubscribe()
+    }
+
+    private func getSubscriptionState(channel: String, completion: @escaping (Result<CentrifugeStreamPosition, Error>)->()) {
+        self.centrifuge?.syncQueue.async { [weak self] in
+            guard let strongSelf = self else { return }
+            strongSelf.config.stateGetter?(CentrifugeSubscriptionGetStateEvent(channel: channel)) { [weak self] result in
+                guard let strongSelf = self else { return }
+                strongSelf.centrifuge?.syncQueue.async { [weak self] in
+                    guard self != nil else { return }
+                    completion(result)
+                }
+            }
+        }
+    }
+
+    private func continueResubscribe() {
         if self.token != nil || self.config.tokenGetter != nil {
             if self.token != nil {
                 let token = self.token!
