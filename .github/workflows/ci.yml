@@ -11,5 +11,38 @@ jobs:
         uses: actions/checkout@v4
       - name: Build
         run: swift build
+      # Integration tests need a running Centrifugo (see docker-compose.yml for the
+      # equivalent local setup). macOS runners have no Docker, so download the
+      # release binary and run it with the same configuration.
+      - name: Start Centrifugo
+        run: |
+          CENTRIFUGO_VERSION=6.8.2
+          ARCH=$([ "$(uname -m)" = "x86_64" ] && echo amd64 || echo arm64)
+          curl -sL "https://github.com/centrifugal/centrifugo/releases/download/v${CENTRIFUGO_VERSION}/centrifugo_${CENTRIFUGO_VERSION}_darwin_${ARCH}.tar.gz" | tar xz
+          CENTRIFUGO_CLIENT_INSECURE=true \
+          CENTRIFUGO_LOG_LEVEL=info \
+          CENTRIFUGO_CHANNEL_WITHOUT_NAMESPACE_HISTORY_SIZE=100 \
+          CENTRIFUGO_CHANNEL_WITHOUT_NAMESPACE_HISTORY_TTL=300s \
+          CENTRIFUGO_CHANNEL_WITHOUT_NAMESPACE_FORCE_RECOVERY=true \
+          CENTRIFUGO_CHANNEL_NAMESPACES="smallhistory" \
+          CENTRIFUGO_CHANNEL_NAMESPACES_SMALLHISTORY_FORCE_RECOVERY=true \
+          CENTRIFUGO_CHANNEL_NAMESPACES_SMALLHISTORY_HISTORY_SIZE=2 \
+          CENTRIFUGO_CHANNEL_NAMESPACES_SMALLHISTORY_HISTORY_TTL=300s \
+          ./centrifugo > centrifugo.log 2>&1 &
+      - name: Wait for Centrifugo
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://localhost:8000/connection/websocket; then
+              echo "Centrifugo is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Centrifugo did not start in time"
+          cat centrifugo.log || true
+          exit 1
       - name: Run tests
         run: xcrun swift test --verbose
+      - name: Show Centrifugo log on failure
+        if: failure()
+        run: cat centrifugo.log || true
