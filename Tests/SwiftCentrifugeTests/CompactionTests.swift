@@ -18,7 +18,11 @@ final class CompactionTests: XCTestCase {
     private typealias PReply = Centrifugal_Centrifuge_Protocol_Reply
     private typealias PPush = Centrifugal_Centrifuge_Protocol_Push
 
-    private final class FakeServer {
+    // @unchecked Sendable: the mutable state (current, _lastFlag, _nextChannelId)
+    // is guarded by `lock`; `listener`/`queue` are set-once/immutable. Required
+    // because the instance is captured in Network.framework's @Sendable
+    // connection/receive handlers, and the test target compiles under Swift 6.
+    private final class FakeServer: @unchecked Sendable {
         private var listener: NWListener!
         private let queue = DispatchQueue(label: "fake.compaction.server")
         private let lock = NSLock()
