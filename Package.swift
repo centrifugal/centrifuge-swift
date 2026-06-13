@@ -22,7 +22,12 @@ let package = Package(
         ),
         .testTarget(
             name: "SwiftCentrifugeTests",
-            dependencies: ["SwiftCentrifuge"],
+            dependencies: [
+                "SwiftCentrifuge",
+                // Used by CompactionTests' in-process fake server to build/parse
+                // length-delimited protobuf frames (BinaryDelimited).
+                .product(name: "SwiftProtobuf", package: "swift-protobuf")
+            ],
             resources: [
                 .copy("testdata")
             ]

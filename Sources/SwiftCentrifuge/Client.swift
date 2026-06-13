@@ -165,6 +165,11 @@ public class CentrifugeClient: @unchecked Sendable {
     fileprivate var connectCallbacks: [String: ((Error?) -> ())] = [:]
     fileprivate let subscriptionsLock = NSLock()
     fileprivate var subscriptions = [CentrifugeSubscription]()
+    // Channel compaction: numeric channel ID → subscription, used to route pushes
+    // that carry an ID instead of the string channel name. IDs are scoped to a
+    // server session — the registry is dropped on disconnect and each subscription
+    // re-registers from its subscribe reply. Touched only on syncQueue.
+    fileprivate var subscriptionsById = [Int64: CentrifugeSubscription]()
     fileprivate var serverSubs = [String: ServerSubscription]()
     fileprivate var reconnectAttempts = 0
     fileprivate var disconnectOpts: CentrifugeDisconnectOptions?
@@ -618,6 +623,19 @@ internal extension CentrifugeClient {
     func reconnect(code: UInt32, reason: String) {
         self.processDisconnect(code: code, reason: reason, reconnect: true)
     }
+
+    // Update the channel compaction registry for a subscription: remove the old
+    // numeric ID mapping (only if it still points to this subscription) and
+    // register the new one. Either ID may be 0 meaning "no mapping". Called on
+    // syncQueue (subscribe reply / unsubscribe).
+    func updateSubscriptionPushId(sub: CentrifugeSubscription, oldId: Int64, newId: Int64) {
+        if oldId > 0 && self.subscriptionsById[oldId] === sub {
+            self.subscriptionsById.removeValue(forKey: oldId)
+        }
+        if newId > 0 {
+            self.subscriptionsById[newId] = sub
+        }
+    }
 }
 
 fileprivate extension CentrifugeClient {
@@ -848,7 +866,15 @@ fileprivate extension CentrifugeClient {
         self.syncQueue.asyncAfter(deadline: .now() + delay, execute: self.reconnectTask!)
     }
     
-    private func handlePub(channel: String, pub: Centrifugal_Centrifuge_Protocol_Publication) {
+    private func handlePub(channel: String, pub: Centrifugal_Centrifuge_Protocol_Publication, id: Int64 = 0) {
+        if id > 0 {
+            // Compacted push: route by numeric channel ID. Only client-side
+            // subscriptions negotiate compaction, so an unknown ID is dropped.
+            if let sub = self.subscriptionForPushId(id) {
+                sub.handlePublication(pub: pub)
+            }
+            return
+        }
         subscriptionsLock.lock()
         let subs = self.subscriptions.filter({ $0.channel == channel })
         if subs.count == 0 {
@@ -871,7 +897,14 @@ fileprivate extension CentrifugeClient {
         sub.handlePublication(pub: pub)
     }
     
-    private func handleJoin(channel: String, join: Centrifugal_Centrifuge_Protocol_Join) {
+    private func handleJoin(channel: String, join: Centrifugal_Centrifuge_Protocol_Join, id: Int64 = 0) {
+        if id > 0 {
+            // Compacted push: route by numeric channel ID; unknown ID dropped.
+            if let sub = self.subscriptionForPushId(id) {
+                sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
+            }
+            return
+        }
         subscriptionsLock.lock()
         let subs = self.subscriptions.filter({ $0.channel == channel })
         if subs.count == 0 {
@@ -886,8 +919,15 @@ fileprivate extension CentrifugeClient {
         subscriptionsLock.unlock()
         sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
     }
-    
-    private func handleLeave(channel: String, leave: Centrifugal_Centrifuge_Protocol_Leave) {
+
+    private func handleLeave(channel: String, leave: Centrifugal_Centrifuge_Protocol_Leave, id: Int64 = 0) {
+        if id > 0 {
+            // Compacted push: route by numeric channel ID; unknown ID dropped.
+            if let sub = self.subscriptionForPushId(id) {
+                sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
+            }
+            return
+        }
         subscriptionsLock.lock()
         let subs = self.subscriptions.filter({ $0.channel == channel })
         if subs.count == 0 {
@@ -951,17 +991,26 @@ fileprivate extension CentrifugeClient {
         }
     }
     
+    // Resolve a client-side subscription for a push by numeric channel ID when
+    // channel compaction is in use (the push then has no channel name).
+    private func subscriptionForPushId(_ id: Int64) -> CentrifugeSubscription? {
+        return self.subscriptionsById[id]
+    }
+
     private func handlePush(push: Centrifugal_Centrifuge_Protocol_Push) {
         let channel = push.channel
+        // Channel compaction: pub/join/leave pushes may carry a numeric channel ID
+        // instead of the channel name. Other push types always carry the channel.
+        let id = push.id
         if push.hasPub {
             let pub = push.pub
-            self.handlePub(channel: channel, pub: pub)
+            self.handlePub(channel: channel, pub: pub, id: id)
         } else if push.hasJoin {
             let join = push.join
-            self.handleJoin(channel: channel, join: join)
+            self.handleJoin(channel: channel, join: join, id: id)
         } else if push.hasLeave {
             let leave = push.leave
-            self.handleLeave(channel: channel, leave: leave)
+            self.handleLeave(channel: channel, leave: leave, id: id)
         } else if push.hasUnsubscribe {
             let unsubscribe = push.unsubscribe
             self.handleUnsubscribe(channel: channel, unsubscribe: unsubscribe)
@@ -1077,7 +1126,13 @@ fileprivate extension CentrifugeClient {
         let needEvent = previousState != self.state
         
         self.client = nil
-        
+
+        // Channel compaction IDs are scoped to a server session — drop the routing
+        // registry; each resubscribe re-registers a fresh ID. The per-subscription
+        // pushId is left as-is: the next subscribe reply re-registers it regardless
+        // of whether the server reuses the same ID.
+        self.subscriptionsById.removeAll()
+
         for resolveFunc in self.opCallbacks.values {
             resolveFunc(CentrifugeResolveData(error: CentrifugeError.clientDisconnected, reply: nil))
         }

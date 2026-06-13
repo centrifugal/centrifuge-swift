@@ -8,7 +8,7 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Build
         run: swift build
       # Integration tests need a running Centrifugo (see docker-compose.yml for the
