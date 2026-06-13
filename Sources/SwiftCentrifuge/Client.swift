@@ -24,6 +24,7 @@ public enum CentrifugeError: Error {
     case subscriptionGetStateError(error: Error)
     case subscriptionRefreshError(error: Error)
     case replyError(code: UInt32, message: String, temporary: Bool)
+    case configurationError(message: String)
 }
 
 public typealias CentrifugeConnectionTokenGetter = (_ event: CentrifugeConnectionTokenEvent, _ completion: @escaping (Result<String, Error>) -> Void) -> Void
@@ -328,6 +329,9 @@ public class CentrifugeClient: @unchecked Sendable {
         defer { subscriptionsLock.unlock() }
         subscriptionsLock.lock()
         guard !self.subscriptions.contains(where: { $0.channel == channel }) else { throw CentrifugeError.duplicateSub }
+        if let config, config.delta != nil, config.tagsFilter != nil {
+            throw CentrifugeError.configurationError(message: "cannot use delta and tags filter together")
+        }
         let sub = CentrifugeSubscription(
             centrifuge: self,
             channel: channel,
@@ -616,8 +620,8 @@ internal extension CentrifugeClient {
         subscriptionsLock.unlock()
     }
     
-    func subscribe(channel: String, token: String, delta: String?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, flag: Int64, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
-        self.sendSubscribe(channel: channel, token: token, delta: delta, data: data, recover: recover, streamPosition: streamPosition, positioned: positioned, recoverable: recoverable, joinLeave: joinLeave, flag: flag, completion: completion)
+    func subscribe(channel: String, token: String, delta: String?, tagsFilter: CentrifugeFilterNode?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, flag: Int64, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
+        self.sendSubscribe(channel: channel, token: token, delta: delta, tagsFilter: tagsFilter, data: data, recover: recover, streamPosition: streamPosition, positioned: positioned, recoverable: recoverable, joinLeave: joinLeave, flag: flag, completion: completion)
     }
     
     func reconnect(code: UInt32, reason: String) {
@@ -1264,7 +1268,7 @@ fileprivate extension CentrifugeClient {
         })
     }
     
-    private func sendSubscribe(channel: String, token: String, delta: String?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, flag: Int64, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
+    private func sendSubscribe(channel: String, token: String, delta: String?, tagsFilter: CentrifugeFilterNode?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, flag: Int64, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
         var req = Centrifugal_Centrifuge_Protocol_SubscribeRequest()
         req.channel = channel
         if recover {
@@ -1278,6 +1282,9 @@ fileprivate extension CentrifugeClient {
         req.flag = flag
         if let delta {
             req.delta = delta
+        }
+        if let tagsFilter {
+            req.tf = tagsFilter.node
         }
         if data != nil {
             req.data = data!
