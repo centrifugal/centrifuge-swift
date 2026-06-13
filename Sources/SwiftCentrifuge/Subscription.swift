@@ -92,6 +92,10 @@ public class CentrifugeSubscription: @unchecked Sendable {
     private var offset: UInt64 = 0
     private var epoch: String = ""
     private var prevValue: Data?
+    // Numeric channel ID assigned by the server when channel compaction is
+    // negotiated. Pushes then carry this ID instead of the channel name.
+    // Touched only on the client syncQueue (subscribe reply / unsubscribe).
+    private var pushId: Int64 = 0
     
     fileprivate var token: String?
     fileprivate var delta: String?
@@ -210,7 +214,10 @@ public class CentrifugeSubscription: @unchecked Sendable {
             streamPosition.offset = self.offset
             streamPosition.epoch = self.epoch
         }
-        var flag: Int64 = 0
+        // Always offer channel compaction: when the server supports and allows it,
+        // the subscribe result carries a numeric channel ID and subsequent pushes
+        // use that ID instead of the string channel name.
+        var flag: Int64 = subscriptionFlagChannelCompaction
         if self.config.stateGetter != nil {
             // Ask the server to reject the subscribe with error 112 when recovery
             // from the provided position is impossible, instead of returning
@@ -268,6 +275,10 @@ public class CentrifugeSubscription: @unchecked Sendable {
             strongSelf.epoch = result.epoch
             strongSelf.offset = result.offset
             strongSelf.deltaNegotiated = result.delta
+            // Channel compaction: register the numeric channel ID assigned by the
+            // server (0 when not negotiated — also clears a stale ID from a previous
+            // subscribe session).
+            strongSelf.setPushId(result.id)
             for cb in strongSelf.callbacks.values {
                 cb(nil)
             }
@@ -601,6 +612,8 @@ public class CentrifugeSubscription: @unchecked Sendable {
 
             self.state = .unsubscribed
             self.resubscribeAttempts = 0
+            // Channel compaction ID is no longer valid once unsubscribed.
+            self.setPushId(0)
 
             for cb in self.callbacks.values {
                 cb(CentrifugeError.subscriptionUnsubscribed)
@@ -621,5 +634,19 @@ public class CentrifugeSubscription: @unchecked Sendable {
     
     private func failUnauthorized(sendUnsubscribe: Bool) -> Void {
         self.processUnsubscribe(sendUnsubscribe: sendUnsubscribe, code: unsubscribedCodeUnauthorized, reason: "unauthorized")
+    }
+
+    // Update the channel compaction ID registration in the client's push routing
+    // registry. Pass 0 to clear (no compaction / sub gone). Always re-registers
+    // even when the ID is unchanged: the client drops the registry on transport
+    // teardown and on reconnect the server commonly assigns the same ID again, so
+    // the registration must be restored. Runs on the client syncQueue.
+    private func setPushId(_ id: Int64) {
+        if id == 0 && self.pushId == 0 {
+            return
+        }
+        let oldId = self.pushId
+        self.pushId = id
+        self.centrifuge?.updateSubscriptionPushId(sub: self, oldId: oldId, newId: id)
     }
 }

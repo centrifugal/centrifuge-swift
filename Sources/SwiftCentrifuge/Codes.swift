@@ -26,6 +26,12 @@ let unsubscribedCodeUnauthorized: UInt32 = 1
 let unsubscribedCodeClientClosed: UInt32 = 2
 
 // Subscription feature flags — bitmask sent in SubscribeRequest flag field.
+//
+// channelCompaction asks the server to replace the string channel name with a
+// short numeric ID in subscription pushes (bandwidth optimization). Safe to
+// request unconditionally: servers that don't support or don't allow it simply
+// ignore the bit and keep sending the full channel name.
+let subscriptionFlagChannelCompaction: Int64 = 1
 let subscriptionFlagRejectUnrecovered: Int64 = 2
 
 // Server error code returned when recovery from the provided position is
