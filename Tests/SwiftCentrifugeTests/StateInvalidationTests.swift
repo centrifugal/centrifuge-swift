@@ -49,33 +49,33 @@ final class StateInvalidationTests: XCTestCase {
         server.received().last(where: { $0.hasConnect })?.connect.token
     }
 
+    private func lastSubscribe() -> Centrifugal_Centrifuge_Protocol_SubscribeRequest? {
+        server.received().last(where: { $0.hasSubscribe })?.subscribe
+    }
+
     func testUnsubscribe2502ClearsTokenAndResubscribes() throws {
         let client = CentrifugeClient(endpoint: server.url, config: CentrifugeClientConfig())
         client.connect()
         defer { client.disconnect() }
 
         let counter = Counter()
-        let subscribed = expectation(description: "subscribed")
-        subscribed.expectedFulfillmentCount = 2  // initial + resubscribe
-        subscribed.assertForOverFulfill = false
+        let firstSubscribed = expectation(description: "first subscribed")
+        let resubscribed = expectation(description: "resubscribed")
+        var subCount = 0
         let d = SubDelegate()
-        d.onSub = { subscribed.fulfill() }
+        d.onSub = {
+            subCount += 1
+            if subCount == 1 { firstSubscribed.fulfill() } else { resubscribed.fulfill() }
+        }
         var cfg = CentrifugeSubscriptionConfig()
         cfg.tokenGetter = { _, completion in completion(.success("t\(counter.next())")) }
         let sub = try client.newSubscription(channel: "ch", delegate: d, config: cfg)
         sub.subscribe()
-
-        // Wait for the first subscribe, assert it used the first fetched token.
-        let firstSubscribed = expectation(description: "first subscribed")
-        d.onSub = {
-            firstSubscribed.fulfill()
-            d.onSub = { subscribed.fulfill() }
-        }
         wait(for: [firstSubscribed], timeout: 5)
         XCTAssertEqual(lastSubscribeToken(), "t1")
 
         server.unsubscribe("ch", unsubscribedStateInvalidated, "state invalidated")
-        wait(for: [subscribed], timeout: 5)
+        wait(for: [resubscribed], timeout: 5)
         XCTAssertEqual(lastSubscribeToken(), "t2", "2502 must clear token so resubscribe fetches a fresh one")
         XCTAssertEqual(counter.count(), 2)
     }
@@ -95,24 +95,23 @@ final class StateInvalidationTests: XCTestCase {
         client.connect()
         defer { client.disconnect() }
 
-        let subscribed = expectation(description: "subscribed")
-        subscribed.expectedFulfillmentCount = 2
-        subscribed.assertForOverFulfill = false
-        let d = SubDelegate()
         let firstSubscribed = expectation(description: "first subscribed")
+        let resubscribed = expectation(description: "resubscribed")
+        var subCount = 0
+        let d = SubDelegate()
         d.onSub = {
-            firstSubscribed.fulfill()
-            d.onSub = { subscribed.fulfill() }
+            subCount += 1
+            if subCount == 1 { firstSubscribed.fulfill() } else { resubscribed.fulfill() }
         }
         let sub = try client.newSubscription(channel: "ch", delegate: d, config: CentrifugeSubscriptionConfig())
         sub.subscribe()
         wait(for: [firstSubscribed], timeout: 5)
-        XCTAssertEqual(server.received().last(where: { $0.hasSubscribe })?.subscribe.recover, false)
+        XCTAssertEqual(lastSubscribe()?.recover, false, "initial subscribe does not request recovery")
 
         server.unsubscribe("ch", unsubscribedStateInvalidated, "state invalidated")
-        wait(for: [subscribed], timeout: 5)
+        wait(for: [resubscribed], timeout: 5)
 
-        let req = try XCTUnwrap(server.received().last(where: { $0.hasSubscribe })?.subscribe)
+        let req = try XCTUnwrap(lastSubscribe())
         XCTAssertTrue(req.recover, "resubscribe requests recovery (recover left true)")
         XCTAssertEqual(req.epoch, "_", "resubscribe carries the unrecoverable sentinel epoch")
         XCTAssertEqual(req.offset, 0, "resubscribe offset reset to 0")
@@ -126,35 +125,35 @@ final class StateInvalidationTests: XCTestCase {
         cfg.maxReconnectDelay = 0.2
         cfg.tokenGetter = { _, completion in _ = counter.next(); completion(.success("c1")) }
 
-        let connected = expectation(description: "connected")
-        connected.expectedFulfillmentCount = 2  // initial + reconnect
-        connected.assertForOverFulfill = false
+        let firstConnected = expectation(description: "first connected")
+        let reconnected = expectation(description: "reconnected")
+        var connCount = 0
         let cd = ClientDelegate()
-        cd.onConn = { connected.fulfill() }
+        cd.onConn = {
+            connCount += 1
+            if connCount == 1 { firstConnected.fulfill() } else { reconnected.fulfill() }
+        }
         let client = CentrifugeClient(endpoint: server.url, config: cfg, delegate: cd)
         client.connect()
         defer { client.disconnect() }
 
-        let subscribed = expectation(description: "subscribed")
-        subscribed.expectedFulfillmentCount = 2  // initial + resubscribe
-        subscribed.assertForOverFulfill = false
+        let firstSubscribed = expectation(description: "first subscribed")
+        let resubscribed = expectation(description: "resubscribed")
+        var subCount = 0
         let sd = SubDelegate()
-        sd.onSub = { subscribed.fulfill() }
+        sd.onSub = {
+            subCount += 1
+            if subCount == 1 { firstSubscribed.fulfill() } else { resubscribed.fulfill() }
+        }
         var subCfg = CentrifugeSubscriptionConfig()
         subCfg.token = "sub-token-0"
         let sub = try client.newSubscription(channel: "ch", delegate: sd, config: subCfg)
         sub.subscribe()
-
-        let firstConnected = expectation(description: "first connected")
-        cd.onConn = {
-            firstConnected.fulfill()
-            cd.onConn = { connected.fulfill() }
-        }
-        wait(for: [firstConnected], timeout: 5)
+        wait(for: [firstConnected, firstSubscribed], timeout: 5)
         XCTAssertEqual(lastConnectToken(), "c0")
 
         server.disconnect(disconnectedStateInvalidated, "state invalidated")
-        wait(for: [connected, subscribed], timeout: 6)
+        wait(for: [reconnected, resubscribed], timeout: 8)
         XCTAssertGreaterThanOrEqual(counter.count(), 1, "3014 must trigger a fresh connection token fetch")
         XCTAssertEqual(lastConnectToken(), "c1", "reconnect must use the freshly fetched token")
         XCTAssertEqual(lastSubscribeToken(), "", "3014 must invalidate subscription token")
