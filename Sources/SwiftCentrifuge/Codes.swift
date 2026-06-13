@@ -38,6 +38,15 @@ let subscriptionFlagRejectUnrecovered: Int64 = 2
 // impossible (only sent when subscriptionFlagRejectUnrecovered was requested).
 let errorCodeUnrecoverablePosition: UInt32 = 112
 
+// Server-sent "state invalidated" codes. The server determines that the client's
+// cached state and/or token are no longer valid and asks the client to drop them
+// and re-sync. 2502 arrives in an Unsubscribe push for a single subscription (the
+// client clears the subscription state and resubscribes, since it's >= 2500); 3014
+// arrives for the whole connection (the client clears the connection token to force
+// a fresh one via the token getter, invalidates all subscriptions, reconnects).
+let unsubscribedStateInvalidated: UInt32 = 2502
+let disconnectedStateInvalidated: UInt32 = 3014
+
 func interpretCloseCode(_ code: UInt32) -> (code: UInt32, reconnect: Bool) {
     // We act according to Disconnect code semantics.
     // See https://github.com/centrifugal/centrifuge/blob/master/disconnect.go.

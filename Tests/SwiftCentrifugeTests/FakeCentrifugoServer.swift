@@ -166,6 +166,29 @@ final class FakeCentrifugoServer: @unchecked Sendable {
     /// Send a raw push (wrapped in a reply) to the active connection.
     func sendPush(_ push: PPush) { var r = PReply(); r.push = push; sendReply(r) }
 
+    /// Send a Disconnect push (e.g. code 3014 state invalidated). Centrifugo can
+    /// also deliver disconnects as WebSocket close frames; both funnel through the
+    /// client's processDisconnect.
+    func disconnect(_ code: UInt32, _ reason: String) {
+        var d = Centrifugal_Centrifuge_Protocol_Disconnect()
+        d.code = code
+        d.reason = reason
+        var push = PPush()
+        push.disconnect = d
+        sendPush(push)
+    }
+
+    /// Send an Unsubscribe push for a channel (e.g. code 2502 state invalidated).
+    func unsubscribe(_ channel: String, _ code: UInt32, _ reason: String) {
+        var u = Centrifugal_Centrifuge_Protocol_Unsubscribe()
+        u.code = code
+        u.reason = reason
+        var push = PPush()
+        push.channel = channel
+        push.unsubscribe = u
+        sendPush(push)
+    }
+
     // --- typed push senders ---------------------------------------------------
     //
     // Channel compaction pushes carry a numeric id and no channel; otherwise the
