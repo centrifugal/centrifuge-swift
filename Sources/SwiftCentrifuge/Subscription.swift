@@ -18,7 +18,7 @@ public enum DeltaType: String {
 }
 
 public struct CentrifugeSubscriptionConfig {
-    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String = "", data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil, delta: DeltaType? = nil, stateGetter: CentrifugeSubscriptionStateGetter? = nil) {
+    public init(minResubscribeDelay: Double = 0.5, maxResubscribeDelay: Double = 20.0, token: String = "", data: Data? = nil, since: CentrifugeStreamPosition? = nil, positioned: Bool = false, recoverable: Bool = false, joinLeave: Bool = false, tokenGetter: CentrifugeSubscriptionTokenGetter? = nil, delta: DeltaType? = nil, tagsFilter: CentrifugeFilterNode? = nil, stateGetter: CentrifugeSubscriptionStateGetter? = nil) {
         self.minResubscribeDelay = minResubscribeDelay
         self.maxResubscribeDelay = maxResubscribeDelay
         self.token = token
@@ -29,6 +29,7 @@ public struct CentrifugeSubscriptionConfig {
         self.recoverable = recoverable
         self.joinLeave = joinLeave
         self.delta = delta
+        self.tagsFilter = tagsFilter
         self.stateGetter = stateGetter
     }
 
@@ -36,6 +37,11 @@ public struct CentrifugeSubscriptionConfig {
     public var maxResubscribeDelay = 20.0
     public var token: String = ""
     public var delta: DeltaType? = nil
+    /// Server-side publication filter based on publication tags. When set, the
+    /// server delivers only publications whose tags match the filter. Must be
+    /// enabled for the namespace on the server (`allow_tags_filter`) and cannot
+    /// be combined with `delta`. Build with the ``CentrifugeFilter`` helpers.
+    public var tagsFilter: CentrifugeFilterNode? = nil
     public var data: Data? = nil
     public var since: CentrifugeStreamPosition? = nil
     public var positioned: Bool = false
@@ -99,6 +105,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
     
     fileprivate var token: String?
     fileprivate var delta: String?
+    fileprivate var tagsFilter: CentrifugeFilterNode?
     fileprivate var deltaNegotiated: Bool = false
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var resubscribeTask: DispatchWorkItem?
@@ -125,6 +132,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
         if (config.delta != nil) {
             self.delta = config.delta?.rawValue
         }
+        self.tagsFilter = config.tagsFilter
         if (config.token != "") {
             self.token = config.token;
         }
@@ -139,6 +147,19 @@ public class CentrifugeSubscription: @unchecked Sendable {
         }
     }
     
+    /// Sets the server-side publication tags filter. Applied on the next
+    /// subscribe attempt, not the current one. Pass `nil` to clear it. Cannot be
+    /// combined with delta compression. Build with the ``CentrifugeFilter`` helpers.
+    /// - Throws: ``CentrifugeError/configurationError(message:)`` if delta is enabled.
+    public func setTagsFilter(_ tagsFilter: CentrifugeFilterNode?) throws {
+        if tagsFilter != nil && self.delta != nil {
+            throw CentrifugeError.configurationError(message: "cannot use delta and tags filter together")
+        }
+        self.centrifuge?.syncQueue.sync {
+            self.tagsFilter = tagsFilter
+        }
+    }
+
     public func subscribe() {
         self.centrifuge?.syncQueue.async { [weak self] in
             guard
@@ -224,7 +245,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
             // recovered=false — so we can call the state getter again to reload state.
             flag |= subscriptionFlagRejectUnrecovered
         }
-        self.centrifuge?.subscribe(channel: self.channel, token: token, delta: self.delta, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, flag: flag, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
+        self.centrifuge?.subscribe(channel: self.channel, token: token, delta: self.delta, tagsFilter: self.tagsFilter, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, flag: flag, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
             guard let centrifuge = centrifuge else { return }
             guard let strongSelf = self else { return }
             guard strongSelf.state == .subscribing else { return }
