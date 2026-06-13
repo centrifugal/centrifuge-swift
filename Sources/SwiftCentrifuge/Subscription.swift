@@ -670,4 +670,29 @@ public class CentrifugeSubscription: @unchecked Sendable {
         self.pushId = id
         self.centrifuge?.updateSubscriptionPushId(sub: self, oldId: oldId, newId: id)
     }
+
+    // Resets cached subscription state on "state invalidated" (unsubscribe code
+    // 2502 or connection disconnect code 3014) so the resubscribe starts from
+    // scratch: clears the token (next subscribe fetches a fresh one via the token
+    // getter when configured, else resubscribes with an empty token), the recovery
+    // position (offset/epoch/recover — forcing a full re-sync from the head instead
+    // of stream recovery), the fossil delta base (a stale base would corrupt
+    // decoding of the first publication), and the channel-compaction ID mapping.
+    // Runs on the client syncQueue.
+    func invalidateState() {
+        // nil token routes the next resubscribe through the token getter when one
+        // is configured, and otherwise falls through to an empty-token subscribe
+        // (continueResubscribe handles both) — i.e. a fresh token, never the stale one.
+        self.token = nil
+        // Reset the recovery position to a sentinel epoch ("_") the server can
+        // never match (offset 0); leave the recover flag untouched. A recoverable
+        // subscription then resubscribes with wasRecovering=true, recovered=false
+        // (app reloads via its recovery-failure path); a non-recoverable one just
+        // resubscribes (the sentinel is not sent). The real epoch/offset are
+        // adopted from the subscribe reply.
+        self.offset = 0
+        self.epoch = "_"
+        self.prevValue = nil
+        self.setPushId(0)
+    }
 }

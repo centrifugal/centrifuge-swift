@@ -965,6 +965,11 @@ fileprivate extension CentrifugeClient {
         if (unsubscribe.code < 2500) {
             sub.processUnsubscribe(sendUnsubscribe: false, code: unsubscribe.code, reason: unsubscribe.reason)
         } else {
+            if unsubscribe.code == unsubscribedStateInvalidated {
+                // State invalidated: drop the subscription token and cached state
+                // so the resubscribe below obtains a fresh token and re-syncs.
+                sub.invalidateState()
+            }
             sub.moveToSubscribingUponDisconnect(code: unsubscribe.code, reason: unsubscribe.reason)
             sub.resubscribeIfNecessary()
         }
@@ -1136,6 +1141,20 @@ fileprivate extension CentrifugeClient {
         // pushId is left as-is: the next subscribe reply re-registers it regardless
         // of whether the server reuses the same ID.
         self.subscriptionsById.removeAll()
+
+        if code == disconnectedStateInvalidated {
+            // State invalidated (delivered as a WebSocket close code or a Disconnect
+            // push — both funnel here): drop the connection token so the next connect
+            // fetches a fresh one via the token getter, and invalidate every
+            // subscription's cached state before they move to subscribing below.
+            self.token = ""
+            self.refreshRequired = true
+            subscriptionsLock.lock()
+            for sub in self.subscriptions {
+                sub.invalidateState()
+            }
+            subscriptionsLock.unlock()
+        }
 
         for resolveFunc in self.opCallbacks.values {
             resolveFunc(CentrifugeResolveData(error: CentrifugeError.clientDisconnected, reply: nil))
