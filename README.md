@@ -71,12 +71,17 @@ SwiftCentrifuge is available under the MIT license. See LICENSE for details.
 
 ## Release (for maintainers)
 
-Bump version in `SwiftCentrifuge.podspec`
+Releases are automated via the [`release`](.github/workflows/release.yml) GitHub Actions workflow, which publishes the podspec to CocoaPods trunk. No local Xcode or CocoaPods setup is required.
 
-Push to master and create new version tag.
+1. Bump `s.version` in `SwiftCentrifuge.podspec`.
+2. Push to `master` and create a matching version tag (e.g. `0.9.0`).
 
-Then run:
+Pushing the tag triggers the workflow automatically. The workflow verifies that the podspec version matches the tag before pushing, so make sure the version is bumped before tagging.
+
+To (re)publish an already-existing tag manually:
 
 ```
-pod trunk push SwiftCentrifuge.podspec --allow-warnings
+gh workflow run release.yml -f tag=0.9.0
 ```
+
+The workflow authenticates to CocoaPods trunk using the `COCOAPODS_TRUNK_TOKEN` repository secret.
