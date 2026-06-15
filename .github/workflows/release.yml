@@ -1,0 +1,39 @@
+name: release
+on:
+  # Automatically release when a version tag is pushed.
+  push:
+    tags:
+      - '*'
+  # Allow releasing an already-existing tag manually. workflow_dispatch runs this
+  # file from the default branch, so the tag to release is passed as an input and
+  # checked out explicitly below.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing git tag to publish (e.g. 0.9.0)'
+        required: true
+jobs:
+  publish:
+    name: Push podspec to CocoaPods trunk
+    runs-on: macos-15
+    env:
+      # The tag being released: the dispatch input when run manually, otherwise
+      # the pushed tag.
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+      - name: Verify podspec version matches the tag
+        run: |
+          SPEC_VERSION=$(grep -E "s\.version" SwiftCentrifuge.podspec | head -1 | sed -E "s/.*'([^']+)'.*/\1/")
+          echo "Tag: $TAG, podspec version: $SPEC_VERSION"
+          if [ "$SPEC_VERSION" != "$TAG" ]; then
+            echo "::error::podspec version ($SPEC_VERSION) does not match tag ($TAG)"
+            exit 1
+          fi
+      - name: Push to CocoaPods trunk
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: pod trunk push SwiftCentrifuge.podspec --allow-warnings
