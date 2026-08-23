@@ -35,11 +35,20 @@ public struct StreamPosition {
     var epoch: String = ""
 }
 
+// Maximum number of bytes we accept for a message length varint. Nine bytes
+// carry 63 bits, so the decoded value always fits into a non-negative Int –
+// longer prefixes are malformed for a length and are rejected instead of being
+// silently wrapped around.
+private let maxVarintLengthBytes = 9
+
 // Helper function to decode a varint.
 func readVarint(from data: Data) throws -> (value: Int, length: Int) {
     var value = 0
     var length = 0
     for byte in data {
+        guard length < maxVarintLengthBytes else {
+            throw ProtobufDecodeError.failedToReadVarintLengthPrefix
+        }
         value |= Int(byte & 0x7F) << (7 * length)
         length += 1
         if (byte & 0x80) == 0 {
@@ -76,12 +85,14 @@ internal enum CentrifugeSerializer {
             // Read the varint length prefix.
             let remainingData = data[currentIndex...]
             let (messageLength, lengthBytes) = try readVarint(from: remainingData)
-            // Calculate the total length of the message (varint length prefix + message data).
-            let totalLength = lengthBytes + messageLength
-            // Ensure there is enough data left.
-            guard currentIndex + totalLength <= data.endIndex else {
+            // Ensure there is enough data left. Written as a subtraction (instead of
+            // comparing currentIndex + totalLength with endIndex) so that a bogus
+            // length coming from the wire can not overflow the addition.
+            guard messageLength <= data.endIndex - currentIndex - lengthBytes else {
                 throw ProtobufDecodeError.notEnoughDataForMessage
             }
+            // Calculate the total length of the message (varint length prefix + message data).
+            let totalLength = lengthBytes + messageLength
             // Extract the message data.
             let messageData = data[(currentIndex + lengthBytes)..<(currentIndex + totalLength)]
             // Parse the Protobuf message payload to Centrifuge Reply.

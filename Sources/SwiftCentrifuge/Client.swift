@@ -86,7 +86,7 @@ public struct CentrifugeClientConfig {
         self.logger = logger
     }
 
-    /// Timeout for server responses, in seconssssds.
+    /// Timeout for server responses, in seconds.
     public var timeout: Double
 
     /// Custom headers to include in requests.
@@ -229,7 +229,9 @@ public class CentrifugeClient: @unchecked Sendable {
                 log: log
             )
         } else {
-            log.info("on iOS lower than 13.0 avaliable only StarscreamWebSocket")
+            // Either useNativeWebSocket is off, or the OS is too old for
+            // URLSessionWebSocketTask (iOS < 13.0 and equivalents).
+            log.info("Using StarscreamWebSocket")
             ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
         }
 
@@ -372,7 +374,7 @@ public class CentrifugeClient: @unchecked Sendable {
     }
     
     /**
-     * Get a map with all client-side suscriptions in client's internal registry.
+     * Get a map with all client-side subscriptions in client's internal registry.
      */
     public func getSubscriptions() -> [String: CentrifugeSubscription] {
         defer { subscriptionsLock.unlock() }
@@ -743,11 +745,15 @@ fileprivate extension CentrifugeClient {
                         self.serverSubs[channel]?.offset = pub.offset
                     }
                 }
-                for (channel, _) in self.serverSubs {
-                    if result.subs[channel] == nil {
-                        self.delegate?.onUnsubscribed(self, CentrifugeServerUnsubscribedEvent(channel: channel))
-                        self.serverSubs.removeValue(forKey: channel)
-                    }
+            }
+            // Server-side subscriptions we knew about but which are not part of the
+            // connect result anymore are gone: emit unsubscribed and drop them. Must
+            // run after (and outside) the loop above, otherwise subscriptions are not
+            // cleaned up at all when the connect result carries no subs.
+            for (channel, _) in self.serverSubs {
+                if result.subs[channel] == nil {
+                    self.delegate?.onUnsubscribed(self, CentrifugeServerUnsubscribedEvent(channel: channel))
+                    self.serverSubs.removeValue(forKey: channel)
                 }
             }
             // Resubscribe to client-side subscriptions.

@@ -65,6 +65,23 @@ Use the `urlSessionConfigurationProvider` option in `CentrifugeClientConfig` to 
 5.    Test the connection:
 Run your application and ensure that WebSocket traffic from centrifuge-swift is properly routed through your proxy tool.
 
+## Running tests
+
+Tests require a full Xcode toolchain – `XCTest` is not available when only Command Line Tools are installed.
+
+Most suites talk to an in-process fake Centrifugo server and need no external dependencies. The suites which cover recovery and state loading (`GetStateTests`) need a real Centrifugo (>= 6.8.0) configured as in [docker-compose.yml](docker-compose.yml):
+
+```bash
+docker compose up -d
+swift test
+```
+
+To run a single suite use a filter, for example:
+
+```bash
+swift test --filter GetStateTests
+```
+
 ## License
 
 SwiftCentrifuge is available under the MIT license. See LICENSE for details.
