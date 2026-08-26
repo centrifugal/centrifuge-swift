@@ -326,27 +326,49 @@ public class CentrifugeSubscription: @unchecked Sendable {
     }
     
     func handlePublication(pub: Centrifugal_Centrifuge_Protocol_Publication) {
+        guard let data = applyDelta(pub: pub) else {
+            // Decode failure already logged and reported via delegate.onError below.
+            return
+        }
         var info: CentrifugeClientInfo? = nil;
         if pub.hasInfo {
             info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
         }
-        let event = CentrifugePublicationEvent(data: applyDelta(pub: pub), offset: pub.offset, tags: pub.tags, info: info)
+        let event = CentrifugePublicationEvent(data: data, offset: pub.offset, tags: pub.tags, info: info)
         if pub.offset > 0 {
             self.setOffset(offset: pub.offset)
         }
         self.delegate?.onPublication(self, event)
     }
 
-    private func applyDelta(pub: Centrifugal_Centrifuge_Protocol_Publication) -> Data {
-        var eventData = pub.data
-        if pub.delta && self.deltaNegotiated {
-            let data = try! DeltaFossil.applyDelta(source: prevValue!, delta: pub.data)
-            eventData = data
-            self.prevValue = data
-        } else if deltaNegotiated {
-            self.prevValue = pub.data
+    private enum DeltaApplyError: Error {
+        case missingBaseValue
+    }
+
+    // Returns nil when a delta publication can not be decoded (missing or
+    // corrupted base value) instead of trapping on untrusted server/network
+    // input. The publication is dropped and the delta chain reset so later
+    // deltas do not compound the corruption.
+    private func applyDelta(pub: Centrifugal_Centrifuge_Protocol_Publication) -> Data? {
+        guard pub.delta && self.deltaNegotiated else {
+            if deltaNegotiated {
+                self.prevValue = pub.data
+            }
+            return pub.data
         }
-        return eventData
+        do {
+            guard let prevValue = self.prevValue else {
+                throw DeltaApplyError.missingBaseValue
+            }
+            let data = try DeltaFossil.applyDelta(source: prevValue, delta: pub.data)
+            self.prevValue = data
+            return data
+        } catch {
+            self.log.error("failed to apply delta for \(self.channel), dropping publication: \(error)")
+            self.prevValue = nil
+            self.delegate?.onError(self, CentrifugeSubscriptionErrorEvent(error: error))
+            return nil
+        }
     }
 
     private func scheduleResubscribe(zeroDelay: Bool = false) {
