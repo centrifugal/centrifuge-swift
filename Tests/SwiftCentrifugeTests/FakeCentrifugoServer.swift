@@ -201,8 +201,11 @@ final class FakeCentrifugoServer: @unchecked Sendable {
         sendPush(push)
     }
 
-    func publishChannel(_ channel: String, _ data: Data) {
-        var pub = Centrifugal_Centrifuge_Protocol_Publication(); pub.data = data
+    /// Publish to a channel. Pass `delta: true` to mark the payload as a delta
+    /// from the previously published value (only makes sense when the subscribe
+    /// result negotiated delta compression).
+    func publishChannel(_ channel: String, _ data: Data, delta: Bool = false) {
+        var pub = Centrifugal_Centrifuge_Protocol_Publication(); pub.data = data; pub.delta = delta
         var push = PPush(); push.channel = channel; push.pub = pub
         sendPush(push)
     }
