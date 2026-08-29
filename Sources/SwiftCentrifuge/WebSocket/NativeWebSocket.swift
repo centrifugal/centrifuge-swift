@@ -42,6 +42,7 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         assertIsOnQueue(queue)
         if let task = task {
             log.warning("Creating a new connection while the previous is active, socket state: \(task.state.asString)")
+            task.cancel()
         }
 
         log.debug("Connecting...")
