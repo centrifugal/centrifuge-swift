@@ -27,6 +27,16 @@ public enum CentrifugeError: Error {
     case configurationError(message: String)
 }
 
+/// Retrieves a connection token dynamically, called whenever the client needs one (initial
+/// connect, or a refresh). Call the completion handler exactly once, with `.success(token)` or
+/// `.failure(error)` — a failure is handled properly (see `CentrifugeError.tokenError`;
+/// `CentrifugeError.unauthorized` specifically ends the connection attempt rather than
+/// retrying).
+/// - Warning: Call the completion handler exactly once, on every code path. There is no
+/// timeout: if it's never called, the connection attempt hangs indefinitely, with no error,
+/// no disconnect event, and no other diagnostic. If your token-fetching logic depends on
+/// something that might stall (a slow network call, etc.), guard it with your own timeout
+/// and call `completion(.failure(...))` on expiry.
 public typealias CentrifugeConnectionTokenGetter = (_ event: CentrifugeConnectionTokenEvent, _ completion: @escaping (Result<String, Error>) -> Void) -> Void
 
 
@@ -118,7 +128,9 @@ public struct CentrifugeClientConfig {
     /// Authentication token for connecting to the server.
     public var token: String
 
-    /// Callback for retrieving authentication tokens dynamically.
+    /// Callback for retrieving authentication tokens dynamically. See
+    /// `CentrifugeConnectionTokenGetter` for its call-exactly-once contract and the lack of
+    /// any built-in timeout.
     public var tokenGetter: CentrifugeConnectionTokenGetter?
 
     /// Custom binary data associated with the client.
@@ -159,6 +171,13 @@ public struct CentrifugeClientConfig {
     /// main thread. Don't block it — the completion handler is `@escaping`, so kick off any
     /// slow work (e.g. a network call) elsewhere and call it once that resolves, rather than
     /// blocking this queue waiting for it.
+    /// - Warning: Call the completion handler exactly once, on every code path, including
+    /// error paths — e.g. `completionHandler(.cancelAuthenticationChallenge, nil)` to fail the
+    /// connection deliberately. There is no timeout: if it's never called, the connection
+    /// attempt hangs indefinitely, with no error, no disconnect event, and no other
+    /// diagnostic. If your decision logic depends on something that might stall (a network
+    /// call to check a pin set, etc.), guard it with your own timeout and call the completion
+    /// handler on expiry. Same behavior as `tokenGetter`.
     public var tlsChallengeHandler: CentrifugeTLSChallengeHandler?
 
 }
@@ -185,6 +204,13 @@ public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguratio
 /// all of its other WebSocket delegate callbacks and internal processing), not the main
 /// thread. Don't block it — the completion handler is `@escaping`, so kick off any slow
 /// work (e.g. a network call) elsewhere and call it once that resolves.
+/// - Warning: Call the completion handler exactly once, on every code path, including error
+/// paths — e.g. `completionHandler(.cancelAuthenticationChallenge, nil)` to fail the
+/// connection deliberately. There is no timeout: if it's never called, the connection attempt
+/// hangs indefinitely, with no error, no disconnect event, and no other diagnostic. If your
+/// decision logic depends on something that might stall (a network call to check a pin set,
+/// etc.), guard it with your own timeout and call the completion handler on expiry. Same
+/// behavior as `tokenGetter`.
 public typealias CentrifugeTLSChallengeHandler = (
     _ challenge: URLAuthenticationChallenge,
     _ completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
