@@ -650,7 +650,7 @@ fileprivate extension CentrifugeClient {
 
         guard self.state == .connecting else { return }
 
-        if refreshRequired || (token == "" && config.tokenGetter != nil) {
+        if config.tokenGetter != nil && (refreshRequired || token == "") {
             getConnectionToken(completion: { [weak self] result in
                 guard let strongSelf = self, strongSelf.state == .connecting else { return }
                 switch result {
