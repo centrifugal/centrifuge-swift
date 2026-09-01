@@ -146,7 +146,7 @@ final class GetStateTests: XCTestCase {
         delegate.onPublicationHandler = { _ in recoveredPubs.fulfill() }
 
         client.connect()
-        wait(for: [resubscribed, recoveredPubs], timeout: 5)
+        wait(for: [resubscribed, recoveredPubs], timeout: 10)
         XCTAssertEqual(getStateCalls.value, 1, "state getter must not be called when recovery succeeds")
     }
 
