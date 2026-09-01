@@ -20,7 +20,9 @@ final class StateInvalidationTests: XCTestCase {
 
     private final class ClientDelegate: CentrifugeClientDelegate {
         var onConn: (() -> Void)?
+        var onServerSub: ((CentrifugeServerSubscribedEvent) -> Void)?
         func onConnected(_ c: CentrifugeClient, _ e: CentrifugeConnectedEvent) { onConn?() }
+        func onSubscribed(_ c: CentrifugeClient, _ e: CentrifugeServerSubscribedEvent) { onServerSub?(e) }
     }
 
     private final class Counter: @unchecked Sendable {
@@ -51,6 +53,10 @@ final class StateInvalidationTests: XCTestCase {
 
     private func lastSubscribe() -> Centrifugal_Centrifuge_Protocol_SubscribeRequest? {
         server.received().last(where: { $0.hasSubscribe })?.subscribe
+    }
+
+    private func lastConnect() -> Centrifugal_Centrifuge_Protocol_ConnectRequest? {
+        server.received().last(where: { $0.hasConnect })?.connect
     }
 
     func testUnsubscribe2502ClearsTokenAndResubscribes() throws {
@@ -157,5 +163,51 @@ final class StateInvalidationTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(counter.count(), 1, "3014 must trigger a fresh connection token fetch")
         XCTAssertEqual(lastConnectToken(), "c1", "reconnect must use the freshly fetched token")
         XCTAssertEqual(lastSubscribeToken(), "", "3014 must invalidate subscription token")
+    }
+
+    func testDisconnect3014ResetsServerSubRecoveryPosition() throws {
+        // Regression: server-side subscriptions cache their own recovery position
+        // separately from client-side subscriptions. 3014 must reset it too, or the
+        // next connect keeps requesting recovery from the pre-invalidation offset/epoch.
+        server.onCommand = { cmd in
+            guard cmd.hasConnect else { return nil }
+            var result = FakeCentrifugoServer.PConnectResult()
+            result.client = "fake-client"
+            var subResult = FakeCentrifugoServer.PSubscribeResult()
+            subResult.recoverable = true
+            subResult.epoch = "server-epoch"
+            subResult.offset = 5
+            result.subs = ["news": subResult]
+            var reply = FakeCentrifugoServer.PReply()
+            reply.id = cmd.id
+            reply.connect = result
+            return reply
+        }
+
+        var cfg = CentrifugeClientConfig()
+        cfg.minReconnectDelay = 0.05
+        cfg.maxReconnectDelay = 0.2
+        let cd = ClientDelegate()
+        let firstServerSub = expectation(description: "first server sub")
+        let resubscribed = expectation(description: "resubscribed after reconnect")
+        var subCount = 0
+        cd.onServerSub = { _ in
+            subCount += 1
+            if subCount == 1 { firstServerSub.fulfill() } else { resubscribed.fulfill() }
+        }
+        let client = CentrifugeClient(endpoint: server.url, config: cfg, delegate: cd)
+        client.connect()
+        defer { client.disconnect() }
+
+        wait(for: [firstServerSub], timeout: 5)
+        XCTAssertNil(lastConnect()?.subs["news"], "initial connect carries no server subs to recover")
+
+        server.disconnect(disconnectedStateInvalidated, "state invalidated")
+        wait(for: [resubscribed], timeout: 8)
+
+        let req = try XCTUnwrap(lastConnect()?.subs["news"], "reconnect must request recovery for the server-side sub")
+        XCTAssertTrue(req.recover, "recover flag left true")
+        XCTAssertEqual(req.epoch, "_", "reconnect must not carry the pre-invalidation epoch")
+        XCTAssertEqual(req.offset, 0, "reconnect must not carry the pre-invalidation offset")
     }
 }
