@@ -20,7 +20,7 @@ final class NativeWebSocketTLSChallengeTests: XCTestCase {
     private final class DummySender: NSObject, URLAuthenticationChallengeSender {
         func use(_ credential: URLCredential, for challenge: URLAuthenticationChallenge) {}
         func continueWithoutCredential(for challenge: URLAuthenticationChallenge) {}
-        func cancel(for challenge: URLAuthenticationChallenge) {}
+        func cancel(_ challenge: URLAuthenticationChallenge) {}
     }
 
     private func makeChallenge() -> URLAuthenticationChallenge {
