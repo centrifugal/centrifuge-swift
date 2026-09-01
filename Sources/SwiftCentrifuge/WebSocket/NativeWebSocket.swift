@@ -20,17 +20,22 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     private let log: CentrifugeLogger
     private let request: URLRequest
     private let urlSessionConfigurationProvider: (() -> URLSessionConfiguration)
+    private let tlsSkipVerify: Bool
+    private let tlsChallengeHandler: CentrifugeTLSChallengeHandler?
     private let queue: DispatchQueue
 
     /// The websocket is considered 'active' when `task` is not nil
     private var task: URLSessionWebSocketTask?
 
-    init(request: URLRequest, urlSessionConfigurationProvider: URLSessionConfigurationProvider?,  queue: DispatchQueue, log: CentrifugeLogger) {
+    init(request: URLRequest, urlSessionConfigurationProvider: URLSessionConfigurationProvider?,
+         tlsSkipVerify: Bool, tlsChallengeHandler: CentrifugeTLSChallengeHandler?, queue: DispatchQueue, log: CentrifugeLogger) {
         var request = request
         request.setValue("centrifuge-protobuf", forHTTPHeaderField: "Sec-WebSocket-Protocol")
         self.request = request
         self.log = log
         self.urlSessionConfigurationProvider = urlSessionConfigurationProvider ?? { URLSessionConfiguration.default }
+        self.tlsSkipVerify = tlsSkipVerify
+        self.tlsChallengeHandler = tlsChallengeHandler
         self.queue = queue
     }
 
@@ -156,6 +161,23 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         handleTaskClose(task: task, code: task.closeCode, reason: task.closeReason, error: error)
     }
 
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        if let tlsChallengeHandler = tlsChallengeHandler {
+            tlsChallengeHandler(challenge, completionHandler)
+            return
+        }
+
+        if tlsSkipVerify,
+           challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+           let trust = challenge.protectionSpace.serverTrust {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+            return
+        }
+
+        completionHandler(.performDefaultHandling, nil)
+    }
+
     private func handleTaskClose(task: URLSessionWebSocketTask,
                                  code: URLSessionWebSocketTask.CloseCode, reason: Data?, error: Error?) {
         let reason = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "transport closed"
@@ -199,6 +221,16 @@ private final class URLSessionDelegateBox: NSObject, URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         delegate?.urlSession?(session, task: task, didCompleteWithError: error)
+    }
+
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        guard let delegate = delegate else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
+        delegate.urlSession?(session, didReceive: challenge, completionHandler: completionHandler)
     }
 }
 

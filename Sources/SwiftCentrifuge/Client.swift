@@ -51,6 +51,7 @@ public struct CentrifugeClientConfig {
     ///   - urlSessionConfigurationProvider: Optional allows setting custom options for `URLSessionWebSocketTask` used by the native WebSocket,
     ///   - tokenGetter: Callback for retrieving authentication tokens dynamically
     ///   - logger: Logger instance for debugging and diagnostics
+    ///   - tlsChallengeHandler: Optional handler for TLS/auth challenges on the native WebSocket transport's `URLSession`, e.g. to trust a private CA or pin a certificate. Takes precedence over `tlsSkipVerify` when both are set
     public init(
         timeout: Double = 5.0,
         headers: [String : String] = .init(),
@@ -66,7 +67,8 @@ public struct CentrifugeClientConfig {
         useNativeWebSocket: Bool = false,
         urlSessionConfigurationProvider: URLSessionConfigurationProvider? = nil,
         tokenGetter: CentrifugeConnectionTokenGetter? = nil,
-        logger: CentrifugeLogger? = nil
+        logger: CentrifugeLogger? = nil,
+        tlsChallengeHandler: CentrifugeTLSChallengeHandler? = nil
     ) {
         self.timeout = timeout
         self.headers = headers
@@ -84,6 +86,7 @@ public struct CentrifugeClientConfig {
 
         self.tokenGetter = tokenGetter
         self.logger = logger
+        self.tlsChallengeHandler = tlsChallengeHandler
     }
 
     /// Timeout for server responses, in seconds.
@@ -92,7 +95,9 @@ public struct CentrifugeClientConfig {
     /// Custom headers to include in requests.
     public var headers: [String : String]
 
-    /// Flag to skip TLS certificate verification.
+    /// Flag to skip TLS certificate verification. Applies to both transports. On the native
+    /// transport (`useNativeWebSocket == true`) this is only used as a fallback when
+    /// `tlsChallengeHandler` is not set; if both are set, `tlsChallengeHandler` takes precedence.
     public var tlsSkipVerify: Bool
 
     /// Minimum delay before attempting reconnection, in seconds.
@@ -135,10 +140,29 @@ public struct CentrifugeClientConfig {
     /// - Note: This option is available on iOS 13.0 and later. It provides a modern WebSocket implementation.
     public var urlSessionConfigurationProvider: URLSessionConfigurationProvider?
 
+    /// Applied when `useNativeWebSocket == true`. Lets the app answer TLS/auth challenges for
+    /// the underlying `URLSession`, e.g. to trust a private CA or pin a certificate. Takes
+    /// precedence over `tlsSkipVerify`. If neither is set, the system default handling is used
+    /// (full certificate verification).
+    /// - Note: Only takes effect where the native transport itself is available (iOS 13.0 and
+    /// later, see `useNativeWebSocket`); ignored on older OS versions, where the Starscream
+    /// transport is used instead and only respects `tlsSkipVerify`.
+    public var tlsChallengeHandler: CentrifugeTLSChallengeHandler?
+
 }
 
 /// A typealias for a provider that returns a custom `URLSessionConfiguration`.
 public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
+
+/// Handles a TLS/auth challenge for the native WebSocket transport's underlying `URLSession`
+/// (for example, to trust a private CA or pin a certificate). Call the completion handler
+/// exactly once. If not set, the system default handling is used.
+/// - Note: Only applies when `useNativeWebSocket == true`; has no effect on the Starscream
+/// transport, which uses `tlsSkipVerify` instead.
+public typealias CentrifugeTLSChallengeHandler = (
+    _ challenge: URLAuthenticationChallenge,
+    _ completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+) -> Void
 
 public enum CentrifugeClientState: Sendable {
     case disconnected
@@ -225,6 +249,8 @@ public class CentrifugeClient: @unchecked Sendable {
             ws = NativeWebSocket(
                 request: request,
                 urlSessionConfigurationProvider: config.urlSessionConfigurationProvider,
+                tlsSkipVerify: config.tlsSkipVerify,
+                tlsChallengeHandler: config.tlsChallengeHandler,
                 queue: syncQueue,
                 log: log
             )
