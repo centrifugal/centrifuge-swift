@@ -51,7 +51,7 @@ public struct CentrifugeClientConfig {
     ///   - urlSessionConfigurationProvider: Optional allows setting custom options for `URLSessionWebSocketTask` used by the native WebSocket,
     ///   - tokenGetter: Callback for retrieving authentication tokens dynamically
     ///   - logger: Logger instance for debugging and diagnostics
-    ///   - tlsChallengeHandler: Optional handler for TLS/auth challenges on the native WebSocket transport's `URLSession`, e.g. to trust a private CA or pin a certificate. Takes precedence over `tlsSkipVerify` when both are set
+    ///   - tlsChallengeHandler: Optional handler for TLS-handshake-level challenges (server-trust, client-certificate for mTLS) on the native WebSocket transport's `URLSession`, e.g. to trust a private CA, pin a certificate, or present a client identity. Takes precedence over `tlsSkipVerify` when both are set
     public init(
         timeout: Double = 5.0,
         headers: [String : String] = .init(),
@@ -140,13 +140,19 @@ public struct CentrifugeClientConfig {
     /// - Note: This option is available on iOS 13.0 and later. It provides a modern WebSocket implementation.
     public var urlSessionConfigurationProvider: URLSessionConfigurationProvider?
 
-    /// Applied when `useNativeWebSocket == true`. Lets the app answer TLS/auth challenges for
-    /// the underlying `URLSession`, e.g. to trust a private CA or pin a certificate. Takes
-    /// precedence over `tlsSkipVerify`. If neither is set, the system default handling is used
-    /// (full certificate verification).
+    /// Applied when `useNativeWebSocket == true`. Lets the app answer TLS-handshake-level
+    /// challenges for the underlying `URLSession` — server-trust (e.g. to trust a private CA
+    /// or pin a certificate) and client-certificate (mTLS). Only invoked for
+    /// `NSURLAuthenticationMethodServerTrust` and `NSURLAuthenticationMethodClientCertificate`
+    /// challenges — any HTTP-layer challenge (e.g. Basic/NTLM for a proxy) always gets the
+    /// system's default handling and never reaches this handler. Takes precedence over
+    /// `tlsSkipVerify` (which only ever applies to server-trust). If neither is set, the
+    /// system default handling is used (full certificate verification).
     /// - Note: Only takes effect where the native transport itself is available (iOS 13.0 and
     /// later, see `useNativeWebSocket`); ignored on older OS versions, where the Starscream
-    /// transport is used instead and only respects `tlsSkipVerify`.
+    /// transport is used instead. Starscream has no equivalent to this handler — its only TLS
+    /// option is `tlsSkipVerify`, which disables verification entirely rather than allowing
+    /// custom trust logic or client certificates.
     public var tlsChallengeHandler: CentrifugeTLSChallengeHandler?
 
 }
@@ -154,11 +160,14 @@ public struct CentrifugeClientConfig {
 /// A typealias for a provider that returns a custom `URLSessionConfiguration`.
 public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
 
-/// Handles a TLS/auth challenge for the native WebSocket transport's underlying `URLSession`
-/// (for example, to trust a private CA or pin a certificate). Call the completion handler
-/// exactly once. If not set, the system default handling is used.
-/// - Note: Only applies when `useNativeWebSocket == true`; has no effect on the Starscream
-/// transport, which uses `tlsSkipVerify` instead.
+/// Handles a TLS-handshake-level challenge (server-trust or client-certificate/mTLS) for the
+/// native WebSocket transport's underlying `URLSession` — for example, to trust a private CA,
+/// pin a certificate, or present a client identity. Call the completion handler exactly once.
+/// HTTP-layer challenges (e.g. Basic/NTLM for a proxy) never reach this handler. If not set,
+/// the system default handling is used.
+/// - Note: Only applies when `useNativeWebSocket == true`. Starscream has no equivalent to
+/// this handler — its only TLS option is `tlsSkipVerify`, which disables verification
+/// entirely rather than allowing custom trust logic or client certificates.
 public typealias CentrifugeTLSChallengeHandler = (
     _ challenge: URLAuthenticationChallenge,
     _ completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
@@ -258,6 +267,9 @@ public class CentrifugeClient: @unchecked Sendable {
             // Either useNativeWebSocket is off, or the OS is too old for
             // URLSessionWebSocketTask (iOS < 13.0 and equivalents).
             log.info("Using StarscreamWebSocket")
+            if config.tlsChallengeHandler != nil {
+                log.warning("tlsChallengeHandler is set but has no effect on the Starscream transport")
+            }
             ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
         }
 

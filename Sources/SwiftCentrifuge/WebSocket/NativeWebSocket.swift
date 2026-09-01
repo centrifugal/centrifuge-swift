@@ -163,18 +163,35 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
                     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        assertIsOnQueue(queue)
+
+        // Only TLS-handshake-level challenges (server-trust, and client-certificate for mTLS)
+        // are ours to answer here; HTTP-layer challenges (Basic/Digest/NTLM, typically for a
+        // proxy) are left to the system, since we only implement the session-level delegate
+        // method and not the task-level one, which means every challenge type would
+        // otherwise be routed here.
+        let authMethod = challenge.protectionSpace.authenticationMethod
+        guard authMethod == NSURLAuthenticationMethodServerTrust
+           || authMethod == NSURLAuthenticationMethodClientCertificate else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
         if let tlsChallengeHandler = tlsChallengeHandler {
+            log.debug("Forwarding TLS challenge to tlsChallengeHandler")
             tlsChallengeHandler(challenge, completionHandler)
             return
         }
 
-        if tlsSkipVerify,
-           challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-           let trust = challenge.protectionSpace.serverTrust {
+        // tlsSkipVerify only ever means "don't verify the server's certificate" - it has
+        // no meaning for a client-certificate (mTLS) challenge, so it's not applied there.
+        if tlsSkipVerify, authMethod == NSURLAuthenticationMethodServerTrust, let trust = challenge.protectionSpace.serverTrust {
+            log.debug("Trusting server certificate because tlsSkipVerify is enabled")
             completionHandler(.useCredential, URLCredential(trust: trust))
             return
         }
 
+        log.debug("Using default TLS handling")
         completionHandler(.performDefaultHandling, nil)
     }
 
