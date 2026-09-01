@@ -4,6 +4,12 @@ import XCTest
 /// Unit tests for the native WebSocket transport's TLS/auth challenge handling
 /// (`CentrifugeClientConfig.tlsChallengeHandler` and `tlsSkipVerify`, see issue #136).
 ///
+/// `tlsChallengeHandler` is an unfiltered forward of every challenge this session-level
+/// delegate method receives (server-trust, client-certificate, NTLM, Negotiate — same shape
+/// as Kingfisher's `AuthenticationChallengeResponsible.downloader(_:didReceive:)`).
+/// `tlsSkipVerify`, in contrast, only ever applies to server-trust, matching what it has
+/// always meant on the Starscream transport.
+///
 /// These exercise `NativeWebSocket`'s delegate method directly with a synthetic
 /// challenge, so they're fast and deterministic. `URLProtectionSpace` has no public
 /// initializer that attaches a real `SecTrust`, so the synthetic challenge here always
@@ -122,17 +128,37 @@ final class NativeWebSocketTLSChallengeTests: XCTestCase {
         wait(for: [completed], timeout: 1)
     }
 
-    func testNTLMChallengeIsNeverForwardedToHandlerOrSkipVerify() {
-        // NTLM is, per Apple's routing rules, a session-level challenge that WOULD reach
-        // this exact delegate method (same as server-trust) if not explicitly excluded —
-        // e.g. for an authenticating proxy. It must always get default handling and must
-        // never reach tlsChallengeHandler or be affected by tlsSkipVerify, both of which
-        // only apply to TLS-handshake-level challenges (server-trust, client-certificate).
-        var handlerCalled = false
-        let (ws, queue) = makeSocket(tlsSkipVerify: true, tlsChallengeHandler: { _, completion in
-            handlerCalled = true
-            completion(.useCredential, nil)
+    func testNTLMChallengeIsForwardedToHandler() {
+        // NTLM is, per Apple's routing rules, a session-level challenge that reaches this
+        // exact delegate method (same as server-trust) - e.g. for an authenticating proxy.
+        // tlsChallengeHandler is an unfiltered forward, so it must receive this too, exactly
+        // like Kingfisher's equivalent AuthenticationChallengeResponsible.downloader(_:didReceive:).
+        var receivedAuthMethod: String?
+        let credential = URLCredential(user: "u", password: "p", persistence: .none)
+        let (ws, queue) = makeSocket(tlsChallengeHandler: { ch, completion in
+            receivedAuthMethod = ch.protectionSpace.authenticationMethod
+            completion(.useCredential, credential)
         })
+
+        let challenge = makeChallenge(authMethod: NSURLAuthenticationMethodNTLM)
+        let completed = expectation(description: "completion called")
+        queue.sync {
+            ws.urlSession(URLSession.shared, didReceive: challenge) { disposition, receivedCredential in
+                XCTAssertEqual(disposition, .useCredential)
+                XCTAssertEqual(receivedCredential, credential)
+                completed.fulfill()
+            }
+        }
+
+        wait(for: [completed], timeout: 1)
+        XCTAssertEqual(receivedAuthMethod, NSURLAuthenticationMethodNTLM)
+    }
+
+    func testTlsSkipVerifyDoesNotApplyToNTLM() {
+        // Unlike tlsChallengeHandler, tlsSkipVerify only ever means "don't verify the
+        // server's certificate" - it must not affect an NTLM challenge just because
+        // it's also a session-level one; that must still fall through to default handling.
+        let (ws, queue) = makeSocket(tlsSkipVerify: true, tlsChallengeHandler: nil)
 
         let challenge = makeChallenge(authMethod: NSURLAuthenticationMethodNTLM)
         let completed = expectation(description: "completion called")
@@ -145,31 +171,6 @@ final class NativeWebSocketTLSChallengeTests: XCTestCase {
         }
 
         wait(for: [completed], timeout: 1)
-        XCTAssertFalse(handlerCalled)
-    }
-
-    func testHTTPBasicChallengeIsNeverForwardedToHandlerOrSkipVerify() {
-        // HTTP Basic is task-level only per Apple's routing rules, so it would never
-        // actually reach this session-level delegate method in production — but the
-        // guard covers it defensively too, in case that routing behavior ever changes.
-        var handlerCalled = false
-        let (ws, queue) = makeSocket(tlsSkipVerify: true, tlsChallengeHandler: { _, completion in
-            handlerCalled = true
-            completion(.useCredential, nil)
-        })
-
-        let challenge = makeChallenge(authMethod: NSURLAuthenticationMethodHTTPBasic)
-        let completed = expectation(description: "completion called")
-        queue.sync {
-            ws.urlSession(URLSession.shared, didReceive: challenge) { disposition, credential in
-                XCTAssertEqual(disposition, .performDefaultHandling)
-                XCTAssertNil(credential)
-                completed.fulfill()
-            }
-        }
-
-        wait(for: [completed], timeout: 1)
-        XCTAssertFalse(handlerCalled)
     }
 
     func testClientCertificateChallengeIsForwardedToHandler() {

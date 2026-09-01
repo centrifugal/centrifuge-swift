@@ -165,28 +165,26 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
                     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         assertIsOnQueue(queue)
 
-        // Only TLS-handshake-level challenges (server-trust, and client-certificate for mTLS)
-        // are ours to answer here. This session-level delegate method is also where NTLM and
-        // Negotiate (Kerberos) challenges land per Apple's routing rules - e.g. for an
-        // authenticating proxy - and those are deliberately excluded too: a handler written
-        // for TLS trust decisions isn't equipped to supply that kind of credential. (HTTP
-        // Basic/Digest never reach this method at all; those are task-level only.)
-        let authMethod = challenge.protectionSpace.authenticationMethod
-        guard authMethod == NSURLAuthenticationMethodServerTrust
-           || authMethod == NSURLAuthenticationMethodClientCertificate else {
-            completionHandler(.performDefaultHandling, nil)
-            return
-        }
-
+        // This is a raw forward of every challenge this session-level delegate method
+        // receives (server-trust, client-certificate for mTLS, and also NTLM/Negotiate,
+        // e.g. for an authenticating proxy - not filtered, same as Kingfisher's
+        // equivalent AuthenticationChallengeResponsible.downloader(_:didReceive:) forward).
+        // A handler only interested in TLS trust decisions should check
+        // challenge.protectionSpace.authenticationMethod itself, as CentrifugeTLSChallengeHandler's
+        // documentation instructs. (HTTP Basic/Digest never reach this method at all;
+        // those are task-level only and this class doesn't implement that delegate method.)
         if let tlsChallengeHandler = tlsChallengeHandler {
-            log.debug("Forwarding TLS challenge to tlsChallengeHandler")
+            log.debug("Forwarding challenge to tlsChallengeHandler")
             tlsChallengeHandler(challenge, completionHandler)
             return
         }
 
-        // tlsSkipVerify only ever means "don't verify the server's certificate" - it has
-        // no meaning for a client-certificate (mTLS) challenge, so it's not applied there.
-        if tlsSkipVerify, authMethod == NSURLAuthenticationMethodServerTrust, let trust = challenge.protectionSpace.serverTrust {
+        // tlsSkipVerify only ever means "don't verify the server's certificate" - unlike
+        // tlsChallengeHandler above, it does not apply to any other challenge type (client
+        // certificate, NTLM, Negotiate), matching what it has always meant on the
+        // Starscream transport (a flag scoped purely to TLS certificate chain validation).
+        if tlsSkipVerify, challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+           let trust = challenge.protectionSpace.serverTrust {
             log.debug("Trusting server certificate because tlsSkipVerify is enabled")
             completionHandler(.useCredential, URLCredential(trust: trust))
             return

@@ -51,7 +51,7 @@ public struct CentrifugeClientConfig {
     ///   - urlSessionConfigurationProvider: Optional allows setting custom options for `URLSessionWebSocketTask` used by the native WebSocket,
     ///   - tokenGetter: Callback for retrieving authentication tokens dynamically
     ///   - logger: Logger instance for debugging and diagnostics
-    ///   - tlsChallengeHandler: Optional handler for TLS-handshake-level challenges (server-trust, client-certificate for mTLS) on the native WebSocket transport's `URLSession`, e.g. to trust a private CA, pin a certificate, or present a client identity. Takes precedence over `tlsSkipVerify` when both are set
+    ///   - tlsChallengeHandler: Optional handler receiving every challenge the native WebSocket transport's `URLSession` gets at the session level (server-trust, client-certificate/mTLS, and also NTLM/Negotiate for an authenticating proxy), e.g. to trust a private CA, pin a certificate, or present a client identity. Takes precedence over `tlsSkipVerify` when both are set
     public init(
         timeout: Double = 5.0,
         headers: [String : String] = .init(),
@@ -140,13 +140,13 @@ public struct CentrifugeClientConfig {
     /// - Note: This option is available on iOS 13.0 and later. It provides a modern WebSocket implementation.
     public var urlSessionConfigurationProvider: URLSessionConfigurationProvider?
 
-    /// Applied when `useNativeWebSocket == true`. Lets the app answer TLS-handshake-level
-    /// challenges for the underlying `URLSession` — server-trust (e.g. to trust a private CA
-    /// or pin a certificate) and client-certificate (mTLS). Only invoked for
-    /// `NSURLAuthenticationMethodServerTrust` and `NSURLAuthenticationMethodClientCertificate`
-    /// challenges — any other challenge type this delegate method can receive (e.g. NTLM or
-    /// Negotiate for an authenticating proxy) always gets the system's default handling and
-    /// never reaches this handler. Takes precedence over
+    /// Applied when `useNativeWebSocket == true`. Lets the app answer every challenge the
+    /// underlying `URLSession` receives at the session level — server-trust (e.g. to trust a
+    /// private CA or pin a certificate), client-certificate (mTLS), and also NTLM/Negotiate
+    /// (e.g. for an authenticating proxy). This is an unfiltered forward, same as Kingfisher's
+    /// equivalent `AuthenticationChallengeResponsible.downloader(_:didReceive:)` — a handler
+    /// only interested in TLS trust decisions should check
+    /// `challenge.protectionSpace.authenticationMethod` itself. Takes precedence over
     /// `tlsSkipVerify` (which only ever applies to server-trust). If neither is set, the
     /// system default handling is used (full certificate verification).
     /// - Note: Only takes effect where the native transport itself is available (iOS 13.0 and
@@ -161,12 +161,18 @@ public struct CentrifugeClientConfig {
 /// A typealias for a provider that returns a custom `URLSessionConfiguration`.
 public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
 
-/// Handles a TLS-handshake-level challenge (server-trust or client-certificate/mTLS) for the
-/// native WebSocket transport's underlying `URLSession` — for example, to trust a private CA,
-/// pin a certificate, or present a client identity. Call the completion handler exactly once.
-/// Other challenge types the underlying delegate method can receive (e.g. NTLM or Negotiate
-/// for an authenticating proxy, or HTTP Basic/Digest) never reach this handler. If not set,
-/// the system default handling is used.
+/// Handles every challenge the native WebSocket transport's underlying `URLSession` receives
+/// at the session level — server-trust, client-certificate (mTLS), and also NTLM/Negotiate
+/// (e.g. for an authenticating proxy) — for example, to trust a private CA, pin a certificate,
+/// or present a client identity. This is an unfiltered forward of
+/// `URLSessionDelegate.urlSession(_:didReceive:completionHandler:)`, the same shape as
+/// Kingfisher's equivalent `AuthenticationChallengeResponsible.downloader(_:didReceive:)`: a
+/// handler only interested in TLS trust decisions should check
+/// `challenge.protectionSpace.authenticationMethod` itself before deciding, typically
+/// deferring anything else with `completionHandler(.performDefaultHandling, nil)`. Call the
+/// completion handler exactly once. HTTP Basic/Digest challenges never reach this handler —
+/// those are task-level only, and this transport doesn't implement that delegate method. If
+/// not set, the system default handling is used.
 /// - Note: Only applies when `useNativeWebSocket == true`. Starscream has no equivalent to
 /// this handler — its only TLS option is `tlsSkipVerify`, which disables verification
 /// entirely rather than allowing custom trust logic or client certificates.
