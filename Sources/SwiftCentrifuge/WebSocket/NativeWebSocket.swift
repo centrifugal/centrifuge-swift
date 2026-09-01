@@ -20,17 +20,22 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
     private let log: CentrifugeLogger
     private let request: URLRequest
     private let urlSessionConfigurationProvider: (() -> URLSessionConfiguration)
+    private let tlsSkipVerify: Bool
+    private let tlsChallengeHandler: CentrifugeTLSChallengeHandler?
     private let queue: DispatchQueue
 
     /// The websocket is considered 'active' when `task` is not nil
     private var task: URLSessionWebSocketTask?
 
-    init(request: URLRequest, urlSessionConfigurationProvider: URLSessionConfigurationProvider?,  queue: DispatchQueue, log: CentrifugeLogger) {
+    init(request: URLRequest, urlSessionConfigurationProvider: URLSessionConfigurationProvider?,
+         tlsSkipVerify: Bool, tlsChallengeHandler: CentrifugeTLSChallengeHandler?, queue: DispatchQueue, log: CentrifugeLogger) {
         var request = request
         request.setValue("centrifuge-protobuf", forHTTPHeaderField: "Sec-WebSocket-Protocol")
         self.request = request
         self.log = log
         self.urlSessionConfigurationProvider = urlSessionConfigurationProvider ?? { URLSessionConfiguration.default }
+        self.tlsSkipVerify = tlsSkipVerify
+        self.tlsChallengeHandler = tlsChallengeHandler
         self.queue = queue
     }
 
@@ -156,6 +161,39 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         handleTaskClose(task: task, code: task.closeCode, reason: task.closeReason, error: error)
     }
 
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        assertIsOnQueue(queue)
+
+        // This is a raw forward of every challenge this session-level delegate method
+        // receives (server-trust, client-certificate for mTLS, and also NTLM/Negotiate,
+        // e.g. for an authenticating proxy - not filtered, same as Kingfisher's
+        // equivalent AuthenticationChallengeResponsible.downloader(_:didReceive:) forward).
+        // A handler only interested in TLS trust decisions should check
+        // challenge.protectionSpace.authenticationMethod itself, as CentrifugeTLSChallengeHandler's
+        // documentation instructs. (HTTP Basic/Digest never reach this method at all;
+        // those are task-level only and this class doesn't implement that delegate method.)
+        if let tlsChallengeHandler = tlsChallengeHandler {
+            log.debug("Forwarding challenge to tlsChallengeHandler")
+            tlsChallengeHandler(challenge, completionHandler)
+            return
+        }
+
+        // tlsSkipVerify only ever means "don't verify the server's certificate" - unlike
+        // tlsChallengeHandler above, it does not apply to any other challenge type (client
+        // certificate, NTLM, Negotiate), matching what it has always meant on the
+        // Starscream transport (a flag scoped purely to TLS certificate chain validation).
+        if tlsSkipVerify, challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+           let trust = challenge.protectionSpace.serverTrust {
+            log.debug("Trusting server certificate because tlsSkipVerify is enabled")
+            completionHandler(.useCredential, URLCredential(trust: trust))
+            return
+        }
+
+        log.debug("Using default TLS handling")
+        completionHandler(.performDefaultHandling, nil)
+    }
+
     private func handleTaskClose(task: URLSessionWebSocketTask,
                                  code: URLSessionWebSocketTask.CloseCode, reason: Data?, error: Error?) {
         let reason = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "transport closed"
@@ -199,6 +237,16 @@ private final class URLSessionDelegateBox: NSObject, URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         delegate?.urlSession?(session, task: task, didCompleteWithError: error)
+    }
+
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        guard let delegate = delegate else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
+        delegate.urlSession?(session, didReceive: challenge, completionHandler: completionHandler)
     }
 }
 

@@ -27,6 +27,16 @@ public enum CentrifugeError: Error {
     case configurationError(message: String)
 }
 
+/// Retrieves a connection token dynamically, called whenever the client needs one (initial
+/// connect, or a refresh). Call the completion handler exactly once, with `.success(token)` or
+/// `.failure(error)` — a failure is handled properly (see `CentrifugeError.tokenError`;
+/// `CentrifugeError.unauthorized` specifically ends the connection attempt rather than
+/// retrying).
+/// - Warning: Call the completion handler exactly once, on every code path. There is no
+/// timeout: if it's never called, the connection attempt hangs indefinitely, with no error,
+/// no disconnect event, and no other diagnostic. If your token-fetching logic depends on
+/// something that might stall (a slow network call, etc.), guard it with your own timeout
+/// and call `completion(.failure(...))` on expiry.
 public typealias CentrifugeConnectionTokenGetter = (_ event: CentrifugeConnectionTokenEvent, _ completion: @escaping (Result<String, Error>) -> Void) -> Void
 
 
@@ -51,6 +61,7 @@ public struct CentrifugeClientConfig {
     ///   - urlSessionConfigurationProvider: Optional allows setting custom options for `URLSessionWebSocketTask` used by the native WebSocket,
     ///   - tokenGetter: Callback for retrieving authentication tokens dynamically
     ///   - logger: Logger instance for debugging and diagnostics
+    ///   - tlsChallengeHandler: Optional handler receiving every challenge the native WebSocket transport's `URLSession` gets at the session level (server-trust, client-certificate/mTLS, and also NTLM/Negotiate for an authenticating proxy), e.g. to trust a private CA, pin a certificate, or present a client identity. Takes precedence over `tlsSkipVerify` when both are set
     public init(
         timeout: Double = 5.0,
         headers: [String : String] = .init(),
@@ -66,7 +77,8 @@ public struct CentrifugeClientConfig {
         useNativeWebSocket: Bool = false,
         urlSessionConfigurationProvider: URLSessionConfigurationProvider? = nil,
         tokenGetter: CentrifugeConnectionTokenGetter? = nil,
-        logger: CentrifugeLogger? = nil
+        logger: CentrifugeLogger? = nil,
+        tlsChallengeHandler: CentrifugeTLSChallengeHandler? = nil
     ) {
         self.timeout = timeout
         self.headers = headers
@@ -84,6 +96,7 @@ public struct CentrifugeClientConfig {
 
         self.tokenGetter = tokenGetter
         self.logger = logger
+        self.tlsChallengeHandler = tlsChallengeHandler
     }
 
     /// Timeout for server responses, in seconds.
@@ -92,7 +105,9 @@ public struct CentrifugeClientConfig {
     /// Custom headers to include in requests.
     public var headers: [String : String]
 
-    /// Flag to skip TLS certificate verification.
+    /// Flag to skip TLS certificate verification. Applies to both transports. On the native
+    /// transport (`useNativeWebSocket == true`) this is only used as a fallback when
+    /// `tlsChallengeHandler` is not set; if both are set, `tlsChallengeHandler` takes precedence.
     public var tlsSkipVerify: Bool
 
     /// Minimum delay before attempting reconnection, in seconds.
@@ -113,7 +128,9 @@ public struct CentrifugeClientConfig {
     /// Authentication token for connecting to the server.
     public var token: String
 
-    /// Callback for retrieving authentication tokens dynamically.
+    /// Callback for retrieving authentication tokens dynamically. See
+    /// `CentrifugeConnectionTokenGetter` for its call-exactly-once contract and the lack of
+    /// any built-in timeout.
     public var tokenGetter: CentrifugeConnectionTokenGetter?
 
     /// Custom binary data associated with the client.
@@ -135,10 +152,69 @@ public struct CentrifugeClientConfig {
     /// - Note: This option is available on iOS 13.0 and later. It provides a modern WebSocket implementation.
     public var urlSessionConfigurationProvider: URLSessionConfigurationProvider?
 
+    /// Applied when `useNativeWebSocket == true`. Lets the app answer every challenge the
+    /// underlying `URLSession` receives at the session level — server-trust (e.g. to trust a
+    /// private CA or pin a certificate), client-certificate (mTLS), and also NTLM/Negotiate
+    /// (e.g. for an authenticating proxy). This is an unfiltered forward, same as Kingfisher's
+    /// equivalent `AuthenticationChallengeResponsible.downloader(_:didReceive:)` — a handler
+    /// only interested in TLS trust decisions should check
+    /// `challenge.protectionSpace.authenticationMethod` itself. Takes precedence over
+    /// `tlsSkipVerify` (which only ever applies to server-trust). If neither is set, the
+    /// system default handling is used (full certificate verification).
+    /// - Note: Only takes effect where the native transport itself is available (iOS 13.0 and
+    /// later, see `useNativeWebSocket`); ignored on older OS versions, where the Starscream
+    /// transport is used instead. Starscream has no equivalent to this handler — its only TLS
+    /// option is `tlsSkipVerify`, which disables verification entirely rather than allowing
+    /// custom trust logic or client certificates.
+    /// - Note: Called on the client's own private internal serial queue (the same one used
+    /// for all of its other WebSocket delegate callbacks and internal processing), not the
+    /// main thread. Don't block it — the completion handler is `@escaping`, so kick off any
+    /// slow work (e.g. a network call) elsewhere and call it once that resolves, rather than
+    /// blocking this queue waiting for it.
+    /// - Warning: Call the completion handler exactly once, on every code path, including
+    /// error paths — e.g. `completionHandler(.cancelAuthenticationChallenge, nil)` to fail the
+    /// connection deliberately. There is no timeout: if it's never called, the connection
+    /// attempt hangs indefinitely, with no error, no disconnect event, and no other
+    /// diagnostic. If your decision logic depends on something that might stall (a network
+    /// call to check a pin set, etc.), guard it with your own timeout and call the completion
+    /// handler on expiry. Same behavior as `tokenGetter`.
+    public var tlsChallengeHandler: CentrifugeTLSChallengeHandler?
+
 }
 
 /// A typealias for a provider that returns a custom `URLSessionConfiguration`.
 public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguration)
+
+/// Handles every challenge the native WebSocket transport's underlying `URLSession` receives
+/// at the session level — server-trust, client-certificate (mTLS), and also NTLM/Negotiate
+/// (e.g. for an authenticating proxy) — for example, to trust a private CA, pin a certificate,
+/// or present a client identity. This is an unfiltered forward of
+/// `URLSessionDelegate.urlSession(_:didReceive:completionHandler:)`, the same shape as
+/// Kingfisher's equivalent `AuthenticationChallengeResponsible.downloader(_:didReceive:)`: a
+/// handler only interested in TLS trust decisions should check
+/// `challenge.protectionSpace.authenticationMethod` itself before deciding, typically
+/// deferring anything else with `completionHandler(.performDefaultHandling, nil)`. Call the
+/// completion handler exactly once. HTTP Basic/Digest challenges never reach this handler —
+/// those are task-level only, and this transport doesn't implement that delegate method. If
+/// not set, the system default handling is used.
+/// - Note: Only applies when `useNativeWebSocket == true`. Starscream has no equivalent to
+/// this handler — its only TLS option is `tlsSkipVerify`, which disables verification
+/// entirely rather than allowing custom trust logic or client certificates.
+/// - Note: Called on the client's own private internal serial queue (the same one used for
+/// all of its other WebSocket delegate callbacks and internal processing), not the main
+/// thread. Don't block it — the completion handler is `@escaping`, so kick off any slow
+/// work (e.g. a network call) elsewhere and call it once that resolves.
+/// - Warning: Call the completion handler exactly once, on every code path, including error
+/// paths — e.g. `completionHandler(.cancelAuthenticationChallenge, nil)` to fail the
+/// connection deliberately. There is no timeout: if it's never called, the connection attempt
+/// hangs indefinitely, with no error, no disconnect event, and no other diagnostic. If your
+/// decision logic depends on something that might stall (a network call to check a pin set,
+/// etc.), guard it with your own timeout and call the completion handler on expiry. Same
+/// behavior as `tokenGetter`.
+public typealias CentrifugeTLSChallengeHandler = (
+    _ challenge: URLAuthenticationChallenge,
+    _ completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+) -> Void
 
 public enum CentrifugeClientState: Sendable {
     case disconnected
@@ -225,6 +301,8 @@ public class CentrifugeClient: @unchecked Sendable {
             ws = NativeWebSocket(
                 request: request,
                 urlSessionConfigurationProvider: config.urlSessionConfigurationProvider,
+                tlsSkipVerify: config.tlsSkipVerify,
+                tlsChallengeHandler: config.tlsChallengeHandler,
                 queue: syncQueue,
                 log: log
             )
@@ -232,6 +310,9 @@ public class CentrifugeClient: @unchecked Sendable {
             // Either useNativeWebSocket is off, or the OS is too old for
             // URLSessionWebSocketTask (iOS < 13.0 and equivalents).
             log.info("Using StarscreamWebSocket")
+            if config.tlsChallengeHandler != nil {
+                log.warning("tlsChallengeHandler is set but has no effect on the Starscream transport")
+            }
             ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
         }
 
