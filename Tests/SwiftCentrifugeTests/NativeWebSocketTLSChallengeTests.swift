@@ -122,10 +122,36 @@ final class NativeWebSocketTLSChallengeTests: XCTestCase {
         wait(for: [completed], timeout: 1)
     }
 
-    func testNonTLSChallengeIsNeverForwardedToHandlerOrSkipVerify() {
-        // An HTTP-layer challenge (e.g. Basic auth for a proxy) must always get default
-        // handling and must never reach tlsChallengeHandler or be affected by
-        // tlsSkipVerify — both only apply to TLS-handshake-level challenges.
+    func testNTLMChallengeIsNeverForwardedToHandlerOrSkipVerify() {
+        // NTLM is, per Apple's routing rules, a session-level challenge that WOULD reach
+        // this exact delegate method (same as server-trust) if not explicitly excluded —
+        // e.g. for an authenticating proxy. It must always get default handling and must
+        // never reach tlsChallengeHandler or be affected by tlsSkipVerify, both of which
+        // only apply to TLS-handshake-level challenges (server-trust, client-certificate).
+        var handlerCalled = false
+        let (ws, queue) = makeSocket(tlsSkipVerify: true, tlsChallengeHandler: { _, completion in
+            handlerCalled = true
+            completion(.useCredential, nil)
+        })
+
+        let challenge = makeChallenge(authMethod: NSURLAuthenticationMethodNTLM)
+        let completed = expectation(description: "completion called")
+        queue.sync {
+            ws.urlSession(URLSession.shared, didReceive: challenge) { disposition, credential in
+                XCTAssertEqual(disposition, .performDefaultHandling)
+                XCTAssertNil(credential)
+                completed.fulfill()
+            }
+        }
+
+        wait(for: [completed], timeout: 1)
+        XCTAssertFalse(handlerCalled)
+    }
+
+    func testHTTPBasicChallengeIsNeverForwardedToHandlerOrSkipVerify() {
+        // HTTP Basic is task-level only per Apple's routing rules, so it would never
+        // actually reach this session-level delegate method in production — but the
+        // guard covers it defensively too, in case that routing behavior ever changes.
         var handlerCalled = false
         let (ws, queue) = makeSocket(tlsSkipVerify: true, tlsChallengeHandler: { _, completion in
             handlerCalled = true

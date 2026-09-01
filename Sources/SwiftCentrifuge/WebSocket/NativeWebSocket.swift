@@ -166,10 +166,11 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         assertIsOnQueue(queue)
 
         // Only TLS-handshake-level challenges (server-trust, and client-certificate for mTLS)
-        // are ours to answer here; HTTP-layer challenges (Basic/Digest/NTLM, typically for a
-        // proxy) are left to the system, since we only implement the session-level delegate
-        // method and not the task-level one, which means every challenge type would
-        // otherwise be routed here.
+        // are ours to answer here. This session-level delegate method is also where NTLM and
+        // Negotiate (Kerberos) challenges land per Apple's routing rules - e.g. for an
+        // authenticating proxy - and those are deliberately excluded too: a handler written
+        // for TLS trust decisions isn't equipped to supply that kind of credential. (HTTP
+        // Basic/Digest never reach this method at all; those are task-level only.)
         let authMethod = challenge.protectionSpace.authenticationMethod
         guard authMethod == NSURLAuthenticationMethodServerTrust
            || authMethod == NSURLAuthenticationMethodClientCertificate else {

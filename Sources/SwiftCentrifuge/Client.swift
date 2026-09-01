@@ -144,8 +144,9 @@ public struct CentrifugeClientConfig {
     /// challenges for the underlying `URLSession` — server-trust (e.g. to trust a private CA
     /// or pin a certificate) and client-certificate (mTLS). Only invoked for
     /// `NSURLAuthenticationMethodServerTrust` and `NSURLAuthenticationMethodClientCertificate`
-    /// challenges — any HTTP-layer challenge (e.g. Basic/NTLM for a proxy) always gets the
-    /// system's default handling and never reaches this handler. Takes precedence over
+    /// challenges — any other challenge type this delegate method can receive (e.g. NTLM or
+    /// Negotiate for an authenticating proxy) always gets the system's default handling and
+    /// never reaches this handler. Takes precedence over
     /// `tlsSkipVerify` (which only ever applies to server-trust). If neither is set, the
     /// system default handling is used (full certificate verification).
     /// - Note: Only takes effect where the native transport itself is available (iOS 13.0 and
@@ -163,7 +164,8 @@ public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguratio
 /// Handles a TLS-handshake-level challenge (server-trust or client-certificate/mTLS) for the
 /// native WebSocket transport's underlying `URLSession` — for example, to trust a private CA,
 /// pin a certificate, or present a client identity. Call the completion handler exactly once.
-/// HTTP-layer challenges (e.g. Basic/NTLM for a proxy) never reach this handler. If not set,
+/// Other challenge types the underlying delegate method can receive (e.g. NTLM or Negotiate
+/// for an authenticating proxy, or HTTP Basic/Digest) never reach this handler. If not set,
 /// the system default handling is used.
 /// - Note: Only applies when `useNativeWebSocket == true`. Starscream has no equivalent to
 /// this handler — its only TLS option is `tlsSkipVerify`, which disables verification
