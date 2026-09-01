@@ -154,6 +154,11 @@ public struct CentrifugeClientConfig {
     /// transport is used instead. Starscream has no equivalent to this handler — its only TLS
     /// option is `tlsSkipVerify`, which disables verification entirely rather than allowing
     /// custom trust logic or client certificates.
+    /// - Note: Called on the client's own private internal serial queue (the same one used
+    /// for all of its other WebSocket delegate callbacks and internal processing), not the
+    /// main thread. Don't block it — the completion handler is `@escaping`, so kick off any
+    /// slow work (e.g. a network call) elsewhere and call it once that resolves, rather than
+    /// blocking this queue waiting for it.
     public var tlsChallengeHandler: CentrifugeTLSChallengeHandler?
 
 }
@@ -176,6 +181,10 @@ public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguratio
 /// - Note: Only applies when `useNativeWebSocket == true`. Starscream has no equivalent to
 /// this handler — its only TLS option is `tlsSkipVerify`, which disables verification
 /// entirely rather than allowing custom trust logic or client certificates.
+/// - Note: Called on the client's own private internal serial queue (the same one used for
+/// all of its other WebSocket delegate callbacks and internal processing), not the main
+/// thread. Don't block it — the completion handler is `@escaping`, so kick off any slow
+/// work (e.g. a network call) elsewhere and call it once that resolves.
 public typealias CentrifugeTLSChallengeHandler = (
     _ challenge: URLAuthenticationChallenge,
     _ completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
