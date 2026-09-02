@@ -731,7 +731,7 @@ fileprivate extension CentrifugeClient {
 
         guard self.state == .connecting else { return }
 
-        if refreshRequired || (token == "" && config.tokenGetter != nil) {
+        if config.tokenGetter != nil && (refreshRequired || token == "") {
             getConnectionToken(completion: { [weak self] result in
                 guard let strongSelf = self, strongSelf.state == .connecting else { return }
                 switch result {
@@ -1241,6 +1241,14 @@ fileprivate extension CentrifugeClient {
                 sub.invalidateState()
             }
             subscriptionsLock.unlock()
+            // Server-side subscriptions carry their own cached recovery position,
+            // separate from the client-side subscriptions above — reset it to the
+            // same unrecoverable sentinel so the next connect can't recover from
+            // now-invalidated state.
+            for channel in self.serverSubs.keys {
+                self.serverSubs[channel]?.offset = 0
+                self.serverSubs[channel]?.epoch = "_"
+            }
         }
 
         for resolveFunc in self.opCallbacks.values {
