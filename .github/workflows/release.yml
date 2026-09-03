@@ -36,4 +36,29 @@ jobs:
       - name: Push to CocoaPods trunk
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
-        run: pod trunk push SwiftCentrifuge.podspec --allow-warnings
+        run: |
+          # CocoaPods trunk is flaky: it occasionally 500s on the push response even
+          # though the version was actually accepted, and/or the CDN needs a moment to
+          # catch up. Retry, and treat "duplicate entry" as success since that only
+          # happens once our version is already published (whether by this attempt's
+          # predecessor or an earlier CI run).
+          max_attempts=3
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Attempt $attempt of $max_attempts..."
+            if output=$(pod trunk push SwiftCentrifuge.podspec --allow-warnings 2>&1); then
+              echo "$output"
+              echo "Push succeeded."
+              exit 0
+            fi
+            echo "$output"
+            if echo "$output" | grep -qi "Unable to accept duplicate entry"; then
+              echo "Version $TAG is already present on trunk (duplicate entry) - treating as success."
+              exit 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Push failed, retrying in 30s..."
+              sleep 30
+            fi
+          done
+          echo "::error::pod trunk push failed after $max_attempts attempts (see log above)."
+          exit 1

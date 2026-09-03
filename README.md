@@ -12,19 +12,31 @@ The features implemented by this SDK can be found in [SDK feature matrix](https:
 
 ## Installation
 
-There are several convenient ways.
+### Swift Package Manager (recommended)
+
+In Xcode, use `File` -> `Add Package Dependencies...` and enter:
+
+```
+https://github.com/centrifugal/centrifuge-swift.git
+```
+
+Or add it to your `Package.swift` dependencies (replace `<version>` with the latest [release tag](https://github.com/centrifugal/centrifuge-swift/releases)):
+
+```swift
+.package(url: "https://github.com/centrifugal/centrifuge-swift.git", from: "<version>")
+```
+
+If you get a warning complaining about missing pc file, you may need to install `pkg-config`. On macOS, this can be achieved with `brew install pkg-config`.
 
 ### CocoaPods
+
+CocoaPods support is still maintained, but SPM is the primary and recommended way to install this library going forward.
 
 To integrate SwiftCentrifuge into your Xcode project using CocoaPods, specify it in your `Podfile`:
 
 ```ruby
 pod 'SwiftCentrifuge'
 ```
-
-### Swift Package Manager
-
-SwiftCentrifuge is compatible with SPM. If you get a warning complaining about missing pc file, you may need to install `pkg-config`. On macOS, this can be achieved with `brew install pkg-config`.
 
 ### Manual
 
@@ -88,7 +100,7 @@ SwiftCentrifuge is available under the MIT license. See LICENSE for details.
 
 ## Release (for maintainers)
 
-Releases are automated via the [`release`](.github/workflows/release.yml) GitHub Actions workflow, which publishes the podspec to CocoaPods trunk. No local Xcode or CocoaPods setup is required.
+Swift Package Manager needs no publish step - pushing a version tag is enough for SPM consumers to pick it up. Releases are also automated via the [`release`](.github/workflows/release.yml) GitHub Actions workflow, which publishes the podspec to CocoaPods trunk for CocoaPods consumers. No local Xcode or CocoaPods setup is required.
 
 1. Bump `s.version` in `SwiftCentrifuge.podspec`.
 2. Push to `master` and create a matching version tag (e.g. `0.9.0`).
