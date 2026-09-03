@@ -20,10 +20,10 @@ In Xcode, use `File` -> `Add Package Dependencies...` and enter:
 https://github.com/centrifugal/centrifuge-swift.git
 ```
 
-Or add it to your `Package.swift` dependencies:
+Or add it to your `Package.swift` dependencies (replace `<version>` with the latest [release tag](https://github.com/centrifugal/centrifuge-swift/releases)):
 
 ```swift
-.package(url: "https://github.com/centrifugal/centrifuge-swift.git", from: "0.10.3")
+.package(url: "https://github.com/centrifugal/centrifuge-swift.git", from: "<version>")
 ```
 
 If you get a warning complaining about missing pc file, you may need to install `pkg-config`. On macOS, this can be achieved with `brew install pkg-config`.
