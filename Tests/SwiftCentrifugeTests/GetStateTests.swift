@@ -124,6 +124,31 @@ final class GetStateTests: XCTestCase {
         let delegate = TestSubDelegate()
         delegate.onSubscribedHandler = { _ in subscribed.fulfill() }
 
+        // client.disconnect() below is asynchronous (it just enqueues the teardown
+        // on the client's queue) — it does not guarantee the connection is closed
+        // by the time it returns. So publication 1, published right after, can in
+        // rare cases race ahead of the disconnect and still arrive as a live push
+        // before the socket actually goes away, rather than via recovery on
+        // reconnect. That's not a bug: the SDK's only contract is that every
+        // publication is eventually delivered exactly once, not which path
+        // delivers it. So track every offset seen from here on — live or
+        // recovered — and wait for both, instead of hard-coding "exactly 2
+        // publications arrive as part of the reconnect's recovery reply".
+        let seenOffsetsLock = NSLock()
+        var seenOffsets = Set<UInt64>()
+        var sawBothOffsetsFulfilled = false
+        let sawBothOffsets = expectation(description: "both missed publications observed (live or recovered)")
+        delegate.onPublicationHandler = { event in
+            seenOffsetsLock.lock()
+            seenOffsets.insert(event.offset)
+            let shouldFulfill = !sawBothOffsetsFulfilled && seenOffsets.isSuperset(of: [1, 2])
+            if shouldFulfill { sawBothOffsetsFulfilled = true }
+            seenOffsetsLock.unlock()
+            if shouldFulfill {
+                sawBothOffsets.fulfill()
+            }
+        }
+
         let sub = try client.newSubscription(channel: channel, delegate: delegate, config: config)
         sub.subscribe()
         wait(for: [subscribed], timeout: 5)
@@ -137,16 +162,13 @@ final class GetStateTests: XCTestCase {
         publish(publisher, channel, payload(2))
 
         let resubscribed = expectation(description: "resubscribed with recovery")
-        let recoveredPubs = expectation(description: "2 recovered publications")
-        recoveredPubs.expectedFulfillmentCount = 2
         delegate.onSubscribedHandler = { event in
             XCTAssertTrue(event.recovered, "expected successful recovery on reconnect")
             resubscribed.fulfill()
         }
-        delegate.onPublicationHandler = { _ in recoveredPubs.fulfill() }
 
         client.connect()
-        wait(for: [resubscribed, recoveredPubs], timeout: 10)
+        wait(for: [resubscribed, sawBothOffsets], timeout: 10)
         XCTAssertEqual(getStateCalls.value, 1, "state getter must not be called when recovery succeeds")
     }
 
