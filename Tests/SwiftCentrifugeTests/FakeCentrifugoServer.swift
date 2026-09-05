@@ -147,7 +147,12 @@ final class FakeCentrifugoServer: @unchecked Sendable {
 
     // --- raw escape hatches ---------------------------------------------------
 
-    private func send(_ conn: NWConnection, _ reply: PReply) {
+    private func send(_ conn: NWConnection?, _ reply: PReply) {
+        // No live connection: drop the send rather than trap. A test that needed
+        // it then fails on its own wait with a description of what did not
+        // arrive, instead of a force-unwrap taking down the whole test process
+        // and every other suite's results with it.
+        guard let conn else { return }
         let out = OutputStream.toMemory()
         out.open()
         try? BinaryDelimited.serialize(message: reply, to: out)
@@ -158,7 +163,7 @@ final class FakeCentrifugoServer: @unchecked Sendable {
         conn.send(content: data, contentContext: ctx, isComplete: true, completion: .contentProcessed { _ in })
     }
 
-    private func currentConn() -> NWConnection { lock.lock(); defer { lock.unlock() }; return current! }
+    private func currentConn() -> NWConnection? { lock.lock(); defer { lock.unlock() }; return current }
 
     /// Send a raw reply to the active connection.
     func sendReply(_ reply: PReply) { send(currentConn(), reply) }

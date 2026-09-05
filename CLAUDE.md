@@ -62,9 +62,14 @@ without Xcode again. Three things to know:
   Supports `expectedFulfillmentCount` and `isInverted`; over-fulfilment is
   deliberately not an error. Always wait with a timeout so a deadlock fails the
   test instead of hanging the run.
-- **swift-testing parallelises.** Tests within a suite run concurrently unless the
-  suite is `@Suite(.serialized)`, and separate suites always run concurrently.
-  Anything binding a port or sharing client state wants `.serialized`.
+- **swift-testing parallelises, and the runner turns that off.** `scripts/test.sh`
+  passes `--no-parallel`, because `@Suite(.serialized)` only serialises a suite's
+  own tests — separate suites still run concurrently, and eleven CentrifugeClients
+  against eleven FakeCentrifugoServers at once starves connections on a loaded
+  machine (this failed in CI while passing locally). XCTest ran everything
+  serially and the tests are written for that. Suites keep `.serialized` anyway,
+  so a bare `swift test` from Xcode is not wildly parallel. Do not assume tests
+  can share process-wide state regardless.
 - **`@available` cannot be used on `@Test` or `@Suite`** — the macros reject it
   outright, whatever version you name. Where the code under test needs a newer OS
   (`NativeWebSocket` is macOS 10.15+), annotate the private helpers and put a

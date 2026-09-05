@@ -18,9 +18,14 @@ cd "$(dirname "$0")/.."
 DEVELOPER_DIR_PATH="$(xcode-select -p 2>/dev/null || true)"
 TESTING_FW="$DEVELOPER_DIR_PATH/Library/Developer/Frameworks"
 
+# --no-parallel: swift-testing runs *suites* concurrently by default (a suite's
+# own @Suite(.serialized) does not prevent that). Most suites here stand up a
+# CentrifugeClient against a FakeCentrifugoServer, and running eleven of those at
+# once starves connections on a loaded machine. XCTest ran everything serially,
+# so this keeps the execution model the tests were written for.
 if [ -d "$DEVELOPER_DIR_PATH/Platforms/MacOSX.platform" ]; then
     echo "==> Xcode toolchain detected"
-    exec xcrun swift test "$@"
+    exec xcrun swift test --no-parallel "$@"
 fi
 
 if [ ! -d "$TESTING_FW/Testing.framework" ]; then
@@ -44,6 +49,7 @@ BUILD_TARGET="$(uname -m)-apple-macos14.0"
 #   cannot resolve the overlay. Turning overlays off sidesteps that packaging
 #   gap; they only add Foundation conveniences the suite does not use.
 exec swift test \
+    --no-parallel \
     --disable-xctest \
     --enable-swift-testing \
     -Xswiftc -F -Xswiftc "$TESTING_FW" \
