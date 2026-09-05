@@ -61,7 +61,9 @@ without Xcode again. Three things to know:
   pool, whose width is the core count — so blocking there (`NSCondition`,
   `DispatchSemaphore`, `Thread.sleep`) starves the pool. Use
   `await fulfillment(of:within:)` from `TestSupport.swift`, which suspends on a
-  continuation. Never call `Thread.sleep` in a test; `Task.sleep` is fine.
+  continuation. Never call `Thread.sleep` in a test; `Task.sleep` is fine. This
+  is what lets the suite run in parallel at all — an earlier blocking version
+  passed locally on ten cores and wedged the CI runner.
 - **`Expectation` replaces `XCTestExpectation`.** swift-testing has no
   equivalent: `confirmation(...)` counts callbacks in a scope but does not wait
   for them, and `.timeLimit()` is whole-minutes only. Upstream

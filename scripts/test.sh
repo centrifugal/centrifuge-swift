@@ -18,11 +18,6 @@ cd "$(dirname "$0")/.."
 DEVELOPER_DIR_PATH="$(xcode-select -p 2>/dev/null || true)"
 TESTING_FW="$DEVELOPER_DIR_PATH/Library/Developer/Frameworks"
 
-# --no-parallel: swift-testing runs *suites* concurrently by default (a suite's
-# own @Suite(.serialized) does not prevent that). Most suites here stand up a
-# CentrifugeClient against a FakeCentrifugoServer, and running eleven of those at
-# once starves connections on a loaded machine. XCTest ran everything serially,
-# so this keeps the execution model the tests were written for.
 # The tests are async, and Swift concurrency needs macOS 10.15+ while the package
 # deliberately declares no `platforms:` (its default is 10.13, and raising it
 # would raise the deployment target for every consumer). swift-testing rejects
@@ -33,7 +28,7 @@ BUILD_TARGET="$(uname -m)-apple-macos14.0"
 
 if [ -d "$DEVELOPER_DIR_PATH/Platforms/MacOSX.platform" ]; then
     echo "==> Xcode toolchain detected"
-    exec xcrun swift test --no-parallel -Xswiftc -target -Xswiftc "$BUILD_TARGET" "$@"
+    exec xcrun swift test -Xswiftc -target -Xswiftc "$BUILD_TARGET" "$@"
 fi
 
 if [ ! -d "$TESTING_FW/Testing.framework" ]; then
@@ -52,7 +47,6 @@ echo "==> Command Line Tools only - wiring up swift-testing by hand"
 #   cannot resolve the overlay. Turning overlays off sidesteps that packaging
 #   gap; they only add Foundation conveniences the suite does not use.
 exec swift test \
-    --no-parallel \
     --disable-xctest \
     --enable-swift-testing \
     -Xswiftc -F -Xswiftc "$TESTING_FW" \
