@@ -8,7 +8,7 @@ import Testing
 /// connection — they come in the connect result and their events go to the client
 /// delegate). Server-side subscriptions require server configuration, so the
 /// behavior is exercised against the in-process `FakeCentrifugoServer`.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 final class ServerSubscriptionTests: @unchecked Sendable {
 
     private final class ClientDelegate: CentrifugeClientDelegate, @unchecked Sendable {
@@ -66,7 +66,7 @@ final class ServerSubscriptionTests: @unchecked Sendable {
         }
     }
 
-    @Test func serverSubUnsubscribedWhenMissingFromNextConnectResult() throws {
+    @Test func serverSubUnsubscribedWhenMissingFromNextConnectResult() async throws {
         // Regression: the cleanup of server-side subscriptions absent from a
         // connect result used to be nested in the loop over the received subs, so
         // it never ran when the connect result carried no subs at all.
@@ -87,14 +87,14 @@ final class ServerSubscriptionTests: @unchecked Sendable {
         let client = makeClient(delegate: delegate)
         client.connect()
         defer { client.disconnect() }
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
 
         // Reconnect: the server no longer sends the subscription.
         server.closeConnection()
-        wait(for: unsubscribed, timeout: 8)
+        await fulfillment(of: unsubscribed, within: 8)
     }
 
-    @Test func serverSubKeptWhenPresentInNextConnectResult() throws {
+    @Test func serverSubKeptWhenPresentInNextConnectResult() async throws {
         serveConnects([["news"]])
 
         let delegate = ClientDelegate()
@@ -112,14 +112,14 @@ final class ServerSubscriptionTests: @unchecked Sendable {
         let client = makeClient(delegate: delegate)
         client.connect()
         defer { client.disconnect() }
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
 
         server.closeConnection()
-        wait(for: resubscribed, timeout: 8)
-        wait(for: unsubscribed, timeout: 1)
+        await fulfillment(of: resubscribed, within: 8)
+        await fulfillment(of: unsubscribed, within: 1)
     }
 
-    @Test func onlyDroppedServerSubUnsubscribed() throws {
+    @Test func onlyDroppedServerSubUnsubscribed() async throws {
         serveConnects([["news", "sports"], ["news"]])
 
         let delegate = ClientDelegate()
@@ -137,13 +137,13 @@ final class ServerSubscriptionTests: @unchecked Sendable {
         let client = makeClient(delegate: delegate)
         client.connect()
         defer { client.disconnect() }
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
 
         server.closeConnection()
-        wait(for: unsubscribed, timeout: 8)
+        await fulfillment(of: unsubscribed, within: 8)
     }
 
-    @Test func serverSubPublicationDelivered() throws {
+    @Test func serverSubPublicationDelivered() async throws {
         serveConnects([["news"]])
 
         let delegate = ClientDelegate()
@@ -159,9 +159,9 @@ final class ServerSubscriptionTests: @unchecked Sendable {
         let client = makeClient(delegate: delegate)
         client.connect()
         defer { client.disconnect() }
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
 
         server.publishChannel("news", Data("{\"hello\":\"world\"}".utf8))
-        wait(for: published, timeout: 5)
+        await fulfillment(of: published, within: 5)
     }
 }

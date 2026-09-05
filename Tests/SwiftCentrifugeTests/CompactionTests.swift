@@ -9,7 +9,7 @@ import Testing
 /// use the in-process `FakeCentrifugoServer`: the subscribe reply negotiates a
 /// numeric channel ID and subsequent pushes carry the ID instead of the channel
 /// name, exactly like the real server does when compaction is enabled.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 final class CompactionTests: @unchecked Sendable {
 
     private final class SubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
@@ -58,7 +58,7 @@ final class CompactionTests: @unchecked Sendable {
         return CentrifugeClient(endpoint: server.url, config: cfg)
     }
 
-    @Test func flagOfferedAndPushesRoutedByID() throws {
+    @Test func flagOfferedAndPushesRoutedByID() async throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
@@ -74,17 +74,17 @@ final class CompactionTests: @unchecked Sendable {
         d.onLeaveH = { _ in leave.fulfill() }
         let sub = try client.newSubscription(channel: "compacted", delegate: d)
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
         #expect(((server.lastSubscribe()?.flag ?? 0) & 1) == 1, "subscribe must offer the compaction flag")
         server.publishId(42, Data("{\"a\":1}".utf8))
-        wait(for: pub, timeout: 5)
+        await fulfillment(of: pub, within: 5)
         #expect(String(data: pubData, encoding: .utf8) == "{\"a\":1}")
         server.joinId(42, "joiner")
         server.leaveId(42, "leaver")
-        wait(for: [join, leave], timeout: 5)
+        await fulfillment(of: [join, leave], within: 5)
     }
 
-    @Test func unknownIDDropped() throws {
+    @Test func unknownIDDropped() async throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
@@ -97,17 +97,17 @@ final class CompactionTests: @unchecked Sendable {
         d.onPub = { e in lastData = e.data; pubCount += 1; pub.fulfill() }
         let sub = try client.newSubscription(channel: "compacted", delegate: d)
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
         server.publishId(99, Data("{\"stray\":true}".utf8)) // unknown id, dropped
         server.publishId(42, Data("{\"ok\":true}".utf8))     // known id
-        wait(for: pub, timeout: 5)
+        await fulfillment(of: pub, within: 5)
         // Give a stray delivery a chance to (wrongly) arrive.
-        Thread.sleep(forTimeInterval: 0.2)
+        try await Task.sleep(nanoseconds: 200_000_000)
         #expect(pubCount == 1, "unknown id push must be dropped")
         #expect(String(data: lastData, encoding: .utf8) == "{\"ok\":true}")
     }
 
-    @Test func idDroppedOnUnsubscribeRefreshedOnResubscribe() throws {
+    @Test func idDroppedOnUnsubscribeRefreshedOnResubscribe() async throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
@@ -124,21 +124,21 @@ final class CompactionTests: @unchecked Sendable {
         d.onPub = { e in lastData = e.data; pubCount += 1; pub.fulfill() }
         let sub = try client.newSubscription(channel: "compacted", delegate: d)
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
         sub.unsubscribe()
-        wait(for: unsub, timeout: 5)
+        await fulfillment(of: unsub, within: 5)
         server.publishId(42, Data("{\"stale\":true}".utf8)) // old id, dropped
         setNextChannelId(43)
         sub.subscribe()
-        wait(for: resubscribed, timeout: 5)
+        await fulfillment(of: resubscribed, within: 5)
         server.publishId(43, Data("{\"fresh\":true}".utf8))
-        wait(for: pub, timeout: 5)
-        Thread.sleep(forTimeInterval: 0.2)
+        await fulfillment(of: pub, within: 5)
+        try await Task.sleep(nanoseconds: 200_000_000)
         #expect(pubCount == 1, "stale push for old id must be dropped")
         #expect(String(data: lastData, encoding: .utf8) == "{\"fresh\":true}")
     }
 
-    @Test func sameIDReRegisteredAfterReconnect() throws {
+    @Test func sameIDReRegisteredAfterReconnect() async throws {
         // Regression guard (found in the dart port): the client drops the ID
         // registry on teardown (IDs are server-session-scoped), and on reconnect
         // the server commonly assigns the SAME ID again. The subscription must
@@ -156,12 +156,12 @@ final class CompactionTests: @unchecked Sendable {
         d.onPub = { e in lastData = e.data; pub.fulfill() }
         let sub = try client.newSubscription(channel: "compacted", delegate: d)
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
         client.disconnect()
         client.connect()
-        wait(for: resubscribed, timeout: 8)
+        await fulfillment(of: resubscribed, within: 8)
         server.publishId(42, Data("{\"after\":true}".utf8)) // same id 42
-        wait(for: pub, timeout: 5)
+        await fulfillment(of: pub, within: 5)
         #expect(String(data: lastData, encoding: .utf8) == "{\"after\":true}")
     }
 }

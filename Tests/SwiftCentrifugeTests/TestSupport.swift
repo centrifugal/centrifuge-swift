@@ -1,76 +1,118 @@
 import Foundation
 import Testing
 
-/// swift-testing has no `XCTestExpectation`, and its `confirmation(...)` is
-/// scope- and async-shaped, which does not fit this suite: the SDK delivers
-/// events by invoking delegate callbacks synchronously on its own queue, and the
-/// tests are written as "install a callback, trigger something, block until it
-/// fires".
+/// swift-testing has no `XCTestExpectation`, and nothing in the framework fills
+/// the gap: `confirmation(...)` counts callbacks inside a scope but does not wait
+/// for them (it checks the count when its body returns), and `.timeLimit()` is a
+/// per-test backstop restricted to whole minutes. The upstream proposal to give
+/// `confirmation` a timeout — swiftlang/swift-testing#789 — is still unmerged,
+/// and the related issue #978 was closed as not planned. So the waiting
+/// primitive has to live here.
 ///
-/// `Expectation` keeps exactly that shape. It is a small NSCondition wrapper with
-/// the subset of XCTestExpectation semantics these tests actually use.
+/// The documented way to bridge a callback API to a test is a continuation, and
+/// that is what this uses. The important part is that it **suspends** rather than
+/// blocks: swift-testing runs even synchronous `@Test` bodies inside a Task on
+/// the cooperative thread pool, whose width is the core count, so blocking there
+/// (as an NSCondition-based version did) starves the pool on a small CI machine.
 ///
-/// One deliberate omission: over-fulfillment is never an error. XCTest fails a
-/// test when an expectation is fulfilled more often than `expectedFulfillmentCount`,
-/// but with an event stream arriving on a background queue that check mostly
-/// produces flakes, and no test here is trying to assert an upper bound. Use an
-/// explicit count assertion if you need one.
+/// `fulfillment(of:within:)` mirrors the name XCTest itself adopted for its async
+/// replacement, so call sites read the way the framework's own do.
 final class Expectation: @unchecked Sendable {
     let description: String
 
-    /// Number of `fulfill()` calls that count as satisfied. Set before waiting.
+    /// Number of `fulfill()` calls that count as satisfied. Set before awaiting.
     var expectedFulfillmentCount: Int = 1
 
-    /// When true the expectation must NOT be fulfilled: `wait` burns the full
-    /// timeout and reports an issue if it fired. Mirrors `XCTestExpectation.isInverted`.
+    /// When true the expectation must NOT be fulfilled: the wait runs for the
+    /// full timeout and reports an issue if it fired. Mirrors
+    /// `XCTestExpectation.isInverted`.
     var isInverted: Bool = false
 
-    private let cond = NSCondition()
+    private let lock = NSLock()
     private var count = 0
+    private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
+
+    /// Fires timeouts. A queue, not a Task, so a timeout cannot itself be delayed
+    /// by a saturated cooperative pool.
+    private static let timers = DispatchQueue(label: "com.centrifugal.tests.expectation-timers")
 
     init(_ description: String) {
         self.description = description
     }
 
+    /// Safe to call from any thread, any number of times.
     func fulfill() {
-        cond.lock()
+        var toResume: [CheckedContinuation<Bool, Never>] = []
+        lock.lock()
         count += 1
-        cond.broadcast()
-        cond.unlock()
+        if count >= expectedFulfillmentCount {
+            toResume = Array(waiters.values)
+            waiters.removeAll()
+        }
+        lock.unlock()
+        for continuation in toResume { continuation.resume(returning: true) }
     }
 
     var fulfillmentCount: Int {
-        cond.lock()
-        defer { cond.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
         return count
     }
 
-    /// Blocks until satisfied or `deadline` passes. Returns whether it was satisfied.
-    fileprivate func waitUntilSatisfied(deadline: Date) -> Bool {
-        cond.lock()
-        defer { cond.unlock() }
-        while count < expectedFulfillmentCount {
-            if !cond.wait(until: deadline) { return false }
+    /// Suspends until satisfied or `timeout` elapses; returns whether it was
+    /// satisfied. Removing the waiter under the lock is what guarantees the
+    /// continuation is resumed exactly once, whichever of fulfil/timeout wins —
+    /// a checked continuation traps on a second resume, and these delegates do
+    /// fire again (`onSubscribed` repeats on every resubscribe).
+    fileprivate func awaitSatisfied(within timeout: TimeInterval) async -> Bool {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            let id = UUID()
+            lock.lock()
+            if count >= expectedFulfillmentCount {
+                lock.unlock()
+                continuation.resume(returning: true)
+                return
+            }
+            waiters[id] = continuation
+            lock.unlock()
+
+            Expectation.timers.asyncAfter(deadline: .now() + max(timeout, 0)) { [weak self] in
+                self?.resumeTimedOut(id)
+            }
         }
-        return true
+    }
+
+    private func resumeTimedOut(_ id: UUID) {
+        lock.lock()
+        let continuation = waiters.removeValue(forKey: id)
+        lock.unlock()
+        continuation?.resume(returning: false)
     }
 }
 
-/// Blocks until every expectation is satisfied, or `timeout` elapses.
+/// Suspends until every expectation is satisfied, or `timeout` elapses.
 ///
-/// The deadline is shared across all of them, as in XCTest — waiting for three
-/// expectations with `timeout: 5` waits five seconds in total, not fifteen.
-/// A timeout records an issue and returns; it never traps, so a deadlocked client
-/// surfaces as a failed test rather than a hung run.
-func wait(
-    for expectations: [Expectation],
-    timeout: TimeInterval,
+/// The deadline is shared across all of them, as in XCTest — awaiting three
+/// expectations with `within: 5` takes at most five seconds in total, not
+/// fifteen. A timeout records an issue and returns rather than trapping, so a
+/// deadlocked client surfaces as a failed test with a description of what never
+/// arrived.
+func fulfillment(
+    of expectations: [Expectation],
+    within timeout: TimeInterval,
     sourceLocation: SourceLocation = #_sourceLocation
-) {
+) async {
     let deadline = Date().addingTimeInterval(timeout)
 
     for expectation in expectations where !expectation.isInverted {
-        if !expectation.waitUntilSatisfied(deadline: deadline) {
+        // Not folded into one condition: `||` takes its right operand as an
+        // autoclosure, which cannot carry an `await`.
+        let remaining = deadline.timeIntervalSinceNow
+        var satisfied = false
+        if remaining > 0 {
+            satisfied = await expectation.awaitSatisfied(within: remaining)
+        }
+        if !satisfied {
             Issue.record(
                 """
                 timed out after \(timeout)s waiting for "\(expectation.description)" \
@@ -86,7 +128,9 @@ func wait(
     let inverted = expectations.filter(\.isInverted)
     guard !inverted.isEmpty else { return }
     let remaining = deadline.timeIntervalSinceNow
-    if remaining > 0 { Thread.sleep(forTimeInterval: remaining) }
+    if remaining > 0 {
+        try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+    }
     for expectation in inverted where expectation.fulfillmentCount > 0 {
         Issue.record(
             "\"\(expectation.description)\" was fulfilled \(expectation.fulfillmentCount) time(s) but should not have been",
@@ -95,10 +139,10 @@ func wait(
     }
 }
 
-func wait(
-    for expectation: Expectation,
-    timeout: TimeInterval,
+func fulfillment(
+    of expectation: Expectation,
+    within timeout: TimeInterval,
     sourceLocation: SourceLocation = #_sourceLocation
-) {
-    wait(for: [expectation], timeout: timeout, sourceLocation: sourceLocation)
+) async {
+    await fulfillment(of: [expectation], within: timeout, sourceLocation: sourceLocation)
 }

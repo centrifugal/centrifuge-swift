@@ -12,7 +12,7 @@ import Testing
 ///
 /// Calling `setTagsFilter` from a delegate callback is covered by
 /// ``ReentrancyTests`` along with the other re-entrancy regressions.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 final class FilterTests: @unchecked Sendable {
 
     private final class SubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
@@ -81,7 +81,7 @@ final class FilterTests: @unchecked Sendable {
         #expect(not.nodes[0].cmp == "eq")
     }
 
-    @Test func subscribeRequestCarriesTagsFilter() throws {
+    @Test func subscribeRequestCarriesTagsFilter() async throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
@@ -94,7 +94,7 @@ final class FilterTests: @unchecked Sendable {
         ]))
         let sub = try client.newSubscription(channel: "market", delegate: d, config: cfg)
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
 
         let tf = try #require(server.lastSubscribe()?.tf)
         #expect(tf.op == "and")
@@ -105,7 +105,7 @@ final class FilterTests: @unchecked Sendable {
         #expect(tf.nodes[1].cmp == "gte")
     }
 
-    @Test func setTagsFilterAppliesOnSubscribe() throws {
+    @Test func setTagsFilterAppliesOnSubscribe() async throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
@@ -115,14 +115,14 @@ final class FilterTests: @unchecked Sendable {
         let sub = try client.newSubscription(channel: "market", delegate: d)
         try sub.setTagsFilter(CentrifugeFilter.eq("ticker", "BTC"))
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
 
         let tf = try #require(server.lastSubscribe()?.tf)
         #expect(tf.key == "ticker")
         #expect(tf.val == "BTC")
     }
 
-    @Test func subscribeWithoutFilterSendsNoTf() throws {
+    @Test func subscribeWithoutFilterSendsNoTf() async throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
@@ -131,7 +131,7 @@ final class FilterTests: @unchecked Sendable {
         d.onSub = { _ in subscribed.fulfill() }
         let sub = try client.newSubscription(channel: "market", delegate: d)
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
 
         #expect(!(server.lastSubscribe()?.hasTf ?? true))
     }

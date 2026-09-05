@@ -9,7 +9,7 @@ import Testing
 /// tokens (and recovery position / delta base) so a fresh token is obtained and
 /// the subscription re-syncs. Private subscription fields aren't readable, so
 /// behavior is asserted over the wire against the in-process FakeCentrifugoServer.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 final class StateInvalidationTests: @unchecked Sendable {
 
     private final class SubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
@@ -58,7 +58,7 @@ final class StateInvalidationTests: @unchecked Sendable {
         server.received().last(where: { $0.hasConnect })?.connect
     }
 
-    @Test func unsubscribe2502ClearsTokenAndResubscribes() throws {
+    @Test func unsubscribe2502ClearsTokenAndResubscribes() async throws {
         let client = CentrifugeClient(endpoint: server.url, config: CentrifugeClientConfig())
         client.connect()
         defer { client.disconnect() }
@@ -76,16 +76,16 @@ final class StateInvalidationTests: @unchecked Sendable {
         cfg.tokenGetter = { _, completion in completion(.success("t\(counter.next())")) }
         let sub = try client.newSubscription(channel: "ch", delegate: d, config: cfg)
         sub.subscribe()
-        wait(for: firstSubscribed, timeout: 5)
+        await fulfillment(of: firstSubscribed, within: 5)
         #expect(lastSubscribeToken() == "t1")
 
         server.unsubscribe("ch", unsubscribedStateInvalidated, "state invalidated")
-        wait(for: resubscribed, timeout: 5)
+        await fulfillment(of: resubscribed, within: 5)
         #expect(lastSubscribeToken() == "t2", "2502 must clear token so resubscribe fetches a fresh one")
         #expect(counter.count() == 2)
     }
 
-    @Test func unsubscribe2502RecoverableResubscribesUnrecovered() throws {
+    @Test func unsubscribe2502RecoverableResubscribesUnrecovered() async throws {
         // A recoverable subscription must resubscribe REQUESTING recovery from the
         // sentinel epoch "_" the server can't match → wasRecovering=true,
         // recovered=false (so the app reloads via its recovery-failure path).
@@ -110,11 +110,11 @@ final class StateInvalidationTests: @unchecked Sendable {
         }
         let sub = try client.newSubscription(channel: "ch", delegate: d, config: CentrifugeSubscriptionConfig())
         sub.subscribe()
-        wait(for: firstSubscribed, timeout: 5)
+        await fulfillment(of: firstSubscribed, within: 5)
         #expect(lastSubscribe()?.recover == false, "initial subscribe does not request recovery")
 
         server.unsubscribe("ch", unsubscribedStateInvalidated, "state invalidated")
-        wait(for: resubscribed, timeout: 5)
+        await fulfillment(of: resubscribed, within: 5)
 
         let req = try #require(lastSubscribe())
         #expect(req.recover, "resubscribe requests recovery (recover left true)")
@@ -122,7 +122,7 @@ final class StateInvalidationTests: @unchecked Sendable {
         #expect(req.offset == 0, "resubscribe offset reset to 0")
     }
 
-    @Test func disconnect3014ClearsConnTokenRefreshesAndInvalidatesSubs() throws {
+    @Test func disconnect3014ClearsConnTokenRefreshesAndInvalidatesSubs() async throws {
         let counter = Counter()
         var cfg = CentrifugeClientConfig()
         cfg.token = "c0"
@@ -154,17 +154,17 @@ final class StateInvalidationTests: @unchecked Sendable {
         subCfg.token = "sub-token-0"
         let sub = try client.newSubscription(channel: "ch", delegate: sd, config: subCfg)
         sub.subscribe()
-        wait(for: [firstConnected, firstSubscribed], timeout: 5)
+        await fulfillment(of: [firstConnected, firstSubscribed], within: 5)
         #expect(lastConnectToken() == "c0")
 
         server.disconnect(disconnectedStateInvalidated, "state invalidated")
-        wait(for: [reconnected, resubscribed], timeout: 8)
+        await fulfillment(of: [reconnected, resubscribed], within: 8)
         #expect(counter.count() >= 1, "3014 must trigger a fresh connection token fetch")
         #expect(lastConnectToken() == "c1", "reconnect must use the freshly fetched token")
         #expect(lastSubscribeToken() == "", "3014 must invalidate subscription token")
     }
 
-    @Test func disconnect3014ResetsServerSubRecoveryPosition() throws {
+    @Test func disconnect3014ResetsServerSubRecoveryPosition() async throws {
         // Regression: server-side subscriptions cache their own recovery position
         // separately from client-side subscriptions. 3014 must reset it too, or the
         // next connect keeps requesting recovery from the pre-invalidation offset/epoch.
@@ -198,11 +198,11 @@ final class StateInvalidationTests: @unchecked Sendable {
         client.connect()
         defer { client.disconnect() }
 
-        wait(for: firstServerSub, timeout: 5)
+        await fulfillment(of: firstServerSub, within: 5)
         #expect(lastConnect()?.subs["news"] == nil, "initial connect carries no server subs to recover")
 
         server.disconnect(disconnectedStateInvalidated, "state invalidated")
-        wait(for: resubscribed, timeout: 8)
+        await fulfillment(of: resubscribed, within: 8)
 
         let req = try #require(lastConnect()?.subs["news"], "reconnect must request recovery for the server-side sub")
         #expect(req.recover, "recover flag left true")

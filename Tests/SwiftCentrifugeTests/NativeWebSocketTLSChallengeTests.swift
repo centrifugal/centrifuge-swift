@@ -24,7 +24,7 @@ import Testing
 /// runtime instead and no-ops on older systems, which is what XCTest did with an
 /// `@available` test class anyway. The package deliberately declares no
 /// `platforms:`, so the guard is not redundant.
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct NativeWebSocketTLSChallengeTests {
 
     private final class DummySender: NSObject, URLAuthenticationChallengeSender {
@@ -58,7 +58,7 @@ struct NativeWebSocketTLSChallengeTests {
         return (ws, queue)
     }
 
-    @Test func defaultHandlingWhenNeitherOptionConfigured() {
+    @Test func defaultHandlingWhenNeitherOptionConfigured() async {
         guard #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) else { return }
         let (ws, queue) = makeSocket(tlsChallengeHandler: nil)
         let completed = Expectation("completion called")
@@ -71,10 +71,10 @@ struct NativeWebSocketTLSChallengeTests {
             }
         }
 
-        wait(for: completed, timeout: 1)
+        await fulfillment(of: completed, within: 1)
     }
 
-    @Test func configuredHandlerIsInvokedAndItsDecisionIsForwarded() {
+    @Test func configuredHandlerIsInvokedAndItsDecisionIsForwarded() async {
         guard #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) else { return }
         let challenge = makeChallenge()
         let credential = URLCredential(user: "u", password: "p", persistence: .none)
@@ -94,11 +94,11 @@ struct NativeWebSocketTLSChallengeTests {
             }
         }
 
-        wait(for: completed, timeout: 1)
+        await fulfillment(of: completed, within: 1)
         #expect(receivedChallenge === challenge)
     }
 
-    @Test func handlerTakesPrecedenceOverTlsSkipVerify() {
+    @Test func handlerTakesPrecedenceOverTlsSkipVerify() async {
         guard #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) else { return }
         // tlsSkipVerify is true, but a handler is also configured; the handler's
         // decision must win, not tlsSkipVerify's trust-everything fallback.
@@ -115,10 +115,10 @@ struct NativeWebSocketTLSChallengeTests {
             }
         }
 
-        wait(for: completed, timeout: 1)
+        await fulfillment(of: completed, within: 1)
     }
 
-    @Test func tlsSkipVerifyFallsBackToDefaultHandlingWithoutServerTrust() {
+    @Test func tlsSkipVerifyFallsBackToDefaultHandlingWithoutServerTrust() async {
         guard #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) else { return }
         // No handler, tlsSkipVerify is true, but the challenge carries no serverTrust
         // (as is always the case for a synthetic challenge) — must not crash or
@@ -134,10 +134,10 @@ struct NativeWebSocketTLSChallengeTests {
             }
         }
 
-        wait(for: completed, timeout: 1)
+        await fulfillment(of: completed, within: 1)
     }
 
-    @Test func ntlmChallengeIsForwardedToHandler() {
+    @Test func ntlmChallengeIsForwardedToHandler() async {
         guard #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) else { return }
         // NTLM is, per Apple's routing rules, a session-level challenge that reaches this
         // exact delegate method (same as server-trust) - e.g. for an authenticating proxy.
@@ -160,11 +160,11 @@ struct NativeWebSocketTLSChallengeTests {
             }
         }
 
-        wait(for: completed, timeout: 1)
+        await fulfillment(of: completed, within: 1)
         #expect(receivedAuthMethod == NSURLAuthenticationMethodNTLM)
     }
 
-    @Test func tlsSkipVerifyDoesNotApplyToNTLM() {
+    @Test func tlsSkipVerifyDoesNotApplyToNTLM() async {
         guard #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) else { return }
         // Unlike tlsChallengeHandler, tlsSkipVerify only ever means "don't verify the
         // server's certificate" - it must not affect an NTLM challenge just because
@@ -181,10 +181,10 @@ struct NativeWebSocketTLSChallengeTests {
             }
         }
 
-        wait(for: completed, timeout: 1)
+        await fulfillment(of: completed, within: 1)
     }
 
-    @Test func clientCertificateChallengeIsForwardedToHandler() {
+    @Test func clientCertificateChallengeIsForwardedToHandler() async {
         guard #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) else { return }
         // mTLS: a client-certificate challenge is also a TLS-handshake-level challenge,
         // and must reach tlsChallengeHandler just like server-trust does.
@@ -202,7 +202,7 @@ struct NativeWebSocketTLSChallengeTests {
             }
         }
 
-        wait(for: completed, timeout: 1)
+        await fulfillment(of: completed, within: 1)
         #expect(receivedAuthMethod == NSURLAuthenticationMethodClientCertificate)
     }
 }

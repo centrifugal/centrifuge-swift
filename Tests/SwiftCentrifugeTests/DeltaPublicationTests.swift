@@ -9,7 +9,7 @@ import Testing
 /// previously received value. Delta compression requires server configuration, so
 /// the in-process `FakeCentrifugoServer` is used; the delta payloads come from the
 /// same testdata as `DeltaFossilTests`.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 final class DeltaPublicationTests: @unchecked Sendable {
 
     private final class SubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
@@ -37,7 +37,7 @@ final class DeltaPublicationTests: @unchecked Sendable {
     }
 
     /// Subscribe to "ch" with fossil delta enabled and return the subscription.
-    private func subscribe(_ client: CentrifugeClient, _ delegate: SubDelegate) throws -> CentrifugeSubscription {
+    private func subscribe(_ client: CentrifugeClient, _ delegate: SubDelegate) async throws -> CentrifugeSubscription {
         let subscribed = Expectation("subscribed")
         delegate.onSub = { subscribed.fulfill() }
         let sub = try client.newSubscription(
@@ -46,7 +46,7 @@ final class DeltaPublicationTests: @unchecked Sendable {
             config: CentrifugeSubscriptionConfig(delta: .fossil)
         )
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
         return sub
     }
 
@@ -56,7 +56,7 @@ final class DeltaPublicationTests: @unchecked Sendable {
         return try Data(contentsOf: url)
     }
 
-    @Test func deltaPublicationApplied() throws {
+    @Test func deltaPublicationApplied() async throws {
         let origin = try fossilCase(1, "origin")
         let deltaPayload = try fossilCase(1, "delta")
         let target = try fossilCase(1, "target")
@@ -66,7 +66,7 @@ final class DeltaPublicationTests: @unchecked Sendable {
         defer { client.disconnect() }
 
         let delegate = SubDelegate()
-        _ = try subscribe(client, delegate)
+        _ = try await subscribe(client, delegate)
         #expect(server.lastSubscribe()?.delta == "fossil")
 
         let received = Expectation("two publications")
@@ -82,7 +82,7 @@ final class DeltaPublicationTests: @unchecked Sendable {
         // Full value first, then a delta from it.
         server.publishChannel("ch", origin)
         server.publishChannel("ch", deltaPayload, delta: true)
-        wait(for: received, timeout: 5)
+        await fulfillment(of: received, within: 5)
 
         #expect(payloads == [origin, target], "delta publication must be applied to the previous value")
     }

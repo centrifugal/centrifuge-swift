@@ -23,9 +23,17 @@ TESTING_FW="$DEVELOPER_DIR_PATH/Library/Developer/Frameworks"
 # CentrifugeClient against a FakeCentrifugoServer, and running eleven of those at
 # once starves connections on a loaded machine. XCTest ran everything serially,
 # so this keeps the execution model the tests were written for.
+# The tests are async, and Swift concurrency needs macOS 10.15+ while the package
+# deliberately declares no `platforms:` (its default is 10.13, and raising it
+# would raise the deployment target for every consumer). swift-testing rejects
+# `@available` on `@Test`, so the requirement cannot be expressed in the tests
+# either - raise the target for the test build only. The library is still
+# type-checked at the package default by the separate `swift build` in CI.
+BUILD_TARGET="$(uname -m)-apple-macos14.0"
+
 if [ -d "$DEVELOPER_DIR_PATH/Platforms/MacOSX.platform" ]; then
     echo "==> Xcode toolchain detected"
-    exec xcrun swift test --no-parallel "$@"
+    exec xcrun swift test --no-parallel -Xswiftc -target -Xswiftc "$BUILD_TARGET" "$@"
 fi
 
 if [ ! -d "$TESTING_FW/Testing.framework" ]; then
@@ -36,11 +44,6 @@ if [ ! -d "$TESTING_FW/Testing.framework" ]; then
 fi
 
 echo "==> Command Line Tools only - wiring up swift-testing by hand"
-
-# Testing.framework is built for macOS 14.0. The package deliberately declares no
-# `platforms:` (that would raise the deployment target for every consumer of the
-# library), so raise it here, for this build only.
-BUILD_TARGET="$(uname -m)-apple-macos14.0"
 
 # --disable-xctest: nothing imports XCTest any more, and SwiftPM would otherwise
 #   look for a framework that only exists inside Xcode.app.

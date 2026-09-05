@@ -11,7 +11,7 @@ import Testing
 ///
 /// They are the only suite in the project needing anything external; everything
 /// else runs against the in-process FakeCentrifugoServer.
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct GetStateTests {
 
     private static let endpoint = "ws://localhost:8000/connection/websocket"
@@ -60,7 +60,7 @@ struct GetStateTests {
         return "{\"i\":\(i)}".data(using: .utf8)!
     }
 
-    private func publish(_ client: CentrifugeClient, _ channel: String, _ data: Data) {
+    private func publish(_ client: CentrifugeClient, _ channel: String, _ data: Data) async {
         let exp = Expectation("publish")
         client.publish(channel: channel, data: data) { result in
             if case .failure(let err) = result {
@@ -68,10 +68,10 @@ struct GetStateTests {
             }
             exp.fulfill()
         }
-        wait(for: exp, timeout: 5)
+        await fulfillment(of: exp, within: 5)
     }
 
-    @Test func getStateCalledOnInitialSubscribeAndRecovers() throws {
+    @Test func getStateCalledOnInitialSubscribeAndRecovers() async throws {
         let channel = uniqueChannel()
 
         // Publish 3 messages BEFORE subscribing.
@@ -79,7 +79,7 @@ struct GetStateTests {
         publisher.connect()
         defer { publisher.disconnect() }
         for i in 1...3 {
-            publish(publisher, channel, payload(i))
+            await publish(publisher, channel, payload(i))
         }
 
         let client = newClient()
@@ -104,11 +104,11 @@ struct GetStateTests {
         let sub = try client.newSubscription(channel: channel, delegate: delegate, config: config)
         sub.subscribe()
 
-        wait(for: [subscribed, pubs], timeout: 5)
+        await fulfillment(of: [subscribed, pubs], within: 5)
         #expect(getStateCalls.value == 1)
     }
 
-    @Test func getStateNotCalledWhenRecoverySucceeds() throws {
+    @Test func getStateNotCalledWhenRecoverySucceeds() async throws {
         let channel = uniqueChannel()
 
         let publisher = newClient()
@@ -156,15 +156,15 @@ struct GetStateTests {
 
         let sub = try client.newSubscription(channel: channel, delegate: delegate, config: config)
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
         #expect(getStateCalls.value == 1)
 
         // Disconnect, publish while away, reconnect — SDK has a saved position
         // and recovery succeeds, so the state getter must NOT be called again.
         client.disconnect()
 
-        publish(publisher, channel, payload(1))
-        publish(publisher, channel, payload(2))
+        await publish(publisher, channel, payload(1))
+        await publish(publisher, channel, payload(2))
 
         let resubscribed = Expectation("resubscribed with recovery")
         delegate.onSubscribedHandler = { event in
@@ -173,11 +173,11 @@ struct GetStateTests {
         }
 
         client.connect()
-        wait(for: [resubscribed, sawBothOffsets], timeout: 10)
+        await fulfillment(of: [resubscribed, sawBothOffsets], within: 10)
         #expect(getStateCalls.value == 1, "state getter must not be called when recovery succeeds")
     }
 
-    @Test func getStateErrorRetried() throws {
+    @Test func getStateErrorRetried() async throws {
         let channel = uniqueChannel()
 
         let client = newClient()
@@ -215,11 +215,11 @@ struct GetStateTests {
 
         // First getter call fails → error emitted → resubscribe scheduled with
         // backoff. Second call succeeds → subscribe completes.
-        wait(for: [gotGetStateError, subscribed], timeout: 5)
+        await fulfillment(of: [gotGetStateError, subscribed], within: 5)
         #expect(getStateCalls.value >= 2)
     }
 
-    @Test func getStatePersistentFailureKeepsRetrying() throws {
+    @Test func getStatePersistentFailureKeepsRetrying() async throws {
         let channel = uniqueChannel()
 
         let client = newClient()
@@ -242,7 +242,7 @@ struct GetStateTests {
         // Wait for several retry cycles.
         let waited = Expectation("retry cycles")
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.7) { waited.fulfill() }
-        wait(for: waited, timeout: 5)
+        await fulfillment(of: waited, within: 5)
 
         // Should have retried multiple times while staying in subscribing state.
         #expect(getStateCalls.value > 2)
@@ -251,7 +251,7 @@ struct GetStateTests {
         sub.unsubscribe()
     }
 
-    @Test func getStateCalledAgainOnUnrecoverablePosition() throws {
+    @Test func getStateCalledAgainOnUnrecoverablePosition() async throws {
         // Uses "smallhistory" namespace with history_size=2. After publishing
         // enough to evict old entries, reconnecting from an old position triggers
         // error 112 (unrecoverable position) because the subscribe request carries
@@ -291,14 +291,14 @@ struct GetStateTests {
 
         let sub = try client.newSubscription(channel: channel, delegate: delegate, config: config)
         sub.subscribe()
-        wait(for: subscribed, timeout: 5)
+        await fulfillment(of: subscribed, within: 5)
         #expect(getStateCalls.value == 1)
 
         // Disconnect, then publish enough messages to push the stream beyond
         // recovery (history_size=2, so 5 messages evict old entries).
         client.disconnect()
         for i in 1...5 {
-            publish(publisher, channel, payload(i))
+            await publish(publisher, channel, payload(i))
         }
 
         // Reconnect — SDK tries to recover from the old position, server returns
@@ -307,7 +307,7 @@ struct GetStateTests {
         delegate.onSubscribedHandler = { _ in resubscribed.fulfill() }
 
         client.connect()
-        wait(for: resubscribed, timeout: 5)
+        await fulfillment(of: resubscribed, within: 5)
         #expect(getStateCalls.value == 2, "state getter must be called again after unrecoverable position")
 
         // Verify live delivery works after the re-sync.
@@ -317,7 +317,7 @@ struct GetStateTests {
                 livePub.fulfill()
             }
         }
-        publish(publisher, channel, "{\"live\":true}".data(using: .utf8)!)
-        wait(for: livePub, timeout: 5)
+        await publish(publisher, channel, "{\"live\":true}".data(using: .utf8)!)
+        await fulfillment(of: livePub, within: 5)
     }
 }

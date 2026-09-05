@@ -56,20 +56,27 @@ swift-testing only — `import Testing`, `@Test`, `#expect`, `#require`,
 `Issue.record`. Do not reintroduce XCTest; it would make the suite unrunnable
 without Xcode again. Three things to know:
 
-- **`Expectation` replaces `XCTestExpectation`.** It lives in `TestSupport.swift`
-  and keeps the existing "install a callback, trigger, block until it fires"
-  shape, which swift-testing's scope-based `confirmation(...)` does not fit.
-  Supports `expectedFulfillmentCount` and `isInverted`; over-fulfilment is
-  deliberately not an error. Always wait with a timeout so a deadlock fails the
-  test instead of hanging the run.
-- **swift-testing parallelises, and the runner turns that off.** `scripts/test.sh`
-  passes `--no-parallel`, because `@Suite(.serialized)` only serialises a suite's
-  own tests — separate suites still run concurrently, and eleven CentrifugeClients
-  against eleven FakeCentrifugoServers at once starves connections on a loaded
-  machine (this failed in CI while passing locally). XCTest ran everything
-  serially and the tests are written for that. Suites keep `.serialized` anyway,
-  so a bare `swift test` from Xcode is not wildly parallel. Do not assume tests
-  can share process-wide state regardless.
+- **Tests that wait are `async`, and waiting must never block.** swift-testing
+  runs even synchronous `@Test` bodies inside a Task on the cooperative thread
+  pool, whose width is the core count — so blocking there (`NSCondition`,
+  `DispatchSemaphore`, `Thread.sleep`) starves the pool. Use
+  `await fulfillment(of:within:)` from `TestSupport.swift`, which suspends on a
+  continuation. Never call `Thread.sleep` in a test; `Task.sleep` is fine.
+- **`Expectation` replaces `XCTestExpectation`.** swift-testing has no
+  equivalent: `confirmation(...)` counts callbacks in a scope but does not wait
+  for them, and `.timeLimit()` is whole-minutes only. Upstream
+  swiftlang/swift-testing#789 (a `confirmation` timeout) is unmerged and issue
+  #978 was closed as not planned, so re-check before assuming a built-in exists.
+  `Expectation` supports `expectedFulfillmentCount` and `isInverted`;
+  over-fulfilment is deliberately not an error.
+- **Suites carry `.timeLimit(.minutes(1))`** as a backstop, so a wait that never
+  returns for some other reason fails instead of wedging CI. One minute is the
+  finest granularity the trait allows.
+- **Tests build with `-target …macos14.0`** (set by `scripts/test.sh`). Swift
+  concurrency needs 10.15+ and the package's default deployment target is 10.13;
+  `@available` cannot go on a `@Test`, so the target is raised for the test build
+  only. `Package.swift` stays free of `platforms:`, and CI's separate
+  `swift build` still type-checks the library at 10.13.
 - **`@available` cannot be used on `@Test` or `@Suite`** — the macros reject it
   outright, whatever version you name. Where the code under test needs a newer OS
   (`NativeWebSocket` is macOS 10.15+), annotate the private helpers and put a
