@@ -23,6 +23,11 @@ Centrifugo:
 docker compose up -d
 ```
 
+Without it those five tests fail as bare timeouts (`Test «unknown» recorded an
+issue`), which reads like a code regression rather than a missing dependency.
+`scripts/test.sh` warns up front when nothing is listening on :8000 — believe the
+warning before you start debugging the client.
+
 Everything else runs against `FakeCentrifugoServer`, an in-process fake speaking
 the protobuf protocol over Network.framework.
 
@@ -37,10 +42,8 @@ the default search path, so `swift test` needs:
 - `--disable-xctest` — stop SwiftPM building an XCTest runner.
 - `-Xswiftc -F <CLT>/Library/Developer/Frameworks` plus the matching `-Xlinker -F`
   and `-Xlinker -rpath`.
-- `-Xswiftc -target $(uname -m)-apple-macos14.0` — `Testing.framework` is built
-  for macOS 14, and `Package.swift` deliberately declares no `platforms:` (adding
-  one would raise the deployment target for every consumer of the library). Keep
-  it a build-time override.
+- `-Xswiftc -target $(uname -m)-apple-macos14.0` — see "Deployment target" below.
+  (This one is passed on *both* paths, Xcode included.)
 - `-Xswiftc -Xfrontend -Xswiftc -disable-cross-import-overlays` — the CLT ships
   `_Testing_Foundation.framework` **without** its `.swiftmodule`, so
   `import Testing` alongside `import Foundation` fails to resolve the cross-import
@@ -50,11 +53,25 @@ the default search path, so `swift test` needs:
 `no such module 'XCTest'` or `no such module 'Testing'`.** Both are expected
 without Xcode; run the script.
 
+### Deployment target
+
+`scripts/test.sh` builds the tests with `-target $(uname -m)-apple-macos14.0`, on
+both the Xcode and Command Line Tools paths. Two reasons, and both are load
+bearing: the tests are `async` and Swift concurrency needs macOS 10.15+ while the
+package's default deployment target is 10.13, and `Testing.framework` itself is
+built for macOS 14. `@available` cannot go on a `@Test` (see below), so the
+requirement cannot be expressed in the tests either.
+
+`Package.swift` deliberately declares no `platforms:` — adding one would raise
+the deployment target for every consumer of the library — so this stays a
+build-time override for tests only. CI's separate `swift build` step still
+type-checks the library at the package default.
+
 ### Writing tests
 
 swift-testing only — `import Testing`, `@Test`, `#expect`, `#require`,
 `Issue.record`. Do not reintroduce XCTest; it would make the suite unrunnable
-without Xcode again. Three things to know:
+without Xcode again. Things to know:
 
 - **Tests that wait are `async`, and waiting must never block.** swift-testing
   runs even synchronous `@Test` bodies inside a Task on the cooperative thread
@@ -81,11 +98,6 @@ without Xcode again. Three things to know:
   simply bounds how many live WebSocket clients exist at once, which costs
   nothing (the suite runs in ~1.3s either way) in the exact area that broke CI
   twice. Drop it if you ever need the parallelism; nothing depends on ordering.
-- **Tests build with `-target …macos14.0`** (set by `scripts/test.sh`). Swift
-  concurrency needs 10.15+ and the package's default deployment target is 10.13;
-  `@available` cannot go on a `@Test`, so the target is raised for the test build
-  only. `Package.swift` stays free of `platforms:`, and CI's separate
-  `swift build` still type-checks the library at 10.13.
 - **`@available` cannot be used on `@Test` or `@Suite`** — the macros reject it
   outright, whatever version you name. Where the code under test needs a newer OS
   (`NativeWebSocket` is macOS 10.15+), annotate the private helpers and put a

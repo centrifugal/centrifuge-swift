@@ -16,6 +16,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# GetStateTests is the one suite needing a real Centrifugo. Say so up front:
+# without it those tests fail as bare timeouts that read like a code regression,
+# not like a missing dependency. A warning, not an error - a filtered run that
+# excludes GetStateTests is perfectly valid.
+if ! nc -z 127.0.0.1 8000 2>/dev/null; then
+    echo "note: nothing is listening on 127.0.0.1:8000, so GetStateTests will fail." >&2
+    echo "      start Centrifugo first with:  docker compose up -d" >&2
+    echo >&2
+fi
+
 DEVELOPER_DIR_PATH="$(xcode-select -p 2>/dev/null || true)"
 TESTING_FW="$DEVELOPER_DIR_PATH/Library/Developer/Frameworks"
 
