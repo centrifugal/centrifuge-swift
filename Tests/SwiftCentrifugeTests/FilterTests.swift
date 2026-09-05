@@ -15,7 +15,9 @@ final class FilterTests: XCTestCase {
 
     private final class SubDelegate: CentrifugeSubscriptionDelegate {
         var onSub: ((CentrifugeSubscribedEvent) -> Void)?
+        var onUnsub: ((CentrifugeUnsubscribedEvent) -> Void)?
         func onSubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribedEvent) { onSub?(e) }
+        func onUnsubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeUnsubscribedEvent) { onUnsub?(e) }
     }
 
     private var server: FakeCentrifugoServer!
@@ -112,6 +114,40 @@ final class FilterTests: XCTestCase {
         try sub.setTagsFilter(CentrifugeFilter.eq("ticker", "BTC"))
         sub.subscribe()
         wait(for: [subscribed], timeout: 5)
+
+        let tf = try XCTUnwrap(server.lastSubscribe()?.tf)
+        XCTAssertEqual(tf.key, "ticker")
+        XCTAssertEqual(tf.val, "BTC")
+    }
+
+    /// Subscription delegate callbacks are invoked on the client's internal
+    /// syncQueue, so setTagsFilter must not hop onto that queue synchronously —
+    /// doing so deadlocks the queue for good. Regression test: with a synchronous
+    /// hop the callback never returns and both waits below time out.
+    func testSetTagsFilterFromDelegateCallbackDoesNotDeadlock() throws {
+        let client = makeClient()
+        client.connect()
+        defer { client.disconnect() }
+        let d = SubDelegate()
+        let sub = try client.newSubscription(channel: "market", delegate: d)
+
+        let applied = expectation(description: "filter set from delegate callback")
+        d.onSub = { _ in
+            XCTAssertNoThrow(try sub.setTagsFilter(CentrifugeFilter.eq("ticker", "BTC")))
+            applied.fulfill()
+        }
+        sub.subscribe()
+        wait(for: [applied], timeout: 5)
+
+        // The queue is still alive and the filter took effect for the next subscribe.
+        let unsubscribed = expectation(description: "unsubscribed")
+        let resubscribed = expectation(description: "resubscribed")
+        d.onUnsub = { _ in unsubscribed.fulfill() }
+        d.onSub = { _ in resubscribed.fulfill() }
+        sub.unsubscribe()
+        wait(for: [unsubscribed], timeout: 5)
+        sub.subscribe()
+        wait(for: [resubscribed], timeout: 5)
 
         let tf = try XCTUnwrap(server.lastSubscribe()?.tf)
         XCTAssertEqual(tf.key, "ticker")

@@ -155,8 +155,13 @@ public class CentrifugeSubscription: @unchecked Sendable {
         if tagsFilter != nil && self.delta != nil {
             throw CentrifugeError.configurationError(message: "cannot use delta and tags filter together")
         }
-        self.centrifuge?.syncQueue.sync {
-            self.tagsFilter = tagsFilter
+        // Hop onto syncQueue asynchronously: delegate callbacks (onSubscribed,
+        // onPublication, onError, ...) are themselves invoked on syncQueue, so a
+        // synchronous hop would deadlock when this is called from one. FIFO
+        // ordering still guarantees the filter is in place before a subscribe()
+        // issued after this call.
+        self.centrifuge?.syncQueue.async { [weak self] in
+            self?.tagsFilter = tagsFilter
         }
     }
 
