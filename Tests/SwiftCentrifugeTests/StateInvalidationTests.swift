@@ -1,3 +1,8 @@
+// XCTest ships only inside Xcode.app. Guard the file so the test target still
+// compiles with just the Command Line Tools, where the swift-testing suites in
+// this target can still run (see CLAUDE.md, "Running tests locally").
+// Removed once this suite is migrated to swift-testing.
+#if canImport(XCTest)
 import XCTest
 import Network
 import SwiftProtobuf
@@ -211,3 +216,4 @@ final class StateInvalidationTests: XCTestCase {
         XCTAssertEqual(req.offset, 0, "reconnect must not carry the pre-invalidation offset")
     }
 }
+#endif // canImport(XCTest)

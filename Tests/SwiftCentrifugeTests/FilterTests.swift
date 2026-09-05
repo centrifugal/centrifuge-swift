@@ -1,3 +1,8 @@
+// XCTest ships only inside Xcode.app. Guard the file so the test target still
+// compiles with just the Command Line Tools, where the swift-testing suites in
+// this target can still run (see CLAUDE.md, "Running tests locally").
+// Removed once this suite is migrated to swift-testing.
+#if canImport(XCTest)
 import XCTest
 import Network
 import SwiftProtobuf
@@ -15,7 +20,9 @@ final class FilterTests: XCTestCase {
 
     private final class SubDelegate: CentrifugeSubscriptionDelegate {
         var onSub: ((CentrifugeSubscribedEvent) -> Void)?
+        var onUnsub: ((CentrifugeUnsubscribedEvent) -> Void)?
         func onSubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribedEvent) { onSub?(e) }
+        func onUnsubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeUnsubscribedEvent) { onUnsub?(e) }
     }
 
     private var server: FakeCentrifugoServer!
@@ -118,6 +125,47 @@ final class FilterTests: XCTestCase {
         XCTAssertEqual(tf.val, "BTC")
     }
 
+    /// Subscription delegate callbacks are invoked on the client's internal
+    /// syncQueue, so setTagsFilter must not hop onto that queue synchronously —
+    /// doing so deadlocks the queue for good. Regression test: with a synchronous
+    /// hop the callback never returns and both waits below time out.
+    func testSetTagsFilterFromDelegateCallbackDoesNotDeadlock() throws {
+        let client = makeClient()
+        client.connect()
+        defer { client.disconnect() }
+        let d = SubDelegate()
+        let sub = try client.newSubscription(channel: "market", delegate: d)
+
+        let applied = expectation(description: "filter set from delegate callback")
+        d.onSub = { _ in
+            // do/catch rather than XCTAssertNoThrow(try ...): the `try` there
+            // makes the delegate closure itself infer as throwing, which does
+            // not match the non-throwing callback type.
+            do {
+                try sub.setTagsFilter(CentrifugeFilter.eq("ticker", "BTC"))
+            } catch {
+                XCTFail("setTagsFilter threw: \(error)")
+            }
+            applied.fulfill()
+        }
+        sub.subscribe()
+        wait(for: [applied], timeout: 5)
+
+        // The queue is still alive and the filter took effect for the next subscribe.
+        let unsubscribed = expectation(description: "unsubscribed")
+        let resubscribed = expectation(description: "resubscribed")
+        d.onUnsub = { _ in unsubscribed.fulfill() }
+        d.onSub = { _ in resubscribed.fulfill() }
+        sub.unsubscribe()
+        wait(for: [unsubscribed], timeout: 5)
+        sub.subscribe()
+        wait(for: [resubscribed], timeout: 5)
+
+        let tf = try XCTUnwrap(server.lastSubscribe()?.tf)
+        XCTAssertEqual(tf.key, "ticker")
+        XCTAssertEqual(tf.val, "BTC")
+    }
+
     func testSubscribeWithoutFilterSendsNoTf() throws {
         let client = makeClient()
         client.connect()
@@ -142,3 +190,4 @@ final class FilterTests: XCTestCase {
         XCTAssertThrowsError(try sub.setTagsFilter(CentrifugeFilter.eq("a", "1")))
     }
 }
+#endif // canImport(XCTest)
