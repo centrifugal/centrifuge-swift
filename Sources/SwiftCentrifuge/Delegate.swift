@@ -279,6 +279,36 @@ public struct CentrifugeServerLeaveEvent {
     }
 }
 
+/// Threading contract for delegate callbacks
+/// =========================================
+///
+/// Callbacks are invoked **inline on the client's internal serial queue**, on
+/// whatever thread is currently driving it - they are never re-dispatched to
+/// another queue, and never to the main thread.
+///
+/// That is deliberate. On the native (`URLSessionWebSocketTask`) transport the
+/// SDK keeps exactly one read outstanding and issues the next one only after
+/// your handler returns, so a slow handler stops the SDK pulling frames and the
+/// pressure travels back through the socket buffer to the server. Handing events
+/// to a separate delegate queue would remove that backpressure and let an
+/// unbounded backlog build up under load, so the SDK does not do it.
+///
+/// What this means for your handlers:
+///
+/// - **Do not block.** No synchronous I/O, no `DispatchQueue.main.sync`, no
+///   waiting on a lock another thread may hold. A blocked handler stalls the
+///   whole client: no pushes, no timers, no pings, no reconnects.
+/// - **Calling back into the SDK is supported.** Every public method either
+///   enqueues its work or takes no lock across the call, so `subscribe()`,
+///   `unsubscribe()`, `setTagsFilter(_:)`, `getSubscription(_:)`, `publish(...)`
+///   and friends are safe to call from a handler.
+/// - **To touch UI, hop asynchronously**: `DispatchQueue.main.async { ... }`.
+///   Note that doing so hands the event off, so you give up the backpressure
+///   described above for that event - which is usually the right trade for UI,
+///   and the wrong one for ingesting a high-rate publication stream.
+/// - **Events are ordered.** Because the queue is serial and callbacks are
+///   inline, handlers never run concurrently with each other or with the state
+///   transition that produced them.
 public protocol CentrifugeClientDelegate: AnyObject {
     func onConnected(_ client: CentrifugeClient, _ event: CentrifugeConnectedEvent)
     func onDisconnected(_ client: CentrifugeClient, _ event: CentrifugeDisconnectedEvent)
@@ -314,6 +344,9 @@ public extension CentrifugeClientDelegate {
     func onLeave(_ client: CentrifugeClient, _ event: CentrifugeServerLeaveEvent) {}
 }
 
+/// Subscription events. Same threading contract as
+/// ``CentrifugeClientDelegate`` - callbacks run inline on the client's internal
+/// serial queue; do not block in them.
 public protocol CentrifugeSubscriptionDelegate: AnyObject {
     func onSubscribed(_ sub: CentrifugeSubscription, _ event: CentrifugeSubscribedEvent)
     func onUnsubscribed(_ sub: CentrifugeSubscription, _ event: CentrifugeUnsubscribedEvent)

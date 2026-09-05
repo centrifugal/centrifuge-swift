@@ -444,14 +444,17 @@ public class CentrifugeClient: @unchecked Sendable {
      - parameter sub: CentrifugeSubscription
      */
     public func removeSubscription(_ sub: CentrifugeSubscription) {
-        defer { subscriptionsLock.unlock() }
         subscriptionsLock.lock()
-        self.subscriptions
-            .filter({ $0.channel == sub.channel })
-            .forEach { sub in
-                sub.processUnsubscribe(sendUnsubscribe: true, code: unsubscribedCodeUnsubscribeCalled, reason: "unsubscribe called")
-            }
+        let removed = self.subscriptions.filter({ $0.channel == sub.channel })
         self.subscriptions.removeAll(where: { $0.channel == sub.channel })
+        subscriptionsLock.unlock()
+        // Unsubscribe with the lock released: processUnsubscribe leads to
+        // onUnsubscribed, and a handler that touches the registry would deadlock
+        // on this non-recursive lock. The unsubscribe itself is queued on
+        // syncQueue either way, so the observable ordering is unchanged.
+        removed.forEach { sub in
+            sub.processUnsubscribe(sendUnsubscribe: true, code: unsubscribedCodeUnsubscribeCalled, reason: "unsubscribe called")
+        }
     }
     
     /**
@@ -696,11 +699,28 @@ internal extension CentrifugeClient {
     }
     
     func resubscribe() {
-        subscriptionsLock.lock()
-        for sub in self.subscriptions {
+        // Snapshot under the lock, then call out with it released. Resubscribing
+        // can reach a delegate callback, and delegate callbacks run inline on the
+        // caller's thread - if one of them touches the subscription registry
+        // (getSubscription, newSubscription, ...) it would try to take this
+        // non-recursive lock again and deadlock. See snapshotSubscriptions().
+        for sub in snapshotSubscriptions() {
             sub.resubscribeIfNecessary()
         }
-        subscriptionsLock.unlock()
+    }
+
+    /// Copy of the subscription registry, taken under `subscriptionsLock` and
+    /// returned with the lock released.
+    ///
+    /// `subscriptionsLock` is a non-recursive `NSLock` and delegate callbacks are
+    /// invoked inline (that is what gives the transport its backpressure), so any
+    /// callout made while holding it can be re-entered by user code and deadlock.
+    /// Every iteration over `subscriptions` that can reach user code must go
+    /// through this snapshot.
+    private func snapshotSubscriptions() -> [CentrifugeSubscription] {
+        subscriptionsLock.lock()
+        defer { subscriptionsLock.unlock() }
+        return self.subscriptions
     }
     
     func subscribe(channel: String, token: String, delta: String?, tagsFilter: CentrifugeFilterNode?, data: Data?, recover: Bool, streamPosition: StreamPosition, positioned: Bool, recoverable: Bool, joinLeave: Bool, flag: Int64, completion: @escaping (Centrifugal_Centrifuge_Protocol_SubscribeResult?, Error?)->()) {
@@ -1236,11 +1256,9 @@ fileprivate extension CentrifugeClient {
             // subscription's cached state before they move to subscribing below.
             self.token = ""
             self.refreshRequired = true
-            subscriptionsLock.lock()
-            for sub in self.subscriptions {
+            for sub in snapshotSubscriptions() {
                 sub.invalidateState()
             }
-            subscriptionsLock.unlock()
             // Server-side subscriptions carry their own cached recovery position,
             // separate from the client-side subscriptions above — reset it to the
             // same unrecoverable sentinel so the next connect can't recover from
@@ -1265,11 +1283,11 @@ fileprivate extension CentrifugeClient {
         self.stopWaitPing()
         self.stopConnectionRefresh()
         
-        subscriptionsLock.lock()
-        for sub in self.subscriptions {
+        // Snapshot first: moveToSubscribingUponDisconnect emits onSubscribing, and
+        // a handler that calls getSubscription() would deadlock on this lock.
+        for sub in snapshotSubscriptions() {
             sub.moveToSubscribingUponDisconnect(code: subscribingCodeTransportClosed, reason: "transport closed")
         }
-        subscriptionsLock.unlock()
         
         if previousState == .connected  {
             for (channel, _) in self.serverSubs {
