@@ -74,6 +74,13 @@ without Xcode again. Three things to know:
 - **Suites carry `.timeLimit(.minutes(1))`** as a backstop, so a wait that never
   returns for some other reason fails instead of wedging CI. One minute is the
   finest granularity the trait allows.
+- **`@Suite(.serialized)` is about resource pressure, not shared state.**
+  swift-testing builds a fresh suite instance per test (`deinit` runs before the
+  next `init`), so each test already gets its own `FakeCentrifugoServer` on its
+  own ephemeral port and its own client — the tests are independent. The trait
+  simply bounds how many live WebSocket clients exist at once, which costs
+  nothing (the suite runs in ~1.3s either way) in the exact area that broke CI
+  twice. Drop it if you ever need the parallelism; nothing depends on ordering.
 - **Tests build with `-target …macos14.0`** (set by `scripts/test.sh`). Swift
   concurrency needs 10.15+ and the package's default deployment target is 10.13;
   `@available` cannot go on a `@Test`, so the target is raised for the test build

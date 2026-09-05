@@ -6,8 +6,9 @@
 #   ./scripts/test.sh --filter Filter # extra args are forwarded to `swift test`
 #
 # The suite uses swift-testing, which ships with the Command Line Tools, so it
-# runs without Xcode — it just needs its framework search path wired up by hand.
-# With Xcode present, plain `swift test` already knows where to look.
+# runs without Xcode — it just needs its framework search paths wired up by hand.
+# With Xcode present, `swift test` already knows where to look and only the
+# deployment target below has to be set.
 #
 # Note that GetStateTests needs the docker-compose Centrifugo running:
 #   docker compose up -d

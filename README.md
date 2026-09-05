@@ -49,7 +49,9 @@ This library depends on [SwiftProtobuf](https://github.com/apple/swift-protobuf)
 ## Requirements
 
 - iOS 12.0
-- Xcode 13.0
+- Xcode 16.0 to build via Swift Package Manager — the package manifest declares
+  `swift-tools-version:6.0`, which needs a Swift 6.0 toolchain. Consuming the
+  library through CocoaPods has no such requirement.
 
 ## Getting Started
 
@@ -83,7 +85,7 @@ Run your application and ensure that WebSocket traffic from centrifuge-swift is 
 make test
 ```
 
-The suite uses [swift-testing](https://github.com/swiftlang/swift-testing), which ships with the Swift toolchain, so a full Xcode install is not required — `make test` wires up the framework search paths when only the Command Line Tools are present, and defers to plain `swift test` when Xcode is there.
+The suite uses [swift-testing](https://github.com/swiftlang/swift-testing), which ships with the Swift toolchain, so a full Xcode install is not required — `make test` wires up the framework search paths when only the Command Line Tools are present, and defers to `swift test` when Xcode is there.
 
 Most suites talk to an in-process fake Centrifugo server and need no external dependencies. The suite which covers recovery and state loading (`GetStateTests`) needs a real Centrifugo (>= 6.8.0) configured as in [docker-compose.yml](docker-compose.yml):
 

@@ -59,6 +59,12 @@ final class Expectation: @unchecked Sendable {
         return count
     }
 
+    fileprivate var isSatisfied: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return count >= expectedFulfillmentCount
+    }
+
     /// Suspends until satisfied or `timeout` elapses; returns whether it was
     /// satisfied. Removing the waiter under the lock is what guarantees the
     /// continuation is resumed exactly once, whichever of fulfil/timeout wins —
@@ -105,11 +111,12 @@ func fulfillment(
     let deadline = Date().addingTimeInterval(timeout)
 
     for expectation in expectations where !expectation.isInverted {
-        // Not folded into one condition: `||` takes its right operand as an
-        // autoclosure, which cannot carry an `await`.
+        // Check satisfaction before the clock: expectations share one deadline, so
+        // an earlier one can consume the whole budget, and an expectation that is
+        // already fulfilled must not then be reported as timed out.
+        var satisfied = expectation.isSatisfied
         let remaining = deadline.timeIntervalSinceNow
-        var satisfied = false
-        if remaining > 0 {
+        if !satisfied && remaining > 0 {
             satisfied = await expectation.awaitSatisfied(within: remaining)
         }
         if !satisfied {
