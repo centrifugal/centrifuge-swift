@@ -133,7 +133,14 @@ final class FilterTests: XCTestCase {
 
         let applied = expectation(description: "filter set from delegate callback")
         d.onSub = { _ in
-            XCTAssertNoThrow(try sub.setTagsFilter(CentrifugeFilter.eq("ticker", "BTC")))
+            // do/catch rather than XCTAssertNoThrow(try ...): the `try` there
+            // makes the delegate closure itself infer as throwing, which does
+            // not match the non-throwing callback type.
+            do {
+                try sub.setTagsFilter(CentrifugeFilter.eq("ticker", "BTC"))
+            } catch {
+                XCTFail("setTagsFilter threw: \(error)")
+            }
             applied.fulfill()
         }
         sub.subscribe()

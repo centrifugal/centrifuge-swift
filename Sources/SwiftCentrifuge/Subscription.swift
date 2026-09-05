@@ -157,9 +157,14 @@ public class CentrifugeSubscription: @unchecked Sendable {
         }
         // Hop onto syncQueue asynchronously: delegate callbacks (onSubscribed,
         // onPublication, onError, ...) are themselves invoked on syncQueue, so a
-        // synchronous hop would deadlock when this is called from one. FIFO
-        // ordering still guarantees the filter is in place before a subscribe()
-        // issued after this call.
+        // synchronous hop would deadlock when this is called from one.
+        //
+        // A subscribe() the same caller issues afterwards also hops onto
+        // syncQueue, so FIFO ordering puts the filter in place before it runs.
+        // This does not extend to a resubscribe the SDK starts itself later in
+        // the block that invoked the callback (e.g. the automatic resubscribe
+        // right after onConnected) - that one still uses the previous filter,
+        // and the new one applies from the subscribe attempt after it.
         self.centrifuge?.syncQueue.async { [weak self] in
             self?.tagsFilter = tagsFilter
         }
