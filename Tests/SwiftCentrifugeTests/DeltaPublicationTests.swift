@@ -1,11 +1,7 @@
-// XCTest ships only inside Xcode.app. Guard the file so the test target still
-// compiles with just the Command Line Tools, where the swift-testing suites in
-// this target can still run (see CLAUDE.md, "Running tests locally").
-// Removed once this suite is migrated to swift-testing.
-#if canImport(XCTest)
-import XCTest
+import Foundation
 import Network
 import SwiftProtobuf
+import Testing
 @testable import SwiftCentrifuge
 
 /// End-to-end tests for fossil delta compression on a subscription: the subscribe
@@ -13,21 +9,19 @@ import SwiftProtobuf
 /// previously received value. Delta compression requires server configuration, so
 /// the in-process `FakeCentrifugoServer` is used; the delta payloads come from the
 /// same testdata as `DeltaFossilTests`.
-///
-/// Run with full Xcode toolchain (XCTest is unavailable under CommandLineTools):
-///     swift test --filter DeltaPublicationTests
-final class DeltaPublicationTests: XCTestCase {
+@Suite(.serialized)
+final class DeltaPublicationTests: @unchecked Sendable {
 
-    private final class SubDelegate: CentrifugeSubscriptionDelegate {
+    private final class SubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
         var onSub: (() -> Void)?
         var onPub: ((CentrifugePublicationEvent) -> Void)?
         func onSubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribedEvent) { onSub?() }
         func onPublication(_ s: CentrifugeSubscription, _ e: CentrifugePublicationEvent) { onPub?(e) }
     }
 
-    private var server: FakeCentrifugoServer!
+    private let server: FakeCentrifugoServer
 
-    override func setUpWithError() throws {
+    init() throws {
         server = FakeCentrifugoServer()
         // Negotiate delta compression for every subscription.
         server.onSubscribe = { _, _ in
@@ -38,13 +32,13 @@ final class DeltaPublicationTests: XCTestCase {
         try server.start()
     }
 
-    override func tearDown() {
+    deinit {
         server.stop()
     }
 
     /// Subscribe to "ch" with fossil delta enabled and return the subscription.
     private func subscribe(_ client: CentrifugeClient, _ delegate: SubDelegate) throws -> CentrifugeSubscription {
-        let subscribed = expectation(description: "subscribed")
+        let subscribed = Expectation("subscribed")
         delegate.onSub = { subscribed.fulfill() }
         let sub = try client.newSubscription(
             channel: "ch",
@@ -52,17 +46,17 @@ final class DeltaPublicationTests: XCTestCase {
             config: CentrifugeSubscriptionConfig(delta: .fossil)
         )
         sub.subscribe()
-        wait(for: [subscribed], timeout: 5)
+        wait(for: subscribed, timeout: 5)
         return sub
     }
 
     private func fossilCase(_ number: Int, _ fileName: String) throws -> Data {
-        let url = try XCTUnwrap(Bundle.module.resourceURL)
+        let url = try #require(Bundle.module.resourceURL)
             .appendingPathComponent("testdata/fossil/\(number)/\(fileName)")
         return try Data(contentsOf: url)
     }
 
-    func testDeltaPublicationApplied() throws {
+    @Test func deltaPublicationApplied() throws {
         let origin = try fossilCase(1, "origin")
         let deltaPayload = try fossilCase(1, "delta")
         let target = try fossilCase(1, "target")
@@ -73,10 +67,12 @@ final class DeltaPublicationTests: XCTestCase {
 
         let delegate = SubDelegate()
         _ = try subscribe(client, delegate)
-        XCTAssertEqual(server.lastSubscribe()?.delta, "fossil")
+        #expect(server.lastSubscribe()?.delta == "fossil")
 
-        let received = expectation(description: "two publications")
+        let received = Expectation("two publications")
         received.expectedFulfillmentCount = 2
+        // Written on the client's queue, read here after `wait` — the wait's lock
+        // provides the necessary happens-before.
         var payloads = [Data]()
         delegate.onPub = { event in
             payloads.append(event.data)
@@ -86,9 +82,8 @@ final class DeltaPublicationTests: XCTestCase {
         // Full value first, then a delta from it.
         server.publishChannel("ch", origin)
         server.publishChannel("ch", deltaPayload, delta: true)
-        wait(for: [received], timeout: 5)
+        wait(for: received, timeout: 5)
 
-        XCTAssertEqual(payloads, [origin, target], "delta publication must be applied to the previous value")
+        #expect(payloads == [origin, target], "delta publication must be applied to the previous value")
     }
 }
-#endif // canImport(XCTest)

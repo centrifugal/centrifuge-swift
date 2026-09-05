@@ -1,11 +1,7 @@
-// XCTest ships only inside Xcode.app. Guard the file so the test target still
-// compiles with just the Command Line Tools, where the swift-testing suites in
-// this target can still run (see CLAUDE.md, "Running tests locally").
-// Removed once this suite is migrated to swift-testing.
-#if canImport(XCTest)
-import XCTest
+import Foundation
 import Network
 import SwiftProtobuf
+import Testing
 @testable import SwiftCentrifuge
 
 /// Integration tests for channel compaction. The feature is Centrifugo PRO only,
@@ -13,12 +9,10 @@ import SwiftProtobuf
 /// use the in-process `FakeCentrifugoServer`: the subscribe reply negotiates a
 /// numeric channel ID and subsequent pushes carry the ID instead of the channel
 /// name, exactly like the real server does when compaction is enabled.
-///
-/// Run with full Xcode toolchain (XCTest is unavailable under CommandLineTools):
-///     swift test --filter CompactionTests
-final class CompactionTests: XCTestCase {
+@Suite(.serialized)
+final class CompactionTests: @unchecked Sendable {
 
-    private final class SubDelegate: CentrifugeSubscriptionDelegate {
+    private final class SubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
         var onSub: ((CentrifugeSubscribedEvent) -> Void)?
         var onPub: ((CentrifugePublicationEvent) -> Void)?
         var onJoinH: ((CentrifugeJoinEvent) -> Void)?
@@ -31,7 +25,7 @@ final class CompactionTests: XCTestCase {
         func onUnsubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeUnsubscribedEvent) { onUnsub?(e) }
     }
 
-    private var server: FakeCentrifugoServer!
+    private let server: FakeCentrifugoServer
     // Numeric channel id assigned on the next subscribe; a test can change it
     // before a resubscribe to exercise id refresh. Guarded by stateLock because
     // it's read on the server queue and written from the test thread.
@@ -39,7 +33,7 @@ final class CompactionTests: XCTestCase {
     private var nextChannelId: Int64 = 42
     private func setNextChannelId(_ v: Int64) { stateLock.lock(); nextChannelId = v; stateLock.unlock() }
 
-    override func setUpWithError() throws {
+    init() throws {
         server = FakeCentrifugoServer()
         // Negotiate channel compaction: assign a numeric channel id whenever the
         // client offers the channelCompaction flag (bit 1).
@@ -53,7 +47,7 @@ final class CompactionTests: XCTestCase {
         try server.start()
     }
 
-    override func tearDown() {
+    deinit {
         server.stop()
     }
 
@@ -64,15 +58,15 @@ final class CompactionTests: XCTestCase {
         return CentrifugeClient(endpoint: server.url, config: cfg)
     }
 
-    func testFlagOfferedAndPushesRoutedByID() throws {
+    @Test func flagOfferedAndPushesRoutedByID() throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
         let d = SubDelegate()
-        let subscribed = expectation(description: "subscribed")
-        let pub = expectation(description: "pub")
-        let join = expectation(description: "join")
-        let leave = expectation(description: "leave")
+        let subscribed = Expectation("subscribed")
+        let pub = Expectation("pub")
+        let join = Expectation("join")
+        let leave = Expectation("leave")
         var pubData = Data()
         d.onSub = { _ in subscribed.fulfill() }
         d.onPub = { e in pubData = e.data; pub.fulfill() }
@@ -80,48 +74,48 @@ final class CompactionTests: XCTestCase {
         d.onLeaveH = { _ in leave.fulfill() }
         let sub = try client.newSubscription(channel: "compacted", delegate: d)
         sub.subscribe()
-        wait(for: [subscribed], timeout: 5)
-        XCTAssertEqual((server.lastSubscribe()?.flag ?? 0) & 1, 1, "subscribe must offer the compaction flag")
+        wait(for: subscribed, timeout: 5)
+        #expect(((server.lastSubscribe()?.flag ?? 0) & 1) == 1, "subscribe must offer the compaction flag")
         server.publishId(42, Data("{\"a\":1}".utf8))
-        wait(for: [pub], timeout: 5)
-        XCTAssertEqual(String(data: pubData, encoding: .utf8), "{\"a\":1}")
+        wait(for: pub, timeout: 5)
+        #expect(String(data: pubData, encoding: .utf8) == "{\"a\":1}")
         server.joinId(42, "joiner")
         server.leaveId(42, "leaver")
         wait(for: [join, leave], timeout: 5)
     }
 
-    func testUnknownIDDropped() throws {
+    @Test func unknownIDDropped() throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
         let d = SubDelegate()
-        let subscribed = expectation(description: "subscribed")
-        let pub = expectation(description: "pub")
+        let subscribed = Expectation("subscribed")
+        let pub = Expectation("pub")
         var lastData = Data()
         var pubCount = 0
         d.onSub = { _ in subscribed.fulfill() }
         d.onPub = { e in lastData = e.data; pubCount += 1; pub.fulfill() }
         let sub = try client.newSubscription(channel: "compacted", delegate: d)
         sub.subscribe()
-        wait(for: [subscribed], timeout: 5)
+        wait(for: subscribed, timeout: 5)
         server.publishId(99, Data("{\"stray\":true}".utf8)) // unknown id, dropped
         server.publishId(42, Data("{\"ok\":true}".utf8))     // known id
-        wait(for: [pub], timeout: 5)
+        wait(for: pub, timeout: 5)
         // Give a stray delivery a chance to (wrongly) arrive.
         Thread.sleep(forTimeInterval: 0.2)
-        XCTAssertEqual(pubCount, 1, "unknown id push must be dropped")
-        XCTAssertEqual(String(data: lastData, encoding: .utf8), "{\"ok\":true}")
+        #expect(pubCount == 1, "unknown id push must be dropped")
+        #expect(String(data: lastData, encoding: .utf8) == "{\"ok\":true}")
     }
 
-    func testIDDroppedOnUnsubscribeRefreshedOnResubscribe() throws {
+    @Test func idDroppedOnUnsubscribeRefreshedOnResubscribe() throws {
         let client = makeClient()
         client.connect()
         defer { client.disconnect() }
         let d = SubDelegate()
-        let subscribed = expectation(description: "subscribed")
-        let unsub = expectation(description: "unsubscribed")
-        let resubscribed = expectation(description: "resubscribed")
-        let pub = expectation(description: "pub")
+        let subscribed = Expectation("subscribed")
+        let unsub = Expectation("unsubscribed")
+        let resubscribed = Expectation("resubscribed")
+        let pub = Expectation("pub")
         var subCount = 0
         var lastData = Data()
         var pubCount = 0
@@ -130,21 +124,21 @@ final class CompactionTests: XCTestCase {
         d.onPub = { e in lastData = e.data; pubCount += 1; pub.fulfill() }
         let sub = try client.newSubscription(channel: "compacted", delegate: d)
         sub.subscribe()
-        wait(for: [subscribed], timeout: 5)
+        wait(for: subscribed, timeout: 5)
         sub.unsubscribe()
-        wait(for: [unsub], timeout: 5)
+        wait(for: unsub, timeout: 5)
         server.publishId(42, Data("{\"stale\":true}".utf8)) // old id, dropped
         setNextChannelId(43)
         sub.subscribe()
-        wait(for: [resubscribed], timeout: 5)
+        wait(for: resubscribed, timeout: 5)
         server.publishId(43, Data("{\"fresh\":true}".utf8))
-        wait(for: [pub], timeout: 5)
+        wait(for: pub, timeout: 5)
         Thread.sleep(forTimeInterval: 0.2)
-        XCTAssertEqual(pubCount, 1, "stale push for old id must be dropped")
-        XCTAssertEqual(String(data: lastData, encoding: .utf8), "{\"fresh\":true}")
+        #expect(pubCount == 1, "stale push for old id must be dropped")
+        #expect(String(data: lastData, encoding: .utf8) == "{\"fresh\":true}")
     }
 
-    func testSameIDReRegisteredAfterReconnect() throws {
+    @Test func sameIDReRegisteredAfterReconnect() throws {
         // Regression guard (found in the dart port): the client drops the ID
         // registry on teardown (IDs are server-session-scoped), and on reconnect
         // the server commonly assigns the SAME ID again. The subscription must
@@ -153,22 +147,21 @@ final class CompactionTests: XCTestCase {
         client.connect()
         defer { client.disconnect() }
         let d = SubDelegate()
-        let subscribed = expectation(description: "subscribed")
-        let resubscribed = expectation(description: "resubscribed")
-        let pub = expectation(description: "pub")
+        let subscribed = Expectation("subscribed")
+        let resubscribed = Expectation("resubscribed")
+        let pub = Expectation("pub")
         var subCount = 0
         var lastData = Data()
         d.onSub = { _ in subCount += 1; if subCount == 1 { subscribed.fulfill() } else { resubscribed.fulfill() } }
         d.onPub = { e in lastData = e.data; pub.fulfill() }
         let sub = try client.newSubscription(channel: "compacted", delegate: d)
         sub.subscribe()
-        wait(for: [subscribed], timeout: 5)
+        wait(for: subscribed, timeout: 5)
         client.disconnect()
         client.connect()
-        wait(for: [resubscribed], timeout: 8)
+        wait(for: resubscribed, timeout: 8)
         server.publishId(42, Data("{\"after\":true}".utf8)) // same id 42
-        wait(for: [pub], timeout: 5)
-        XCTAssertEqual(String(data: lastData, encoding: .utf8), "{\"after\":true}")
+        wait(for: pub, timeout: 5)
+        #expect(String(data: lastData, encoding: .utf8) == "{\"after\":true}")
     }
 }
-#endif // canImport(XCTest)

@@ -5,8 +5,8 @@ all: proto
 proto:
 	protoc --swift_out=Sources/SwiftCentrifuge client.proto
 
-# Runs the full suite when Xcode is installed, and the swift-testing suites
-# only when it is not (XCTest ships inside Xcode.app). See CLAUDE.md.
+# Runs the suite with or without Xcode installed - swift-testing ships with the
+# Command Line Tools, the script just wires up its search paths. See CLAUDE.md.
 test:
 	./scripts/test.sh
 

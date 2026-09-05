@@ -1,23 +1,17 @@
-// XCTest ships only inside Xcode.app. Guard the file so the test target still
-// compiles with just the Command Line Tools, where the swift-testing suites in
-// this target can still run (see CLAUDE.md, "Running tests locally").
-// Removed once this suite is migrated to swift-testing.
-#if canImport(XCTest)
-import XCTest
+import Foundation
 import Network
 import SwiftProtobuf
+import Testing
 @testable import SwiftCentrifuge
 
 /// Tests for server-side subscriptions (subscriptions the server attaches to the
 /// connection — they come in the connect result and their events go to the client
 /// delegate). Server-side subscriptions require server configuration, so the
 /// behavior is exercised against the in-process `FakeCentrifugoServer`.
-///
-/// Run with full Xcode toolchain (XCTest is unavailable under CommandLineTools):
-///     swift test --filter ServerSubscriptionTests
-final class ServerSubscriptionTests: XCTestCase {
+@Suite(.serialized)
+final class ServerSubscriptionTests: @unchecked Sendable {
 
-    private final class ClientDelegate: CentrifugeClientDelegate {
+    private final class ClientDelegate: CentrifugeClientDelegate, @unchecked Sendable {
         var onSub: ((CentrifugeServerSubscribedEvent) -> Void)?
         var onUnsub: ((CentrifugeServerUnsubscribedEvent) -> Void)?
         var onPub: ((CentrifugeServerPublicationEvent) -> Void)?
@@ -32,14 +26,14 @@ final class ServerSubscriptionTests: XCTestCase {
         func next() -> Int { lock.lock(); defer { lock.unlock() }; n += 1; return n }
     }
 
-    private var server: FakeCentrifugoServer!
+    private let server: FakeCentrifugoServer
 
-    override func setUpWithError() throws {
+    init() throws {
         server = FakeCentrifugoServer()
         try server.start()
     }
 
-    override func tearDown() {
+    deinit {
         server.stop()
     }
 
@@ -72,41 +66,41 @@ final class ServerSubscriptionTests: XCTestCase {
         }
     }
 
-    func testServerSubUnsubscribedWhenMissingFromNextConnectResult() throws {
+    @Test func serverSubUnsubscribedWhenMissingFromNextConnectResult() throws {
         // Regression: the cleanup of server-side subscriptions absent from a
         // connect result used to be nested in the loop over the received subs, so
         // it never ran when the connect result carried no subs at all.
         serveConnects([["news"], []])
 
         let delegate = ClientDelegate()
-        let subscribed = expectation(description: "subscribed")
-        let unsubscribed = expectation(description: "unsubscribed")
+        let subscribed = Expectation("subscribed")
+        let unsubscribed = Expectation("unsubscribed")
         delegate.onSub = { event in
-            XCTAssertEqual(event.channel, "news")
+            #expect(event.channel == "news")
             subscribed.fulfill()
         }
         delegate.onUnsub = { event in
-            XCTAssertEqual(event.channel, "news")
+            #expect(event.channel == "news")
             unsubscribed.fulfill()
         }
 
         let client = makeClient(delegate: delegate)
         client.connect()
         defer { client.disconnect() }
-        wait(for: [subscribed], timeout: 5)
+        wait(for: subscribed, timeout: 5)
 
         // Reconnect: the server no longer sends the subscription.
         server.closeConnection()
-        wait(for: [unsubscribed], timeout: 8)
+        wait(for: unsubscribed, timeout: 8)
     }
 
-    func testServerSubKeptWhenPresentInNextConnectResult() throws {
+    @Test func serverSubKeptWhenPresentInNextConnectResult() throws {
         serveConnects([["news"]])
 
         let delegate = ClientDelegate()
-        let subscribed = expectation(description: "subscribed")
-        let resubscribed = expectation(description: "resubscribed")
-        let unsubscribed = expectation(description: "no unsubscribed event")
+        let subscribed = Expectation("subscribed")
+        let resubscribed = Expectation("resubscribed")
+        let unsubscribed = Expectation("no unsubscribed event")
         unsubscribed.isInverted = true
         var subCount = 0
         delegate.onSub = { _ in
@@ -118,57 +112,56 @@ final class ServerSubscriptionTests: XCTestCase {
         let client = makeClient(delegate: delegate)
         client.connect()
         defer { client.disconnect() }
-        wait(for: [subscribed], timeout: 5)
+        wait(for: subscribed, timeout: 5)
 
         server.closeConnection()
-        wait(for: [resubscribed], timeout: 8)
-        wait(for: [unsubscribed], timeout: 1)
+        wait(for: resubscribed, timeout: 8)
+        wait(for: unsubscribed, timeout: 1)
     }
 
-    func testOnlyDroppedServerSubUnsubscribed() throws {
+    @Test func onlyDroppedServerSubUnsubscribed() throws {
         serveConnects([["news", "sports"], ["news"]])
 
         let delegate = ClientDelegate()
-        let subscribed = expectation(description: "both channels subscribed")
+        // "news" is subscribed again after the reconnect, so this fires a third
+        // time; Expectation deliberately does not treat that as over-fulfilment.
+        let subscribed = Expectation("both channels subscribed")
         subscribed.expectedFulfillmentCount = 2
-        // "news" is subscribed again after the reconnect.
-        subscribed.assertForOverFulfill = false
-        let unsubscribed = expectation(description: "sports unsubscribed")
+        let unsubscribed = Expectation("sports unsubscribed")
         delegate.onSub = { _ in subscribed.fulfill() }
         delegate.onUnsub = { event in
-            XCTAssertEqual(event.channel, "sports", "only the dropped channel must be unsubscribed")
+            #expect(event.channel == "sports", "only the dropped channel must be unsubscribed")
             unsubscribed.fulfill()
         }
 
         let client = makeClient(delegate: delegate)
         client.connect()
         defer { client.disconnect() }
-        wait(for: [subscribed], timeout: 5)
+        wait(for: subscribed, timeout: 5)
 
         server.closeConnection()
-        wait(for: [unsubscribed], timeout: 8)
+        wait(for: unsubscribed, timeout: 8)
     }
 
-    func testServerSubPublicationDelivered() throws {
+    @Test func serverSubPublicationDelivered() throws {
         serveConnects([["news"]])
 
         let delegate = ClientDelegate()
-        let subscribed = expectation(description: "subscribed")
-        let published = expectation(description: "publication")
+        let subscribed = Expectation("subscribed")
+        let published = Expectation("publication")
         delegate.onSub = { _ in subscribed.fulfill() }
         delegate.onPub = { event in
-            XCTAssertEqual(event.channel, "news")
-            XCTAssertEqual(event.data, Data("{\"hello\":\"world\"}".utf8))
+            #expect(event.channel == "news")
+            #expect(event.data == Data("{\"hello\":\"world\"}".utf8))
             published.fulfill()
         }
 
         let client = makeClient(delegate: delegate)
         client.connect()
         defer { client.disconnect() }
-        wait(for: [subscribed], timeout: 5)
+        wait(for: subscribed, timeout: 5)
 
         server.publishChannel("news", Data("{\"hello\":\"world\"}".utf8))
-        wait(for: [published], timeout: 5)
+        wait(for: published, timeout: 5)
     }
 }
-#endif // canImport(XCTest)

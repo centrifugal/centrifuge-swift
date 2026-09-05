@@ -79,19 +79,23 @@ Run your application and ensure that WebSocket traffic from centrifuge-swift is 
 
 ## Running tests
 
-Tests require a full Xcode toolchain – `XCTest` is not available when only Command Line Tools are installed.
+```bash
+make test
+```
 
-Most suites talk to an in-process fake Centrifugo server and need no external dependencies. The suites which cover recovery and state loading (`GetStateTests`) need a real Centrifugo (>= 6.8.0) configured as in [docker-compose.yml](docker-compose.yml):
+The suite uses [swift-testing](https://github.com/swiftlang/swift-testing), which ships with the Swift toolchain, so a full Xcode install is not required — `make test` wires up the framework search paths when only the Command Line Tools are present, and defers to plain `swift test` when Xcode is there.
+
+Most suites talk to an in-process fake Centrifugo server and need no external dependencies. The suite which covers recovery and state loading (`GetStateTests`) needs a real Centrifugo (>= 6.8.0) configured as in [docker-compose.yml](docker-compose.yml):
 
 ```bash
 docker compose up -d
-swift test
+make test
 ```
 
 To run a single suite use a filter, for example:
 
 ```bash
-swift test --filter GetStateTests
+./scripts/test.sh --filter GetStateTests
 ```
 
 ## License

@@ -11,9 +11,6 @@ import Testing
 /// These tests pin that contract down. Each one hangs forever if the invariant
 /// breaks, so they run with a hard deadline rather than relying on the suite
 /// timing out.
-///
-/// Written with swift-testing (not XCTest) so they run without Xcode installed -
-/// see CLAUDE.md, "Running tests locally".
 @Suite(.serialized)
 struct ReentrancyTests {
 
@@ -95,8 +92,7 @@ struct ReentrancyTests {
 
     /// Regression: `setTagsFilter` hopped onto syncQueue with `sync`, so calling
     /// it from a callback already running on syncQueue deadlocked the client for
-    /// good. Duplicates a case in FilterTests, kept here because this suite runs
-    /// without Xcode.
+    /// good.
     @Test func setTagsFilterFromDelegateCallbackDoesNotDeadlock() throws {
         let server = FakeCentrifugoServer()
         try server.start()
