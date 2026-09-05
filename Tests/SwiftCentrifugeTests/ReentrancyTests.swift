@@ -11,26 +11,8 @@ import Testing
 /// These tests pin that contract down. Each one hangs forever if the invariant
 /// breaks, so they run with a hard deadline rather than relying on the suite
 /// timing out.
-///
-/// Written with swift-testing (not XCTest) so they run without Xcode installed -
-/// see CLAUDE.md, "Running tests locally".
-@Suite(.serialized)
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct ReentrancyTests {
-
-    /// Blocks up to `timeout` for `count` signals. Returns false on timeout
-    /// instead of hanging, so a deadlock surfaces as a failed expectation.
-    private final class Signal: @unchecked Sendable {
-        private let sem = DispatchSemaphore(value: 0)
-        func fire() { sem.signal() }
-        func wait(_ timeout: TimeInterval = 5, count: Int = 1) -> Bool {
-            let deadline = Date().addingTimeInterval(timeout)
-            for _ in 0..<count {
-                let left = deadline.timeIntervalSinceNow
-                if left <= 0 || sem.wait(timeout: .now() + left) == .timedOut { return false }
-            }
-            return true
-        }
-    }
 
     private final class SubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
         var onSub: ((CentrifugeSubscription) -> Void)?
@@ -50,7 +32,7 @@ struct ReentrancyTests {
     /// `moveToSubscribingUponDisconnect`, which emits `onSubscribing`. A handler
     /// calling `getSubscription` then re-took that non-recursive lock on the same
     /// thread and deadlocked the client on every transport drop.
-    @Test func registryAccessFromOnSubscribingSurvivesReconnect() throws {
+    @Test func registryAccessFromOnSubscribingSurvivesReconnect() async throws {
         let server = FakeCentrifugoServer()
         try server.start()
         defer { server.stop() }
@@ -60,44 +42,43 @@ struct ReentrancyTests {
         let d = SubDelegate()
         let sub = try client.newSubscription(channel: "market", delegate: d)
 
-        let firstSubscribe = Signal()
-        let sawSubscribing = Signal()
-        let resubscribed = Signal()
+        let firstSubscribe = Expectation("firstSubscribe")
+        let sawSubscribing = Expectation("sawSubscribing")
+        let resubscribed = Expectation("resubscribed")
         var lookedUpChannel: String?
         var registrySize = -1
 
         var subscribedCount = 0
         d.onSub = { _ in
             subscribedCount += 1
-            if subscribedCount == 1 { firstSubscribe.fire() } else { resubscribed.fire() }
+            if subscribedCount == 1 { firstSubscribe.fulfill() } else { resubscribed.fulfill() }
         }
         d.onSubscribing = { [weak client] _ in
             // The re-entrant calls under test. Both take subscriptionsLock.
             lookedUpChannel = client?.getSubscription(channel: "market")?.channel
             registrySize = client?.getSubscriptions().count ?? -1
-            sawSubscribing.fire()
+            sawSubscribing.fulfill()
         }
 
         client.connect()
         sub.subscribe()
-        #expect(firstSubscribe.wait(), "initial subscribe timed out")
+        await fulfillment(of: firstSubscribe, within: 5)  // "initial subscribe timed out"
 
         // Drop the transport: the client moves subscriptions back to .subscribing
         // and emits onSubscribing while it used to hold the registry lock.
         server.closeConnection()
-        #expect(sawSubscribing.wait(), "onSubscribing never arrived - client deadlocked on subscriptionsLock")
+        await fulfillment(of: sawSubscribing, within: 5)  // "onSubscribing never arrived - client deadlocked on subscriptionsLock"
         #expect(lookedUpChannel == "market")
         #expect(registrySize == 1)
 
         // The client must still be alive and able to complete a resubscribe.
-        #expect(resubscribed.wait(10), "client did not resubscribe after reconnect")
+        await fulfillment(of: resubscribed, within: 10)  // "client did not resubscribe after reconnect"
     }
 
     /// Regression: `setTagsFilter` hopped onto syncQueue with `sync`, so calling
     /// it from a callback already running on syncQueue deadlocked the client for
-    /// good. Duplicates a case in FilterTests, kept here because this suite runs
-    /// without Xcode.
-    @Test func setTagsFilterFromDelegateCallbackDoesNotDeadlock() throws {
+    /// good.
+    @Test func setTagsFilterFromDelegateCallbackDoesNotDeadlock() async throws {
         let server = FakeCentrifugoServer()
         try server.start()
         defer { server.stop() }
@@ -107,22 +88,22 @@ struct ReentrancyTests {
         let d = SubDelegate()
         let sub = try client.newSubscription(channel: "market", delegate: d)
 
-        let applied = Signal()
+        let applied = Expectation("applied")
         d.onSub = { s in
             try? s.setTagsFilter(CentrifugeFilter.eq("ticker", "BTC"))
-            applied.fire()
+            applied.fulfill()
         }
 
         client.connect()
         sub.subscribe()
-        #expect(applied.wait(), "setTagsFilter deadlocked the client's syncQueue")
+        await fulfillment(of: applied, within: 5)  // "setTagsFilter deadlocked the client's syncQueue"
 
         // Queue still alive, and the filter reached the next subscribe.
-        let resubscribed = Signal()
-        d.onSub = { _ in resubscribed.fire() }
+        let resubscribed = Expectation("resubscribed")
+        d.onSub = { _ in resubscribed.fulfill() }
         sub.unsubscribe()
         sub.subscribe()
-        #expect(resubscribed.wait(), "client stopped processing after setTagsFilter")
+        await fulfillment(of: resubscribed, within: 5)  // "client stopped processing after setTagsFilter"
 
         let tf = try #require(server.lastSubscribe()?.tf)
         #expect(tf.key == "ticker")

@@ -1,9 +1,5 @@
-// XCTest ships only inside Xcode.app. Guard the file so the test target still
-// compiles with just the Command Line Tools, where the swift-testing suites in
-// this target can still run (see CLAUDE.md, "Running tests locally").
-// Removed once this suite is migrated to swift-testing.
-#if canImport(XCTest)
-import XCTest
+import Foundation
+import Testing
 @testable import SwiftCentrifuge
 
 /// Integration tests for CentrifugeSubscriptionConfig.stateGetter (getState).
@@ -11,12 +7,16 @@ import XCTest
 /// docker-compose Centrifugo (>= 6.8.0) running on localhost:8000:
 ///
 ///     docker compose up -d
-///     swift test --filter GetStateTests
-final class GetStateTests: XCTestCase {
+///     make test
+///
+/// They are the only suite in the project needing anything external; everything
+/// else runs against the in-process FakeCentrifugoServer.
+@Suite(.serialized, .timeLimit(.minutes(1)))
+struct GetStateTests {
 
     private static let endpoint = "ws://localhost:8000/connection/websocket"
 
-    private final class TestSubDelegate: CentrifugeSubscriptionDelegate {
+    private final class TestSubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
         var onSubscribedHandler: ((CentrifugeSubscribedEvent) -> Void)?
         var onPublicationHandler: ((CentrifugePublicationEvent) -> Void)?
         var onErrorHandler: ((CentrifugeSubscriptionErrorEvent) -> Void)?
@@ -33,7 +33,7 @@ final class GetStateTests: XCTestCase {
     }
 
     /// Thread-safe counter — getState/delegate callbacks fire on SDK queues.
-    private final class Counter {
+    private final class Counter: @unchecked Sendable {
         private let lock = NSLock()
         private var count = 0
         func increment() -> Int {
@@ -60,18 +60,18 @@ final class GetStateTests: XCTestCase {
         return "{\"i\":\(i)}".data(using: .utf8)!
     }
 
-    private func publish(_ client: CentrifugeClient, _ channel: String, _ data: Data) {
-        let exp = expectation(description: "publish")
+    private func publish(_ client: CentrifugeClient, _ channel: String, _ data: Data) async {
+        let exp = Expectation("publish")
         client.publish(channel: channel, data: data) { result in
             if case .failure(let err) = result {
-                XCTFail("publish failed: \(err)")
+                Issue.record("publish failed: \(err)")
             }
             exp.fulfill()
         }
-        wait(for: [exp], timeout: 5)
+        await fulfillment(of: exp, within: 5)
     }
 
-    func testGetStateCalledOnInitialSubscribeAndRecovers() throws {
+    @Test func getStateCalledOnInitialSubscribeAndRecovers() async throws {
         let channel = uniqueChannel()
 
         // Publish 3 messages BEFORE subscribing.
@@ -79,7 +79,7 @@ final class GetStateTests: XCTestCase {
         publisher.connect()
         defer { publisher.disconnect() }
         for i in 1...3 {
-            publish(publisher, channel, payload(i))
+            await publish(publisher, channel, payload(i))
         }
 
         let client = newClient()
@@ -93,8 +93,8 @@ final class GetStateTests: XCTestCase {
             completion(.success(CentrifugeStreamPosition(offset: 0, epoch: "")))
         })
 
-        let subscribed = expectation(description: "subscribed")
-        let pubs = expectation(description: "3 recovered publications")
+        let subscribed = Expectation("subscribed")
+        let pubs = Expectation("3 recovered publications")
         pubs.expectedFulfillmentCount = 3
 
         let delegate = TestSubDelegate()
@@ -104,11 +104,11 @@ final class GetStateTests: XCTestCase {
         let sub = try client.newSubscription(channel: channel, delegate: delegate, config: config)
         sub.subscribe()
 
-        wait(for: [subscribed, pubs], timeout: 5)
-        XCTAssertEqual(getStateCalls.value, 1)
+        await fulfillment(of: [subscribed, pubs], within: 5)
+        #expect(getStateCalls.value == 1)
     }
 
-    func testGetStateNotCalledWhenRecoverySucceeds() throws {
+    @Test func getStateNotCalledWhenRecoverySucceeds() async throws {
         let channel = uniqueChannel()
 
         let publisher = newClient()
@@ -125,7 +125,7 @@ final class GetStateTests: XCTestCase {
             completion(.success(CentrifugeStreamPosition(offset: 0, epoch: "")))
         })
 
-        let subscribed = expectation(description: "subscribed")
+        let subscribed = Expectation("subscribed")
         let delegate = TestSubDelegate()
         delegate.onSubscribedHandler = { _ in subscribed.fulfill() }
 
@@ -142,7 +142,7 @@ final class GetStateTests: XCTestCase {
         let seenOffsetsLock = NSLock()
         var seenOffsets = Set<UInt64>()
         var sawBothOffsetsFulfilled = false
-        let sawBothOffsets = expectation(description: "both missed publications observed (live or recovered)")
+        let sawBothOffsets = Expectation("both missed publications observed (live or recovered)")
         delegate.onPublicationHandler = { event in
             seenOffsetsLock.lock()
             seenOffsets.insert(event.offset)
@@ -156,28 +156,28 @@ final class GetStateTests: XCTestCase {
 
         let sub = try client.newSubscription(channel: channel, delegate: delegate, config: config)
         sub.subscribe()
-        wait(for: [subscribed], timeout: 5)
-        XCTAssertEqual(getStateCalls.value, 1)
+        await fulfillment(of: subscribed, within: 5)
+        #expect(getStateCalls.value == 1)
 
         // Disconnect, publish while away, reconnect — SDK has a saved position
         // and recovery succeeds, so the state getter must NOT be called again.
         client.disconnect()
 
-        publish(publisher, channel, payload(1))
-        publish(publisher, channel, payload(2))
+        await publish(publisher, channel, payload(1))
+        await publish(publisher, channel, payload(2))
 
-        let resubscribed = expectation(description: "resubscribed with recovery")
+        let resubscribed = Expectation("resubscribed with recovery")
         delegate.onSubscribedHandler = { event in
-            XCTAssertTrue(event.recovered, "expected successful recovery on reconnect")
+            #expect(event.recovered, "expected successful recovery on reconnect")
             resubscribed.fulfill()
         }
 
         client.connect()
-        wait(for: [resubscribed, sawBothOffsets], timeout: 10)
-        XCTAssertEqual(getStateCalls.value, 1, "state getter must not be called when recovery succeeds")
+        await fulfillment(of: [resubscribed, sawBothOffsets], within: 10)
+        #expect(getStateCalls.value == 1, "state getter must not be called when recovery succeeds")
     }
 
-    func testGetStateErrorRetried() throws {
+    @Test func getStateErrorRetried() async throws {
         let channel = uniqueChannel()
 
         let client = newClient()
@@ -198,14 +198,14 @@ final class GetStateTests: XCTestCase {
         config.minResubscribeDelay = 0.05
         config.maxResubscribeDelay = 0.05
 
-        let subscribed = expectation(description: "subscribed after retry")
-        let gotGetStateError = expectation(description: "subscriptionGetStateError event")
+        let subscribed = Expectation("subscribed after retry")
+        let gotGetStateError = Expectation("subscriptionGetStateError event")
 
         let delegate = TestSubDelegate()
         delegate.onSubscribedHandler = { _ in subscribed.fulfill() }
         delegate.onErrorHandler = { event in
             if case CentrifugeError.subscriptionGetStateError(let err) = event.error {
-                XCTAssertTrue(err is SimulatedError)
+                #expect(err is SimulatedError)
                 gotGetStateError.fulfill()
             }
         }
@@ -215,11 +215,11 @@ final class GetStateTests: XCTestCase {
 
         // First getter call fails → error emitted → resubscribe scheduled with
         // backoff. Second call succeeds → subscribe completes.
-        wait(for: [gotGetStateError, subscribed], timeout: 5)
-        XCTAssertGreaterThanOrEqual(getStateCalls.value, 2)
+        await fulfillment(of: [gotGetStateError, subscribed], within: 5)
+        #expect(getStateCalls.value >= 2)
     }
 
-    func testGetStatePersistentFailureKeepsRetrying() throws {
+    @Test func getStatePersistentFailureKeepsRetrying() async throws {
         let channel = uniqueChannel()
 
         let client = newClient()
@@ -240,18 +240,18 @@ final class GetStateTests: XCTestCase {
         sub.subscribe()
 
         // Wait for several retry cycles.
-        let waited = expectation(description: "retry cycles")
+        let waited = Expectation("retry cycles")
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.7) { waited.fulfill() }
-        wait(for: [waited], timeout: 5)
+        await fulfillment(of: waited, within: 5)
 
         // Should have retried multiple times while staying in subscribing state.
-        XCTAssertGreaterThan(getStateCalls.value, 2)
-        XCTAssertEqual(sub.state, .subscribing)
+        #expect(getStateCalls.value > 2)
+        #expect(sub.state == .subscribing)
 
         sub.unsubscribe()
     }
 
-    func testGetStateCalledAgainOnUnrecoverablePosition() throws {
+    @Test func getStateCalledAgainOnUnrecoverablePosition() async throws {
         // Uses "smallhistory" namespace with history_size=2. After publishing
         // enough to evict old entries, reconnecting from an old position triggers
         // error 112 (unrecoverable position) because the subscribe request carries
@@ -285,40 +285,39 @@ final class GetStateTests: XCTestCase {
         config.minResubscribeDelay = 0.05
         config.maxResubscribeDelay = 0.05
 
-        let subscribed = expectation(description: "subscribed")
+        let subscribed = Expectation("subscribed")
         let delegate = TestSubDelegate()
         delegate.onSubscribedHandler = { _ in subscribed.fulfill() }
 
         let sub = try client.newSubscription(channel: channel, delegate: delegate, config: config)
         sub.subscribe()
-        wait(for: [subscribed], timeout: 5)
-        XCTAssertEqual(getStateCalls.value, 1)
+        await fulfillment(of: subscribed, within: 5)
+        #expect(getStateCalls.value == 1)
 
         // Disconnect, then publish enough messages to push the stream beyond
         // recovery (history_size=2, so 5 messages evict old entries).
         client.disconnect()
         for i in 1...5 {
-            publish(publisher, channel, payload(i))
+            await publish(publisher, channel, payload(i))
         }
 
         // Reconnect — SDK tries to recover from the old position, server returns
         // error 112, SDK resets position and calls the state getter again.
-        let resubscribed = expectation(description: "resubscribed after unrecoverable position")
+        let resubscribed = Expectation("resubscribed after unrecoverable position")
         delegate.onSubscribedHandler = { _ in resubscribed.fulfill() }
 
         client.connect()
-        wait(for: [resubscribed], timeout: 5)
-        XCTAssertEqual(getStateCalls.value, 2, "state getter must be called again after unrecoverable position")
+        await fulfillment(of: resubscribed, within: 5)
+        #expect(getStateCalls.value == 2, "state getter must be called again after unrecoverable position")
 
         // Verify live delivery works after the re-sync.
-        let livePub = expectation(description: "live publication after re-sync")
+        let livePub = Expectation("live publication after re-sync")
         delegate.onPublicationHandler = { event in
             if event.data == "{\"live\":true}".data(using: .utf8)! {
                 livePub.fulfill()
             }
         }
-        publish(publisher, channel, "{\"live\":true}".data(using: .utf8)!)
-        wait(for: [livePub], timeout: 5)
+        await publish(publisher, channel, "{\"live\":true}".data(using: .utf8)!)
+        await fulfillment(of: livePub, within: 5)
     }
 }
-#endif // canImport(XCTest)

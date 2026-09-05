@@ -1,20 +1,13 @@
-// XCTest ships only inside Xcode.app. Guard the file so the test target still
-// compiles with just the Command Line Tools, where the swift-testing suites in
-// this target can still run (see CLAUDE.md, "Running tests locally").
-// Removed once this suite is migrated to swift-testing.
-#if canImport(XCTest)
-import XCTest
+import Foundation
 import SwiftProtobuf
+import Testing
 @testable import SwiftCentrifuge
 
 /// Unit tests for the length-delimited Protobuf framing used on the wire
 /// (`CentrifugeSerializer` and its varint helper). Malformed frames are covered
 /// too: this data comes from the network, so decoding must report an error and
 /// never trap.
-///
-/// Run with full Xcode toolchain (XCTest is unavailable under CommandLineTools):
-///     swift test --filter SerializerTests
-final class SerializerTests: XCTestCase {
+@Suite struct SerializerTests {
 
     private typealias PCommand = Centrifugal_Centrifuge_Protocol_Command
     private typealias PReply = Centrifugal_Centrifuge_Protocol_Reply
@@ -30,32 +23,34 @@ final class SerializerTests: XCTestCase {
         return stream.property(forKey: .dataWrittenToMemoryStreamKey) as! Data
     }
 
-    func testReadVarintDecodesValues() throws {
-        XCTAssertEqual(try readVarint(from: Data([0x00])).value, 0)
-        XCTAssertEqual(try readVarint(from: Data([0x01])).value, 1)
-        XCTAssertEqual(try readVarint(from: Data([0x7F])).value, 127)
+    @Test func readVarintDecodesValues() throws {
+        #expect(try readVarint(from: Data([0x00])).value == 0)
+        #expect(try readVarint(from: Data([0x01])).value == 1)
+        #expect(try readVarint(from: Data([0x7F])).value == 127)
 
         let twoBytes = try readVarint(from: Data([0xAC, 0x02]))
-        XCTAssertEqual(twoBytes.value, 300)
-        XCTAssertEqual(twoBytes.length, 2)
+        #expect(twoBytes.value == 300)
+        #expect(twoBytes.length == 2)
 
         // Bytes following the varint are not consumed.
         let prefixed = try readVarint(from: Data([0x80, 0x01, 0xFF, 0xFF]))
-        XCTAssertEqual(prefixed.value, 128)
-        XCTAssertEqual(prefixed.length, 2)
+        #expect(prefixed.value == 128)
+        #expect(prefixed.length == 2)
     }
 
-    func testReadVarintThrowsOnMalformedInput() {
+    @Test func readVarintThrowsOnMalformedInput() {
         // Empty input.
-        XCTAssertThrowsError(try readVarint(from: Data()))
+        #expect(throws: (any Error).self) { try readVarint(from: Data()) }
         // Unterminated varint — every byte has the continuation bit set.
-        XCTAssertThrowsError(try readVarint(from: Data([0x80, 0x80])))
+        #expect(throws: (any Error).self) { try readVarint(from: Data([0x80, 0x80])) }
         // Longer than a length prefix can possibly be: must be rejected instead of
         // wrapping around into a bogus (possibly negative) length.
-        XCTAssertThrowsError(try readVarint(from: Data(repeating: 0x80, count: 10) + Data([0x01])))
+        #expect(throws: (any Error).self) {
+            try readVarint(from: Data(repeating: 0x80, count: 10) + Data([0x01]))
+        }
     }
 
-    func testSerializeCommandsWritesLengthDelimitedFrames() throws {
+    @Test func serializeCommandsWritesLengthDelimitedFrames() throws {
         var connect = PCommand()
         connect.id = 1
         connect.connect = Centrifugal_Centrifuge_Protocol_ConnectRequest()
@@ -72,13 +67,13 @@ final class SerializerTests: XCTestCase {
         defer { stream.close() }
         let first = try BinaryDelimited.parse(messageType: PCommand.self, from: stream)
         let second = try BinaryDelimited.parse(messageType: PCommand.self, from: stream)
-        XCTAssertEqual(first.id, 1)
-        XCTAssertTrue(first.hasConnect)
-        XCTAssertEqual(second.id, 2)
-        XCTAssertEqual(second.subscribe.channel, "test")
+        #expect(first.id == 1)
+        #expect(first.hasConnect)
+        #expect(second.id == 2)
+        #expect(second.subscribe.channel == "test")
     }
 
-    func testDeserializeCommandsParsesEveryReplyInFrame() throws {
+    @Test func deserializeCommandsParsesEveryReplyInFrame() throws {
         var first = PReply()
         first.id = 1
         var second = PReply()
@@ -93,34 +88,39 @@ final class SerializerTests: XCTestCase {
 
         let replies = try CentrifugeSerializer.deserializeCommands(data: encode([first, second, third]))
 
-        XCTAssertEqual(replies.count, 3)
-        XCTAssertEqual(replies[0].id, 1)
-        XCTAssertEqual(replies[1].id, 2)
-        XCTAssertTrue(replies[2].hasPush)
-        XCTAssertEqual(replies[2].push.channel, "test")
-        XCTAssertEqual(replies[2].push.pub.data, Data("{\"a\":1}".utf8))
+        #expect(replies.count == 3)
+        #expect(replies[0].id == 1)
+        #expect(replies[1].id == 2)
+        #expect(replies[2].hasPush)
+        #expect(replies[2].push.channel == "test")
+        #expect(replies[2].push.pub.data == Data("{\"a\":1}".utf8))
     }
 
-    func testDeserializeCommandsOnEmptyData() throws {
-        XCTAssertTrue(try CentrifugeSerializer.deserializeCommands(data: Data()).isEmpty)
+    @Test func deserializeCommandsOnEmptyData() throws {
+        #expect(try CentrifugeSerializer.deserializeCommands(data: Data()).isEmpty)
     }
 
-    func testDeserializeCommandsThrowsOnTruncatedMessage() throws {
+    @Test func deserializeCommandsThrowsOnTruncatedMessage() throws {
         var reply = PReply()
         reply.id = 1
         let data = try encode([reply])
-        XCTAssertThrowsError(try CentrifugeSerializer.deserializeCommands(data: data.dropLast()))
+        #expect(throws: (any Error).self) {
+            try CentrifugeSerializer.deserializeCommands(data: data.dropLast())
+        }
     }
 
-    func testDeserializeCommandsThrowsOnOversizedLengthPrefix() {
+    @Test func deserializeCommandsThrowsOnOversizedLengthPrefix() {
         // A 9 byte varint with all value bits set: the announced message length is
         // way beyond the data available. Must throw rather than overflow.
         let data = Data([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F])
-        XCTAssertThrowsError(try CentrifugeSerializer.deserializeCommands(data: data))
+        #expect(throws: (any Error).self) {
+            try CentrifugeSerializer.deserializeCommands(data: data)
+        }
     }
 
-    func testDeserializeCommandsThrowsOnUnterminatedLengthPrefix() {
-        XCTAssertThrowsError(try CentrifugeSerializer.deserializeCommands(data: Data([0x80, 0x80, 0x80])))
+    @Test func deserializeCommandsThrowsOnUnterminatedLengthPrefix() {
+        #expect(throws: (any Error).self) {
+            try CentrifugeSerializer.deserializeCommands(data: Data([0x80, 0x80, 0x80]))
+        }
     }
 }
-#endif // canImport(XCTest)

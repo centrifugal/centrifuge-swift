@@ -12,64 +12,97 @@ make test          # or: ./scripts/test.sh
 ./scripts/test.sh --filter Reentrancy   # extra args go to `swift test`
 ```
 
-Use this rather than bare `swift test`. The script picks a mode automatically and
-prints which one it used.
+Use this rather than bare `swift test`: without Xcode installed, SwiftPM needs
+several flags wired up by hand and the script does that. It prints which mode it
+picked. The whole suite runs in either mode.
 
-**Do not conclude the toolchain is broken if `swift test` fails with
-`no such module 'XCTest'`.** That is expected without Xcode, and the reason the
-script exists.
+`GetStateTests` is the only suite needing anything external — the docker-compose
+Centrifugo:
 
-### Why
+```sh
+docker compose up -d
+```
+
+Without it those five tests fail as bare timeouts (`Test «unknown» recorded an
+issue`), which reads like a code regression rather than a missing dependency.
+`scripts/test.sh` warns up front when nothing is listening on :8000 — believe the
+warning before you start debugging the client.
+
+Everything else runs against `FakeCentrifugoServer`, an in-process fake speaking
+the protobuf protocol over Network.framework.
+
+### Why the script exists
 
 `XCTest.framework` ships **only inside Xcode.app**. With just the Command Line
 Tools (`xcode-select -p` → `/Library/Developer/CommandLineTools`) it does not
-exist anywhere on disk and cannot be installed separately. `Testing.framework`
-(swift-testing) *does* ship with the CLT, so:
-
-| Environment | What runs |
-|---|---|
-| Xcode installed | Everything — XCTest + swift-testing (`xcrun swift test`) |
-| Command Line Tools only | swift-testing suites only; XCTest files compile out |
-
-The XCTest files are each wrapped in `#if canImport(XCTest)`, so the target still
-builds when the framework is missing. `./scripts/test.sh` prints a banner saying
-how many files were skipped.
-
-**A green local run is not a green suite** while any XCTest files remain. Push and
-let CI (macos runner, full Xcode) confirm.
-
-### Writing new tests
-
-Prefer **swift-testing** (`import Testing`, `@Test`, `#expect`, `#require`) so the
-test runs locally as well as in CI. `ReentrancyTests.swift` is the reference.
-Two things to know:
-
-- swift-testing parallelises by default. These tests bind ports and share
-  process-wide state, so annotate suites `@Suite(.serialized)`.
-- There is no `XCTestExpectation`. `ReentrancyTests.Signal` is a ~15-line
-  `DispatchSemaphore` wrapper that preserves the existing synchronous
-  "set up callback → trigger → wait" style. Always give waits a timeout, so a
-  deadlock fails the test instead of hanging the run.
-
-Migration of the remaining XCTest suites to swift-testing is tracked separately;
-once it lands, the `#if canImport(XCTest)` guards and this section's caveats go
-away.
-
-### The flags, if the script ever needs fixing
-
-Without Xcode, `swift test` needs help finding swift-testing:
+exist anywhere on disk and cannot be installed separately, which is why this
+suite uses **swift-testing** — that one does ship with the CLT. It just is not on
+the default search path, so `swift test` needs:
 
 - `--disable-xctest` — stop SwiftPM building an XCTest runner.
 - `-Xswiftc -F <CLT>/Library/Developer/Frameworks` plus the matching `-Xlinker -F`
-  and `-Xlinker -rpath` — that directory is not on the default search path.
-- `-Xswiftc -target $(uname -m)-apple-macos14.0` — `Testing.framework` is built
-  for macOS 14, and `Package.swift` deliberately declares no `platforms:` (adding
-  one would raise the deployment target for every consumer of the library). Keep
-  it a build-time override.
+  and `-Xlinker -rpath`.
+- `-Xswiftc -target $(uname -m)-apple-macos14.0` — see "Deployment target" below.
+  (This one is passed on *both* paths, Xcode included.)
 - `-Xswiftc -Xfrontend -Xswiftc -disable-cross-import-overlays` — the CLT ships
   `_Testing_Foundation.framework` **without** its `.swiftmodule`, so
   `import Testing` alongside `import Foundation` fails to resolve the cross-import
   overlay. Disabling overlays sidesteps a packaging gap, not a code problem.
+
+**Do not conclude the toolchain is broken if bare `swift test` fails with
+`no such module 'XCTest'` or `no such module 'Testing'`.** Both are expected
+without Xcode; run the script.
+
+### Deployment target
+
+`scripts/test.sh` builds the tests with `-target $(uname -m)-apple-macos14.0`, on
+both the Xcode and Command Line Tools paths. Two reasons, and both are load
+bearing: the tests are `async` and Swift concurrency needs macOS 10.15+ while the
+package's default deployment target is 10.13, and `Testing.framework` itself is
+built for macOS 14. `@available` cannot go on a `@Test` (see below), so the
+requirement cannot be expressed in the tests either.
+
+`Package.swift` deliberately declares no `platforms:` — adding one would raise
+the deployment target for every consumer of the library — so this stays a
+build-time override for tests only. CI's separate `swift build` step still
+type-checks the library at the package default.
+
+### Writing tests
+
+swift-testing only — `import Testing`, `@Test`, `#expect`, `#require`,
+`Issue.record`. Do not reintroduce XCTest; it would make the suite unrunnable
+without Xcode again. Things to know:
+
+- **Tests that wait are `async`, and waiting must never block.** swift-testing
+  runs even synchronous `@Test` bodies inside a Task on the cooperative thread
+  pool, whose width is the core count — so blocking there (`NSCondition`,
+  `DispatchSemaphore`, `Thread.sleep`) starves the pool. Use
+  `await fulfillment(of:within:)` from `TestSupport.swift`, which suspends on a
+  continuation. Never call `Thread.sleep` in a test; `Task.sleep` is fine. This
+  is what lets the suite run in parallel at all — an earlier blocking version
+  passed locally on ten cores and wedged the CI runner.
+- **`Expectation` replaces `XCTestExpectation`.** swift-testing has no
+  equivalent: `confirmation(...)` counts callbacks in a scope but does not wait
+  for them, and `.timeLimit()` is whole-minutes only. Upstream
+  swiftlang/swift-testing#789 (a `confirmation` timeout) is unmerged and issue
+  #978 was closed as not planned, so re-check before assuming a built-in exists.
+  `Expectation` supports `expectedFulfillmentCount` and `isInverted`;
+  over-fulfilment is deliberately not an error.
+- **Suites carry `.timeLimit(.minutes(1))`** as a backstop, so a wait that never
+  returns for some other reason fails instead of wedging CI. One minute is the
+  finest granularity the trait allows.
+- **`@Suite(.serialized)` is about resource pressure, not shared state.**
+  swift-testing builds a fresh suite instance per test (`deinit` runs before the
+  next `init`), so each test already gets its own `FakeCentrifugoServer` on its
+  own ephemeral port and its own client — the tests are independent. The trait
+  simply bounds how many live WebSocket clients exist at once, which costs
+  nothing (the suite runs in ~1.3s either way) in the exact area that broke CI
+  twice. Drop it if you ever need the parallelism; nothing depends on ordering.
+- **`@available` cannot be used on `@Test` or `@Suite`** — the macros reject it
+  outright, whatever version you name. Where the code under test needs a newer OS
+  (`NativeWebSocket` is macOS 10.15+), annotate the private helpers and put a
+  `guard #available(...) else { return }` at the top of each test.
+  `NativeWebSocketTLSChallengeTests` is the worked example.
 
 ## Concurrency invariants
 

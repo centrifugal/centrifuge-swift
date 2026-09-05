@@ -1,11 +1,7 @@
-// XCTest ships only inside Xcode.app. Guard the file so the test target still
-// compiles with just the Command Line Tools, where the swift-testing suites in
-// this target can still run (see CLAUDE.md, "Running tests locally").
-// Removed once this suite is migrated to swift-testing.
-#if canImport(XCTest)
-import XCTest
+import Foundation
 import Network
 import SwiftProtobuf
+import Testing
 @testable import SwiftCentrifuge
 
 /// Tests for "state invalidated" handling: unsubscribe code 2502 (per-subscription)
@@ -13,17 +9,15 @@ import SwiftProtobuf
 /// tokens (and recovery position / delta base) so a fresh token is obtained and
 /// the subscription re-syncs. Private subscription fields aren't readable, so
 /// behavior is asserted over the wire against the in-process FakeCentrifugoServer.
-///
-/// Run with full Xcode toolchain (XCTest is unavailable under CommandLineTools):
-///     swift test --filter StateInvalidationTests
-final class StateInvalidationTests: XCTestCase {
+@Suite(.serialized, .timeLimit(.minutes(1)))
+final class StateInvalidationTests: @unchecked Sendable {
 
-    private final class SubDelegate: CentrifugeSubscriptionDelegate {
+    private final class SubDelegate: CentrifugeSubscriptionDelegate, @unchecked Sendable {
         var onSub: (() -> Void)?
         func onSubscribed(_ s: CentrifugeSubscription, _ e: CentrifugeSubscribedEvent) { onSub?() }
     }
 
-    private final class ClientDelegate: CentrifugeClientDelegate {
+    private final class ClientDelegate: CentrifugeClientDelegate, @unchecked Sendable {
         var onConn: (() -> Void)?
         var onServerSub: ((CentrifugeServerSubscribedEvent) -> Void)?
         func onConnected(_ c: CentrifugeClient, _ e: CentrifugeConnectedEvent) { onConn?() }
@@ -37,14 +31,14 @@ final class StateInvalidationTests: XCTestCase {
         func count() -> Int { lock.lock(); defer { lock.unlock() }; return n }
     }
 
-    private var server: FakeCentrifugoServer!
+    private let server: FakeCentrifugoServer
 
-    override func setUpWithError() throws {
+    init() throws {
         server = FakeCentrifugoServer()
         try server.start()
     }
 
-    override func tearDown() {
+    deinit {
         server.stop()
     }
 
@@ -64,14 +58,14 @@ final class StateInvalidationTests: XCTestCase {
         server.received().last(where: { $0.hasConnect })?.connect
     }
 
-    func testUnsubscribe2502ClearsTokenAndResubscribes() throws {
+    @Test func unsubscribe2502ClearsTokenAndResubscribes() async throws {
         let client = CentrifugeClient(endpoint: server.url, config: CentrifugeClientConfig())
         client.connect()
         defer { client.disconnect() }
 
         let counter = Counter()
-        let firstSubscribed = expectation(description: "first subscribed")
-        let resubscribed = expectation(description: "resubscribed")
+        let firstSubscribed = Expectation("first subscribed")
+        let resubscribed = Expectation("resubscribed")
         var subCount = 0
         let d = SubDelegate()
         d.onSub = {
@@ -82,16 +76,16 @@ final class StateInvalidationTests: XCTestCase {
         cfg.tokenGetter = { _, completion in completion(.success("t\(counter.next())")) }
         let sub = try client.newSubscription(channel: "ch", delegate: d, config: cfg)
         sub.subscribe()
-        wait(for: [firstSubscribed], timeout: 5)
-        XCTAssertEqual(lastSubscribeToken(), "t1")
+        await fulfillment(of: firstSubscribed, within: 5)
+        #expect(lastSubscribeToken() == "t1")
 
         server.unsubscribe("ch", unsubscribedStateInvalidated, "state invalidated")
-        wait(for: [resubscribed], timeout: 5)
-        XCTAssertEqual(lastSubscribeToken(), "t2", "2502 must clear token so resubscribe fetches a fresh one")
-        XCTAssertEqual(counter.count(), 2)
+        await fulfillment(of: resubscribed, within: 5)
+        #expect(lastSubscribeToken() == "t2", "2502 must clear token so resubscribe fetches a fresh one")
+        #expect(counter.count() == 2)
     }
 
-    func testUnsubscribe2502RecoverableResubscribesUnrecovered() throws {
+    @Test func unsubscribe2502RecoverableResubscribesUnrecovered() async throws {
         // A recoverable subscription must resubscribe REQUESTING recovery from the
         // sentinel epoch "_" the server can't match → wasRecovering=true,
         // recovered=false (so the app reloads via its recovery-failure path).
@@ -106,8 +100,8 @@ final class StateInvalidationTests: XCTestCase {
         client.connect()
         defer { client.disconnect() }
 
-        let firstSubscribed = expectation(description: "first subscribed")
-        let resubscribed = expectation(description: "resubscribed")
+        let firstSubscribed = Expectation("first subscribed")
+        let resubscribed = Expectation("resubscribed")
         var subCount = 0
         let d = SubDelegate()
         d.onSub = {
@@ -116,19 +110,19 @@ final class StateInvalidationTests: XCTestCase {
         }
         let sub = try client.newSubscription(channel: "ch", delegate: d, config: CentrifugeSubscriptionConfig())
         sub.subscribe()
-        wait(for: [firstSubscribed], timeout: 5)
-        XCTAssertEqual(lastSubscribe()?.recover, false, "initial subscribe does not request recovery")
+        await fulfillment(of: firstSubscribed, within: 5)
+        #expect(lastSubscribe()?.recover == false, "initial subscribe does not request recovery")
 
         server.unsubscribe("ch", unsubscribedStateInvalidated, "state invalidated")
-        wait(for: [resubscribed], timeout: 5)
+        await fulfillment(of: resubscribed, within: 5)
 
-        let req = try XCTUnwrap(lastSubscribe())
-        XCTAssertTrue(req.recover, "resubscribe requests recovery (recover left true)")
-        XCTAssertEqual(req.epoch, "_", "resubscribe carries the unrecoverable sentinel epoch")
-        XCTAssertEqual(req.offset, 0, "resubscribe offset reset to 0")
+        let req = try #require(lastSubscribe())
+        #expect(req.recover, "resubscribe requests recovery (recover left true)")
+        #expect(req.epoch == "_", "resubscribe carries the unrecoverable sentinel epoch")
+        #expect(req.offset == 0, "resubscribe offset reset to 0")
     }
 
-    func testDisconnect3014ClearsConnTokenRefreshesAndInvalidatesSubs() throws {
+    @Test func disconnect3014ClearsConnTokenRefreshesAndInvalidatesSubs() async throws {
         let counter = Counter()
         var cfg = CentrifugeClientConfig()
         cfg.token = "c0"
@@ -136,8 +130,8 @@ final class StateInvalidationTests: XCTestCase {
         cfg.maxReconnectDelay = 0.2
         cfg.tokenGetter = { _, completion in _ = counter.next(); completion(.success("c1")) }
 
-        let firstConnected = expectation(description: "first connected")
-        let reconnected = expectation(description: "reconnected")
+        let firstConnected = Expectation("first connected")
+        let reconnected = Expectation("reconnected")
         var connCount = 0
         let cd = ClientDelegate()
         cd.onConn = {
@@ -148,8 +142,8 @@ final class StateInvalidationTests: XCTestCase {
         client.connect()
         defer { client.disconnect() }
 
-        let firstSubscribed = expectation(description: "first subscribed")
-        let resubscribed = expectation(description: "resubscribed")
+        let firstSubscribed = Expectation("first subscribed")
+        let resubscribed = Expectation("resubscribed")
         var subCount = 0
         let sd = SubDelegate()
         sd.onSub = {
@@ -160,17 +154,17 @@ final class StateInvalidationTests: XCTestCase {
         subCfg.token = "sub-token-0"
         let sub = try client.newSubscription(channel: "ch", delegate: sd, config: subCfg)
         sub.subscribe()
-        wait(for: [firstConnected, firstSubscribed], timeout: 5)
-        XCTAssertEqual(lastConnectToken(), "c0")
+        await fulfillment(of: [firstConnected, firstSubscribed], within: 5)
+        #expect(lastConnectToken() == "c0")
 
         server.disconnect(disconnectedStateInvalidated, "state invalidated")
-        wait(for: [reconnected, resubscribed], timeout: 8)
-        XCTAssertGreaterThanOrEqual(counter.count(), 1, "3014 must trigger a fresh connection token fetch")
-        XCTAssertEqual(lastConnectToken(), "c1", "reconnect must use the freshly fetched token")
-        XCTAssertEqual(lastSubscribeToken(), "", "3014 must invalidate subscription token")
+        await fulfillment(of: [reconnected, resubscribed], within: 8)
+        #expect(counter.count() >= 1, "3014 must trigger a fresh connection token fetch")
+        #expect(lastConnectToken() == "c1", "reconnect must use the freshly fetched token")
+        #expect(lastSubscribeToken() == "", "3014 must invalidate subscription token")
     }
 
-    func testDisconnect3014ResetsServerSubRecoveryPosition() throws {
+    @Test func disconnect3014ResetsServerSubRecoveryPosition() async throws {
         // Regression: server-side subscriptions cache their own recovery position
         // separately from client-side subscriptions. 3014 must reset it too, or the
         // next connect keeps requesting recovery from the pre-invalidation offset/epoch.
@@ -193,8 +187,8 @@ final class StateInvalidationTests: XCTestCase {
         cfg.minReconnectDelay = 0.05
         cfg.maxReconnectDelay = 0.2
         let cd = ClientDelegate()
-        let firstServerSub = expectation(description: "first server sub")
-        let resubscribed = expectation(description: "resubscribed after reconnect")
+        let firstServerSub = Expectation("first server sub")
+        let resubscribed = Expectation("resubscribed after reconnect")
         var subCount = 0
         cd.onServerSub = { _ in
             subCount += 1
@@ -204,16 +198,15 @@ final class StateInvalidationTests: XCTestCase {
         client.connect()
         defer { client.disconnect() }
 
-        wait(for: [firstServerSub], timeout: 5)
-        XCTAssertNil(lastConnect()?.subs["news"], "initial connect carries no server subs to recover")
+        await fulfillment(of: firstServerSub, within: 5)
+        #expect(lastConnect()?.subs["news"] == nil, "initial connect carries no server subs to recover")
 
         server.disconnect(disconnectedStateInvalidated, "state invalidated")
-        wait(for: [resubscribed], timeout: 8)
+        await fulfillment(of: resubscribed, within: 8)
 
-        let req = try XCTUnwrap(lastConnect()?.subs["news"], "reconnect must request recovery for the server-side sub")
-        XCTAssertTrue(req.recover, "recover flag left true")
-        XCTAssertEqual(req.epoch, "_", "reconnect must not carry the pre-invalidation epoch")
-        XCTAssertEqual(req.offset, 0, "reconnect must not carry the pre-invalidation offset")
+        let req = try #require(lastConnect()?.subs["news"], "reconnect must request recovery for the server-side sub")
+        #expect(req.recover, "recover flag left true")
+        #expect(req.epoch == "_", "reconnect must not carry the pre-invalidation epoch")
+        #expect(req.offset == 0, "reconnect must not carry the pre-invalidation offset")
     }
 }
-#endif // canImport(XCTest)

@@ -2,55 +2,61 @@
 #
 # Run the test suite, with or without Xcode installed.
 #
-#   ./scripts/test.sh                 # everything available in this environment
+#   ./scripts/test.sh                 # whole suite
 #   ./scripts/test.sh --filter Filter # extra args are forwarded to `swift test`
 #
-# XCTest ships only inside Xcode.app. With the Command Line Tools alone it does
-# not exist, so the XCTest suites are compiled out (`#if canImport(XCTest)`) and
-# only the swift-testing suites run. swift-testing itself does ship with the CLT,
-# it just needs its framework search path wired up by hand.
+# The suite uses swift-testing, which ships with the Command Line Tools, so it
+# runs without Xcode — it just needs its framework search paths wired up by hand.
+# With Xcode present, `swift test` already knows where to look and only the
+# deployment target below has to be set.
+#
+# Note that GetStateTests needs the docker-compose Centrifugo running:
+#   docker compose up -d
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-DEVELOPER_DIR_PATH="$(xcode-select -p 2>/dev/null || true)"
-XCTEST_FW="$DEVELOPER_DIR_PATH/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework"
-
-if [ -d "$XCTEST_FW" ]; then
-    echo "==> Xcode toolchain detected - running the full suite (XCTest + swift-testing)"
-    exec xcrun swift test "$@"
+# GetStateTests is the one suite needing a real Centrifugo. Say so up front:
+# without it those tests fail as bare timeouts that read like a code regression,
+# not like a missing dependency. A warning, not an error - a filtered run that
+# excludes GetStateTests is perfectly valid.
+if ! nc -z 127.0.0.1 8000 2>/dev/null; then
+    echo "note: nothing is listening on 127.0.0.1:8000, so GetStateTests will fail." >&2
+    echo "      start Centrifugo first with:  docker compose up -d" >&2
+    echo >&2
 fi
 
+DEVELOPER_DIR_PATH="$(xcode-select -p 2>/dev/null || true)"
 TESTING_FW="$DEVELOPER_DIR_PATH/Library/Developer/Frameworks"
+
+# The tests are async, and Swift concurrency needs macOS 10.15+ while the package
+# deliberately declares no `platforms:` (its default is 10.13, and raising it
+# would raise the deployment target for every consumer). swift-testing rejects
+# `@available` on `@Test`, so the requirement cannot be expressed in the tests
+# either - raise the target for the test build only. The library is still
+# type-checked at the package default by the separate `swift build` in CI.
+BUILD_TARGET="$(uname -m)-apple-macos14.0"
+
+if [ -d "$DEVELOPER_DIR_PATH/Platforms/MacOSX.platform" ]; then
+    echo "==> Xcode toolchain detected"
+    exec xcrun swift test -Xswiftc -target -Xswiftc "$BUILD_TARGET" "$@"
+fi
+
 if [ ! -d "$TESTING_FW/Testing.framework" ]; then
-    echo "error: neither XCTest nor swift-testing found under ${DEVELOPER_DIR_PATH:-<unset>}" >&2
+    echo "error: swift-testing not found under ${DEVELOPER_DIR_PATH:-<unset>}" >&2
     echo "       install Xcode, or refresh the Command Line Tools:" >&2
     echo "       sudo rm -rf /Library/Developer/CommandLineTools && xcode-select --install" >&2
     exit 1
 fi
 
-# Testing.framework is built for macOS 14.0. The package deliberately declares no
-# `platforms:` (that would raise the deployment target for every consumer of the
-# library), so raise it here, for this build only.
-BUILD_TARGET="$(uname -m)-apple-macos14.0"
+echo "==> Command Line Tools only - wiring up swift-testing by hand"
 
-SKIPPED="$(grep -l 'canImport(XCTest)' Tests/SwiftCentrifugeTests/*.swift 2>/dev/null | wc -l | tr -d ' ')"
-cat >&2 <<EOF
-
-  +----------------------------------------------------------------------+
-  |  Xcode not installed - PARTIAL TEST RUN                              |
-  |                                                                      |
-  |  XCTest is unavailable with the Command Line Tools, so ${SKIPPED} XCTest      |
-  |  file(s) are compiled out; only swift-testing suites run below.      |
-  |  Green here does NOT mean the whole suite is green - CI runs both.   |
-  +----------------------------------------------------------------------+
-
-EOF
-
-# The CLT ships Testing.framework but not the _Testing_Foundation cross-import
-# overlay's .swiftmodule, so `import Testing` next to `import Foundation` fails
-# to resolve it. Turn overlays off - they only add Foundation conveniences we do
-# not use.
+# --disable-xctest: nothing imports XCTest any more, and SwiftPM would otherwise
+#   look for a framework that only exists inside Xcode.app.
+# -disable-cross-import-overlays: the CLT ships _Testing_Foundation.framework
+#   without its .swiftmodule, so `import Testing` beside `import Foundation`
+#   cannot resolve the overlay. Turning overlays off sidesteps that packaging
+#   gap; they only add Foundation conveniences the suite does not use.
 exec swift test \
     --disable-xctest \
     --enable-swift-testing \
