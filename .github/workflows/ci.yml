@@ -42,7 +42,9 @@ jobs:
           cat centrifugo.log || true
           exit 1
       - name: Run tests
-        run: xcrun swift test --verbose
+        # Same entry point as local runs; picks the full XCTest + swift-testing
+        # suite here because the runner has Xcode. See CLAUDE.md.
+        run: ./scripts/test.sh --verbose
       - name: Show Centrifugo log on failure
         if: failure()
         run: cat centrifugo.log || true
