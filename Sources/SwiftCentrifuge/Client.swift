@@ -1183,7 +1183,12 @@ fileprivate extension CentrifugeClient {
         let refreshTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.config.tokenGetter != nil else { return }
-            strongSelf.config.tokenGetter?(CentrifugeConnectionTokenEvent()) { [weak self] result in
+            // Go through getConnectionToken rather than calling config.tokenGetter
+            // directly: the app completes the getter on whatever thread it likes,
+            // and everything below - failUnauthorized (which runs processDisconnect,
+            // asserted to be on syncQueue), the delegate callback, and rescheduling
+            // the refresh - is only safe on syncQueue.
+            strongSelf.getConnectionToken(completion: { [weak self] result in
                 guard let strongSelf = self else { return }
                 guard strongSelf.state == .connected else { return }
                 switch result {
@@ -1194,7 +1199,6 @@ fileprivate extension CentrifugeClient {
                     }
                     strongSelf.refreshWithToken(token: token)
                 case .failure(let error):
-                    guard let strongSelf = self else { return }
                     if let centrifugeError = error as? CentrifugeError {
                         switch centrifugeError {
                         case .unauthorized:
@@ -1204,13 +1208,20 @@ fileprivate extension CentrifugeClient {
                             break
                         }
                     }
+                    // Retry with backoff. Without rescheduling here a single failing
+                    // token getter stops the refresh loop for the entire lifetime of
+                    // the connection, and the server drops the client once the token
+                    // expires. Mirrors the subscription-level startSubscriptionRefresh,
+                    // and centrifuge-js/centrifuge-go, which both retry the same way.
+                    // Scheduled before the callout because delegate callbacks run
+                    // inline and may re-enter the client.
+                    strongSelf.startConnectionRefresh(ttl: UInt32(floor(strongSelf.getBackoffDelay(step: 0, minDelay: 5, maxDelay: 10))))
                     strongSelf.delegate?.onError(
                         strongSelf,
                         CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
                     )
-                    break
                 }
-            }
+            })
         }
         
         self.syncQueue.asyncAfter(deadline: .now() + Double(ttl), execute: refreshTask)
