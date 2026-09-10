@@ -1280,15 +1280,21 @@ fileprivate extension CentrifugeClient {
             }
         }
 
-        for resolveFunc in self.opCallbacks.values {
+        // Detach the pending callbacks before resolving them. A callback can
+        // re-enter processDisconnect synchronously (a failed unsubscribe
+        // reconnects), and that nested call must not find - and resolve a second
+        // time - the callbacks this loop has not reached yet.
+        let opCallbacks = self.opCallbacks
+        self.opCallbacks.removeAll()
+        for resolveFunc in opCallbacks.values {
             resolveFunc(CentrifugeResolveData(error: CentrifugeError.clientDisconnected, reply: nil))
         }
-        self.opCallbacks.removeAll()
-        
-        for resolveFunc in self.connectCallbacks.values {
+
+        let connectCallbacks = self.connectCallbacks
+        self.connectCallbacks.removeAll()
+        for resolveFunc in connectCallbacks.values {
             resolveFunc(CentrifugeError.clientDisconnected)
         }
-        self.connectCallbacks.removeAll()
         
         self.stopReconnect()
         self.stopWaitPing()

@@ -110,6 +110,65 @@ struct ReentrancyTests {
         #expect(tf.val == "BTC")
     }
 
+    /// Regression: `processDisconnect` resolved pending replies while iterating
+    /// `opCallbacks` and only cleared it afterwards. A pending unsubscribe fails
+    /// with `clientDisconnected` and reconnects, re-entering `processDisconnect`,
+    /// which resolved the callbacks the outer loop had not reached yet - and the
+    /// outer loop then called them again. A completion that runs twice traps if
+    /// the app bridged it to async with a checked continuation.
+    @Test func pendingRepliesResolvedOnceWhenUnsubscribeFailsOnDisconnect() async throws {
+        let server = FakeCentrifugoServer()
+        // Never reply, so these are still outstanding when the transport closes.
+        server.dropCommand = { $0.hasUnsubscribe || $0.hasRpc }
+        try server.start()
+        defer { server.stop() }
+
+        let client = makeClient(server)
+        defer { client.disconnect() }
+
+        let channels = ["a", "b", "c"]
+        let subscribed = Expectation("subscribed")
+        subscribed.expectedFulfillmentCount = channels.count
+        let d = SubDelegate()
+        d.onSub = { _ in subscribed.fulfill() }
+        let subs = try channels.map { try client.newSubscription(channel: $0, delegate: d) }
+
+        client.connect()
+        subs.forEach { $0.subscribe() }
+        await fulfillment(of: subscribed, within: 5)
+
+        // Callbacks are resolved in dictionary order, and the bug needs an RPC
+        // visited after the first unsubscribe - several of each makes that all
+        // but certain.
+        let rpcCount = 10
+        let lock = NSLock()
+        var completions = [Int](repeating: 0, count: rpcCount)
+        let completed = Expectation("every rpc completed")
+        completed.expectedFulfillmentCount = rpcCount
+        let completedTwice = Expectation("an rpc completed more than once")
+        completedTwice.isInverted = true
+
+        subs.forEach { $0.unsubscribe() }
+        for i in 0..<rpcCount {
+            client.rpc(method: "m", data: Data()) { _ in
+                lock.lock(); completions[i] += 1; let n = completions[i]; lock.unlock()
+                if n == 1 { completed.fulfill() } else { completedTwice.fulfill() }
+            }
+        }
+
+        var pending = false
+        for _ in 0..<250 where !pending {
+            let received = server.received()
+            pending = received.filter({ $0.hasUnsubscribe }).count == channels.count
+                && received.filter({ $0.hasRpc }).count == rpcCount
+            if !pending { try await Task.sleep(nanoseconds: 20_000_000) }
+        }
+        try #require(pending, "unsubscribes and rpcs never reached the server")
+
+        server.closeConnection()
+        await fulfillment(of: [completed, completedTwice], within: 2)
+    }
+
     /// `syncQueue.sync` is a deadlock waiting to happen: delegate callbacks run
     /// on that queue, so any public method using it wedges the client when called
     /// from a handler. Nothing in the library may use it.
