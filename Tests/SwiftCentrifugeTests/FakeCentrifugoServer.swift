@@ -29,6 +29,8 @@ import SwiftProtobuf
 ///       server.publishChannel("news", data)     // by channel name
 ///   - Fully control any command reply (return nil to fall through):
 ///       server.onCommand = { cmd in cmd.hasRpc ? errorReply(cmd.id) : nil }
+///   - Never reply, leaving the request pending:
+///       server.dropCommand = { cmd in cmd.hasRpc }
 ///   - Send anything the protocol allows:
 ///       server.sendPush({ var p = Push(); p.disconnect = ...; return p }())
 ///   - Drive a reconnect:        server.closeConnection()
@@ -62,6 +64,11 @@ final class FakeCentrifugoServer: @unchecked Sendable {
     /// Full override for any command — return a Reply to send, or nil to fall
     /// through to default handling.
     var onCommand: ((PCommand) -> PReply?)?
+
+    /// Swallow a command without replying — return true to drop it. The client's
+    /// request stays outstanding, e.g. so it is still pending when the connection
+    /// closes. Checked before `onCommand`; the command is still recorded.
+    var dropCommand: ((PCommand) -> Bool)?
 
     /// Customize the subscribe result per channel (default: empty result).
     var onSubscribe: ((String, PSubscribeRequest) -> PSubscribeResult)?
@@ -122,6 +129,8 @@ final class FakeCentrifugoServer: @unchecked Sendable {
 
     private func dispatch(_ conn: NWConnection, _ cmd: PCommand) {
         lock.lock(); _received.append(cmd); lock.unlock()
+
+        if dropCommand?(cmd) == true { return }
 
         if let onCommand = onCommand, let reply = onCommand(cmd) {
             send(conn, reply)
