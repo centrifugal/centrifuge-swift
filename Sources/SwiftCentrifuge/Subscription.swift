@@ -460,19 +460,28 @@ public class CentrifugeSubscription: @unchecked Sendable {
                 if let err = error {
                     switch err {
                     case CentrifugeError.replyError(let code, let message, let temporary):
-                        if temporary {
-                            let ttl = UInt32(floor((strongSelf.centrifuge!.getBackoffDelay(step: 0, minDelay: 5, maxDelay: 10))))
-                            strongSelf.startSubscriptionRefresh(ttl: ttl)
-                            return
-                        } else {
+                        if !temporary {
                             self?.processUnsubscribe(sendUnsubscribe: true, code: code, reason: message)
                             return
                         }
-                    default:
-                        let ttl = UInt32(floor((strongSelf.centrifuge!.getBackoffDelay(step: 0, minDelay: 5, maxDelay: 10))))
-                        strongSelf.startSubscriptionRefresh(ttl: ttl)
+                    case CentrifugeError.clientDisconnected:
+                        // processDisconnect fails pending replies just before it
+                        // moves this subscription to subscribing, which cancels the
+                        // refresh; the resubscribe starts a new one. Not a refresh
+                        // failure worth reporting.
                         return
+                    default:
+                        break
                     }
+                    // Retry with backoff. Scheduled before the callout because
+                    // delegate callbacks run inline and may re-enter the client.
+                    let ttl = UInt32(floor((strongSelf.centrifuge!.getBackoffDelay(step: 0, minDelay: 5, maxDelay: 10))))
+                    strongSelf.startSubscriptionRefresh(ttl: ttl)
+                    strongSelf.delegate?.onError(
+                        strongSelf,
+                        CentrifugeSubscriptionErrorEvent(error: CentrifugeError.subscriptionRefreshError(error: err))
+                    )
+                    return
                 }
                 if let res = result {
                     if res.expires {
