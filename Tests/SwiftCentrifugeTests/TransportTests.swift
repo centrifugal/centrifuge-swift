@@ -171,6 +171,34 @@ final class TransportTests: @unchecked Sendable {
         #expect(await waitUntil(3) { server.accepted > before }, "connect() after disconnect() made no attempt")
     }
 
+    /// Messages larger than 1 MiB (URLSessionWebSocketTask's default limit) are
+    /// delivered; the server decides how large a message may be.
+    @Test(arguments: [false, true])
+    func largeMessageDelivered(native: Bool) async throws {
+        let server = FakeCentrifugoServer()
+        try server.start()
+        defer { server.stop() }
+
+        let delegate = ClientDelegate()
+        let client = CentrifugeClient(endpoint: server.url, config: makeConfig(native: native), delegate: delegate)
+        client.connect()
+        defer { client.disconnect() }
+
+        let subscribed = Expectation("subscribed")
+        let published = Expectation("large publication")
+        let size = 2 * 1024 * 1024
+        let d = SubDelegate()
+        d.onSub = { subscribed.fulfill() }
+        d.onPub = { e in if e.data.count == size { published.fulfill() } }
+        let sub = try client.newSubscription(channel: "big", delegate: d)
+        sub.subscribe()
+        await fulfillment(of: subscribed, within: 5)
+
+        server.publishChannel("big", Data(repeating: 0x61, count: size))
+        await fulfillment(of: published, within: 10)
+        #expect(delegate.connectingCount == 1, "the client reconnected \(delegate.connectingCount - 1) time(s)")
+    }
+
     /// A message that ends the connection (here a disconnect push) also ends the
     /// frame it came in: the rest of the frame is not delivered.
     @Test(arguments: [false, true])

@@ -53,6 +53,9 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         log.debug("Connecting...")
 
         let task = getOrCreateSession().webSocketTask(with: request)
+        // URLSessionWebSocketTask fails any message larger than 1 MiB by default (and the
+        // connection with it). The server decides how large a message can be.
+        task.maximumMessageSize = Int(Int32.max)
         self.task = task
         doRead(task: task)
         task.resume()
