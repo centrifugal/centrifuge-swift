@@ -110,6 +110,11 @@ public class CentrifugeSubscription: @unchecked Sendable {
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var resubscribeTask: DispatchWorkItem?
     fileprivate var resubscribeAttempts: Int = 0
+    // Identifies the current subscribe attempt, or the current subscribed session.
+    // Changes on every subscribe attempt and every state change; token and state
+    // requests, subscribe replies and refresh steps check it and are dropped when
+    // they belong to an attempt or session that is over. Touched only on syncQueue.
+    fileprivate var attempt: UInt64 = 0
     
     weak var delegate: CentrifugeSubscriptionDelegate?
     var config: CentrifugeSubscriptionConfig
@@ -239,7 +244,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
         )
     }
     
-    func sendSubscribe(channel: String, token: String) {
+    func sendSubscribe(channel: String, token: String, attempt: UInt64) {
         var streamPosition = StreamPosition()
         if self.recover {
             streamPosition.offset = self.offset
@@ -258,10 +263,14 @@ public class CentrifugeSubscription: @unchecked Sendable {
         self.centrifuge?.subscribe(channel: self.channel, token: token, delta: self.delta, tagsFilter: self.tagsFilter, data: self.config.data, recover: self.recover, streamPosition: streamPosition, positioned: self.config.positioned, recoverable: self.config.recoverable, joinLeave: self.config.joinLeave, flag: flag, completion: { [weak self, weak centrifuge = self.centrifuge] res, error in
             guard let centrifuge = centrifuge else { return }
             guard let strongSelf = self else { return }
-            guard strongSelf.state == .subscribing else { return }
+            guard strongSelf.attempt == attempt, strongSelf.state == .subscribing else { return }
             
             if let err = error {
                 switch err {
+                case CentrifugeError.clientDisconnected:
+                    // The connection is gone; the subscription resubscribes once the
+                    // client is connected again. Not a subscribe failure.
+                    return
                 case CentrifugeError.replyError(let code, let message, let temporary):
                     if code == errorCodeUnrecoverablePosition && strongSelf.config.stateGetter != nil {
                         // Unrecoverable position with state getter: reset position so the
@@ -315,6 +324,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
             }
             strongSelf.callbacks.removeAll(keepingCapacity: false)
             strongSelf.state = .subscribed
+            strongSelf.attempt &+= 1
             strongSelf.resubscribeAttempts = 0
             
             if result.expires {
@@ -395,8 +405,9 @@ public class CentrifugeSubscription: @unchecked Sendable {
     private func getSubscriptionToken(channel: String, completion: @escaping (Result<String, Error>)->()) {
         self.centrifuge?.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
+            let once = CallOnce()
             strongSelf.config.tokenGetter?(CentrifugeSubscriptionTokenEvent(channel: channel)) {[weak self] result in
-                guard let strongSelf = self else { return }
+                guard once.claim(), let strongSelf = self else { return }
                 strongSelf.centrifuge?.syncQueue.async { [weak self] in
                     guard self != nil else { return }
                     completion(result)
@@ -405,22 +416,29 @@ public class CentrifugeSubscription: @unchecked Sendable {
         }
     }
     
+    private func isCurrentSession(_ attempt: UInt64) -> Bool {
+        return self.attempt == attempt && self.state == .subscribed
+    }
+
     private func startSubscriptionRefresh(ttl: UInt32) {
+        // One refresh chain per subscribed session: a new step replaces the pending
+        // one, and the chain stops at its next step once the session it was started
+        // for is over (a resubscribe starts its own chain).
+        self.refreshTask?.cancel()
+        let attempt = self.attempt
         let refreshTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.centrifuge?.syncQueue.async { [weak self] in
-                guard let strongSelf = self else { return }
-                guard strongSelf.state == .subscribed else { return }
+                guard let strongSelf = self, strongSelf.isCurrentSession(attempt) else { return }
                 strongSelf.getSubscriptionToken(channel: strongSelf.channel, completion: { [weak self] result in
-                    guard let strongSelf = self else { return }
-                    guard strongSelf.state == .subscribed else { return }
+                    guard let strongSelf = self, strongSelf.isCurrentSession(attempt) else { return }
                     switch result {
                     case .success(let token):
                         if token == "" {
                             strongSelf.failUnauthorized(sendUnsubscribe: true);
                             return
                         }
-                        strongSelf.refreshWithToken(token: token)
+                        strongSelf.refreshWithToken(token: token, attempt: attempt)
                     case .failure(let error):
                         guard strongSelf.centrifuge != nil else { return }
                         if let centrifugeError = error as? CentrifugeError {
@@ -449,13 +467,12 @@ public class CentrifugeSubscription: @unchecked Sendable {
         self.refreshTask = refreshTask
     }
     
-    func refreshWithToken(token: String) {
+    func refreshWithToken(token: String, attempt: UInt64) {
         self.centrifuge?.syncQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
+            guard let strongSelf = self, strongSelf.isCurrentSession(attempt) else { return }
             strongSelf.token = token
             strongSelf.centrifuge?.sendSubRefresh(token: token, channel: strongSelf.channel, completion: { [weak self] result, error in
-                guard let strongSelf = self else { return }
-                guard strongSelf.state == .subscribed else { return }
+                guard let strongSelf = self, strongSelf.isCurrentSession(attempt) else { return }
                 guard strongSelf.centrifuge != nil else { return }
                 if let err = error {
                     switch err {
@@ -505,15 +522,17 @@ public class CentrifugeSubscription: @unchecked Sendable {
         // position reset due to unrecoverable position error 112). On normal
         // reconnects with a valid saved position we skip the getter and let the
         // server try recovery — the getter is only called again if recovery fails.
+        self.attempt &+= 1
+        let attempt = self.attempt
         if self.config.stateGetter != nil && !self.recover {
             self.getSubscriptionState(channel: self.channel, completion: { [weak self] result in
-                guard let strongSelf = self, strongSelf.state == .subscribing else { return }
+                guard let strongSelf = self, strongSelf.attempt == attempt, strongSelf.state == .subscribing else { return }
                 switch result {
                 case .success(let position):
                     strongSelf.recover = true
                     strongSelf.offset = position.offset
                     strongSelf.epoch = position.epoch
-                    strongSelf.continueResubscribe()
+                    strongSelf.continueResubscribe(attempt: attempt)
                 case .failure(let error):
                     strongSelf.delegate?.onError(
                         strongSelf,
@@ -524,14 +543,15 @@ public class CentrifugeSubscription: @unchecked Sendable {
             })
             return
         }
-        self.continueResubscribe()
+        self.continueResubscribe(attempt: attempt)
     }
 
     private func getSubscriptionState(channel: String, completion: @escaping (Result<CentrifugeStreamPosition, Error>)->()) {
         self.centrifuge?.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
+            let once = CallOnce()
             strongSelf.config.stateGetter?(CentrifugeSubscriptionGetStateEvent(channel: channel)) { [weak self] result in
-                guard let strongSelf = self else { return }
+                guard once.claim(), let strongSelf = self else { return }
                 strongSelf.centrifuge?.syncQueue.async { [weak self] in
                     guard self != nil else { return }
                     completion(result)
@@ -540,14 +560,14 @@ public class CentrifugeSubscription: @unchecked Sendable {
         }
     }
 
-    private func continueResubscribe() {
+    private func continueResubscribe(attempt: UInt64) {
         if self.token != nil || self.config.tokenGetter != nil {
             if self.token != nil {
                 let token = self.token!
-                self.sendSubscribe(channel: self.channel, token: token)
+                self.sendSubscribe(channel: self.channel, token: token, attempt: attempt)
             } else {
                 self.getSubscriptionToken(channel: self.channel, completion: { [weak self] result in
-                    guard let strongSelf = self, strongSelf.state == .subscribing else { return }
+                    guard let strongSelf = self, strongSelf.attempt == attempt, strongSelf.state == .subscribing else { return }
                     switch result {
                     case .success(let token):
                         if token == "" {
@@ -555,8 +575,8 @@ public class CentrifugeSubscription: @unchecked Sendable {
                             return
                         }
                         strongSelf.centrifuge?.syncQueue.async { [weak self] in
-                            guard let strongSelf = self, strongSelf.state == .subscribing else { return }
-                            strongSelf.sendSubscribe(channel: strongSelf.channel, token: token)
+                            guard let strongSelf = self, strongSelf.attempt == attempt, strongSelf.state == .subscribing else { return }
+                            strongSelf.sendSubscribe(channel: strongSelf.channel, token: token, attempt: attempt)
                         }
                     case .failure(let error):
                         guard let strongSelf = self else { return }
@@ -579,7 +599,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
                 })
             }
         } else {
-            self.sendSubscribe(channel: self.channel, token: "")
+            self.sendSubscribe(channel: self.channel, token: "", attempt: attempt)
         }
     }
     
@@ -623,6 +643,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
         }
         let prevState = self.state
         self.state = .subscribing
+        self.attempt &+= 1
         self.resubscribeAttempts = 0
         self.refreshTask?.cancel()
         self.resubscribeTask?.cancel()
@@ -651,6 +672,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
             self.resubscribeTask?.cancel()
 
             self.state = .unsubscribed
+            self.attempt &+= 1
             self.resubscribeAttempts = 0
             // Channel compaction ID is no longer valid once unsubscribed.
             self.setPushId(0)
