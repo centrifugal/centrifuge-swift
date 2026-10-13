@@ -410,21 +410,26 @@ public class CentrifugeClient: @unchecked Sendable {
     
     /**
      * Say Client that Subscription should be removed from the internal registry. Subscription will be
-     * automatically unsubscribed before removing.
+     * automatically unsubscribed before removing. A removed subscription can't subscribe again (its
+     * subscribe() reports a configurationError through onError): create a new one for the channel.
+     * Removing a subscription that was already removed does nothing, also when a newer subscription of
+     * the same channel exists.
      - parameter sub: CentrifugeSubscription
      */
     public func removeSubscription(_ sub: CentrifugeSubscription) {
         subscriptionsLock.lock()
-        let removed = self.subscriptions.filter({ $0.channel == sub.channel })
-        self.subscriptions.removeAll(where: { $0.channel == sub.channel })
+        // Only this subscription: one removed before must not remove a newer
+        // subscription of the same channel.
+        let found = self.subscriptions.contains(where: { $0 === sub })
+        self.subscriptions.removeAll(where: { $0 === sub })
         subscriptionsLock.unlock()
+        guard found else { return }
         // Unsubscribe with the lock released: processUnsubscribe leads to
         // onUnsubscribed, and a handler that touches the registry would deadlock
         // on this non-recursive lock. The unsubscribe itself is queued on
         // syncQueue either way, so the observable ordering is unchanged.
-        removed.forEach { sub in
-            sub.processUnsubscribe(sendUnsubscribe: true, code: unsubscribedCodeUnsubscribeCalled, reason: "unsubscribe called")
-        }
+        sub.markRemoved()
+        sub.processUnsubscribe(sendUnsubscribe: true, code: unsubscribedCodeUnsubscribeCalled, reason: "unsubscribe called")
     }
     
     /**

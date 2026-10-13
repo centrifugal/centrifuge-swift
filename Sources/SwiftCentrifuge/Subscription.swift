@@ -115,6 +115,9 @@ public class CentrifugeSubscription: @unchecked Sendable {
     // requests, subscribe replies and refresh steps check it and are dropped when
     // they belong to an attempt or session that is over. Touched only on syncQueue.
     fileprivate var attempt: UInt64 = 0
+    // Set once the subscription is removed from the client: it can't subscribe
+    // again (the client no longer routes anything to it). Touched only on syncQueue.
+    fileprivate var removed = false
     
     weak var delegate: CentrifugeSubscriptionDelegate?
     var config: CentrifugeSubscriptionConfig
@@ -181,6 +184,14 @@ public class CentrifugeSubscription: @unchecked Sendable {
                 let strongSelf = self,
                 strongSelf.state == .unsubscribed
             else { return }
+            guard !strongSelf.removed else {
+                strongSelf.delegate?.onError(
+                    strongSelf,
+                    CentrifugeSubscriptionErrorEvent(error: CentrifugeError.configurationError(
+                        message: "subscription to \(strongSelf.channel) was removed from the client, create a new one"))
+                )
+                return
+            }
             strongSelf.log.debug("start subscribing \(strongSelf.channel)")
             strongSelf.state = .subscribing
             if strongSelf.centrifuge?.state == .connected {
@@ -706,6 +717,14 @@ public class CentrifugeSubscription: @unchecked Sendable {
         }
     }
     
+    /// Marks the subscription as removed from the client. Queued on syncQueue before
+    /// its unsubscribe, so a subscribe() made after removeSubscription() sees it.
+    func markRemoved() {
+        self.centrifuge?.syncQueue.async {
+            self.removed = true
+        }
+    }
+
     private func failUnauthorized(sendUnsubscribe: Bool) -> Void {
         self.processUnsubscribe(sendUnsubscribe: sendUnsubscribe, code: unsubscribedCodeUnauthorized, reason: "unauthorized")
     }
