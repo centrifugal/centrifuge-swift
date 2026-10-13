@@ -1391,10 +1391,14 @@ fileprivate extension CentrifugeClient {
             resolveFunc(CentrifugeResolveData(error: CentrifugeError.clientDisconnected, reply: nil))
         }
 
-        let connectCallbacks = self.connectCallbacks
-        self.connectCallbacks.removeAll()
-        for resolveFunc in connectCallbacks.values {
-            resolveFunc(CentrifugeError.clientDisconnected)
+        // Calls waiting for a connection keep waiting (within their timeout) across
+        // a reconnect; only a disconnect ends the wait, as in centrifuge-js.
+        if !reconnect {
+            let connectCallbacks = self.connectCallbacks
+            self.connectCallbacks.removeAll()
+            for resolveFunc in connectCallbacks.values {
+                resolveFunc(CentrifugeError.clientDisconnected)
+            }
         }
         
         self.stopReconnect()
