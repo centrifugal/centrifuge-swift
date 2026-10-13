@@ -497,6 +497,9 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
     private var readStack = [WSResponse]()
     private var inputQueue = [Data]()
     private var fragBuffer: Data?
+    // Size of the frame fragBuffer holds the start of, when known: until that many
+    // bytes are collected, new input is only appended to it, not parsed again.
+    private var fragNeeded = 0
     private var certValidated = false
     private var didDisconnect = false
     private var readyToWrite = false
@@ -854,14 +857,22 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
     private func dequeueInput() {
         while !inputQueue.isEmpty {
             autoreleasepool {
-                let data = inputQueue[0]
+                let data = inputQueue.removeFirst()
                 var work = data
-                if let buffer = fragBuffer {
-                    var combine = NSData(data: buffer) as Data
-                    combine.append(data)
-                    work = combine
+                if var buffer = fragBuffer {
+                    // Released first, so that the append below doesn't copy it.
                     fragBuffer = nil
+                    buffer.append(data)
+                    if buffer.count < fragNeeded {
+                        // Still not a whole frame: keep collecting. Parsing (and
+                        // copying) the collected bytes on every read made receiving a
+                        // large message quadratic in its size.
+                        fragBuffer = buffer
+                        return
+                    }
+                    work = buffer
                 }
+                fragNeeded = 0
                 let buffer = UnsafeRawPointer((work as NSData).bytes).assumingMemoryBound(to: UInt8.self)
                 let length = work.count
                 if !isConnected {
@@ -869,7 +880,6 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
                 } else {
                     processRawMessagesInBuffer(buffer, bufferLen: length)
                 }
-                inputQueue = inputQueue.filter{ $0 != data }
             }
         }
     }
@@ -1128,6 +1138,14 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
                 return emptyBuffer()
             }
             var dataLength = UInt64(payloadLen)
+            let extendedLengthSize = dataLength == 127 ? MemoryLayout<UInt64>.size : (dataLength == 126 ? MemoryLayout<UInt16>.size : 0)
+            if bufferLen < offset + extendedLengthSize {
+                // The frame's length is not all here yet (a header split across
+                // reads): wait for more input before reading it.
+                fragBuffer = Data(bytes: baseAddress, count: bufferLen)
+                fragNeeded = 0
+                return emptyBuffer()
+            }
             if dataLength == 127 {
                 dataLength = WebSocket.readUint64(baseAddress, offset: offset)
                 offset += MemoryLayout<UInt64>.size
@@ -1135,8 +1153,9 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
                 dataLength = UInt64(WebSocket.readUint16(baseAddress, offset: offset))
                 offset += MemoryLayout<UInt16>.size
             }
-            if bufferLen < offset || UInt64(bufferLen - offset) < dataLength {
+            if UInt64(bufferLen - offset) < dataLength {
                 fragBuffer = Data(bytes: baseAddress, count: bufferLen)
+                fragNeeded = dataLength < UInt64(Int.max - offset) ? offset + Int(dataLength) : Int.max
                 return emptyBuffer()
             }
             var len = dataLength

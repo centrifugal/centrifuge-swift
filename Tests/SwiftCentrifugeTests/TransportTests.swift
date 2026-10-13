@@ -255,4 +255,93 @@ final class TransportTests: @unchecked Sendable {
             client.disconnect()
         }
     }
+
+    /// Receiving a large message takes time linear in its size (it was quadratic
+    /// on the Starscream transport: 8 MB took seconds).
+    @Test(arguments: [false, true])
+    func largeMessageReceivedQuickly(native: Bool) async throws {
+        let server = FakeCentrifugoServer()
+        try server.start()
+        defer { server.stop() }
+
+        let client = CentrifugeClient(endpoint: server.url, config: makeConfig(native: native))
+        client.connect()
+        defer { client.disconnect() }
+
+        let subscribed = Expectation("subscribed")
+        let published = Expectation("large publication")
+        let size = 16 * 1024 * 1024
+        let d = SubDelegate()
+        d.onSub = { subscribed.fulfill() }
+        d.onPub = { e in if e.data.count == size { published.fulfill() } }
+        let sub = try client.newSubscription(channel: "big", delegate: d)
+        sub.subscribe()
+        await fulfillment(of: subscribed, within: 5)
+
+        server.publishChannel("big", Data(repeating: 0x61, count: size))
+        await fulfillment(of: published, within: 3)
+    }
+
+    /// A frame whose header is split across reads (a complete frame and the first
+    /// bytes of the next one arrive together, the rest later) is delivered once the
+    /// rest arrives. The header's length must not be read before it's all there.
+    @Test(arguments: [300, 70000], [2, 3, 5, 9])
+    func frameHeaderSplitAcrossReads(size: Int, split: Int) async throws {
+        let server = RawWebSocketServer()
+        let prefixSize = Locked(0)
+        server.onCommand = { cmd in
+            guard cmd.hasConnect else { return }
+            var result = Centrifugal_Centrifuge_Protocol_ConnectResult()
+            result.client = "raw-client"
+            result.data = Data(repeating: 0x61, count: size)
+            var reply = RawWebSocketServer.PReply()
+            reply.id = cmd.id
+            reply.connect = result
+            // A complete frame first: a message push of the current prefix size.
+            var first = RawWebSocketServer.PReply()
+            first.push.message.data = Data(repeating: 0x62, count: prefixSize.get)
+            let head = RawWebSocketServer.frame(RawWebSocketServer.payload([first]))
+            let frame = RawWebSocketServer.frame(RawWebSocketServer.payload([reply]))
+            server.write(head + frame.prefix(split))
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+                server.write(frame.dropFirst(split))
+            }
+        }
+        try server.start()
+        defer { server.stop() }
+
+        final class Delegate: CentrifugeClientDelegate, @unchecked Sendable {
+            let count = Locked(0)
+            let size: Int
+            init(size: Int) { self.size = size }
+            func onConnected(_ c: CentrifugeClient, _ e: CentrifugeConnectedEvent) {
+                if e.data?.count == size { count.set(count.get + 1) }
+            }
+        }
+        let delegate = Delegate(size: size)
+        var cfg = makeConfig(native: false)
+        cfg.timeout = 3
+        let client = CentrifugeClient(endpoint: server.url, config: cfg, delegate: delegate)
+        defer { client.disconnect() }
+        var expected = 0
+        for prefix in [0, 200, 1500] {
+            for _ in 0..<3 {
+                prefixSize.set(prefix)
+                expected += 1
+                client.connect()
+                let ok = await waitUntil(1.5) { delegate.count.get == expected }
+                #expect(ok, "connect reply not delivered (prefix \(prefix))")
+                if !ok { return }
+                client.disconnect()
+            }
+        }
+    }
+
+    private final class Locked<T>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: T
+        init(_ value: T) { self.value = value }
+        var get: T { lock.lock(); defer { lock.unlock() }; return value }
+        func set(_ v: T) { lock.lock(); value = v; lock.unlock() }
+    }
 }
