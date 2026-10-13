@@ -734,6 +734,11 @@ internal extension CentrifugeClient {
         self.processDisconnect(code: code, reason: reason, reconnect: true)
     }
 
+    /// Disconnects for good on a stream the client can't process.
+    func failBadProtocol(reason: String) {
+        self.processDisconnect(code: disconnectCodeBadProtocol, reason: reason, reconnect: false)
+    }
+
     // Update the channel compaction registry for a subscription: remove the old
     // numeric ID mapping (only if it still points to this subscription) and
     // register the new one. Either ID may be 0 meaning "no mapping". Called on

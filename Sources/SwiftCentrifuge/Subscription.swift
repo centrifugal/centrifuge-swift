@@ -369,21 +369,36 @@ public class CentrifugeSubscription: @unchecked Sendable {
     }
     
     func handlePublication(pub: Centrifugal_Centrifuge_Protocol_Publication) {
+        guard self.state == .subscribed else { return }
         var info: CentrifugeClientInfo? = nil;
         if pub.hasInfo {
             info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
         }
-        let event = CentrifugePublicationEvent(data: applyDelta(pub: pub), offset: pub.offset, tags: pub.tags, info: info)
+        guard let data = applyDelta(pub: pub) else {
+            // A delta that can't be applied (no base to apply it to, or a corrupt
+            // one) means the stream from the server is broken. As in centrifuge-js,
+            // where the exception thrown by applying it ends message handling: the
+            // client disconnects with "bad protocol" and doesn't reconnect. The
+            // publication is not delivered and the position doesn't move.
+            self.log.error("can't apply delta publication in channel \(self.channel)")
+            self.centrifuge?.failBadProtocol(reason: "exception during message handling: can't apply delta")
+            return
+        }
+        let event = CentrifugePublicationEvent(data: data, offset: pub.offset, tags: pub.tags, info: info)
         if pub.offset > 0 {
             self.setOffset(offset: pub.offset)
         }
         self.delegate?.onPublication(self, event)
     }
 
-    private func applyDelta(pub: Centrifugal_Centrifuge_Protocol_Publication) -> Data {
+    /// The publication's payload with its delta applied, or nil when the delta
+    /// can't be applied.
+    private func applyDelta(pub: Centrifugal_Centrifuge_Protocol_Publication) -> Data? {
         var eventData = pub.data
         if pub.delta && self.deltaNegotiated {
-            let data = try! DeltaFossil.applyDelta(source: prevValue!, delta: pub.data)
+            guard let base = prevValue, let data = try? DeltaFossil.applyDelta(source: base, delta: pub.data) else {
+                return nil
+            }
             eventData = data
             self.prevValue = data
         } else if deltaNegotiated {
