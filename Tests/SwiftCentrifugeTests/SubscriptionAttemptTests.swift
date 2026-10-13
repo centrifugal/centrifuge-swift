@@ -232,4 +232,35 @@ final class SubscriptionAttemptTests: @unchecked Sendable {
         await fulfillment(of: subscribed, within: 5)
         #expect(d.errorList.isEmpty, "errors: \(d.errorList)")
     }
+
+    /// An unsubscribe still pending when the connection is lost fails with the
+    /// teardown; that failure doesn't count as one more reconnect: the first retry
+    /// uses the first backoff step.
+    @Test func unsubscribeFailedByTeardownDoesNotReconnectAgain() async throws {
+        server.dropCommand = { cmd in cmd.hasUnsubscribe }
+        var cfg = CentrifugeClientConfig()
+        cfg.minReconnectDelay = 5
+        cfg.maxReconnectDelay = 20
+        let delegate = ClientDelegate()
+        let client = CentrifugeClient(endpoint: server.url, config: cfg, delegate: delegate)
+        client.connect()
+        defer { client.disconnect() }
+
+        let d = SubDelegate()
+        let sub = try client.newSubscription(channel: "ch", delegate: d)
+        sub.subscribe()
+        #expect(await waitUntil(3) { d.subscribedCount == 1 })
+        sub.unsubscribe()
+        #expect(await waitUntil(3) { self.server.received().contains(where: \.hasUnsubscribe) })
+
+        server.closeConnection()
+        try await Task.sleep(nanoseconds: 300_000_000)
+        #expect(client.state == .connecting)
+        #expect(reconnectAttempts(client) == 1)
+    }
+
+    private func reconnectAttempts(_ client: CentrifugeClient) -> Int? {
+        Mirror(reflecting: client).children.first { $0.label == "reconnectAttempts" }?.value as? Int
+    }
 }
+

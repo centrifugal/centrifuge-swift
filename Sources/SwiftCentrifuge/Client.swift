@@ -690,8 +690,12 @@ internal extension CentrifugeClient {
     func unsubscribe(sub: CentrifugeSubscription) {
         let channel = sub.channel
         if self.state == .connected {
+            let transportId = self.transportId
             self.sendUnsubscribe(channel: channel, completion: { [weak self] _, error in
-                guard let strongSelf = self else { return }
+                // Only for the connection it was sent on: when that connection is
+                // gone (the teardown fails pending commands), so is the subscription
+                // on the server.
+                guard let strongSelf = self, strongSelf.transportId == transportId else { return }
                 if let _ = error {
                     strongSelf.reconnect(
                         code: connectingCodeUnsubscribeError, reason: "unsubscribe error")

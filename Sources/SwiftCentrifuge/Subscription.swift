@@ -321,7 +321,10 @@ public class CentrifugeSubscription: @unchecked Sendable {
                     }
                 case CentrifugeError.timeout:
                     strongSelf.emitSubscribeError(err: err)
-                    centrifuge.syncQueue.async { [weak centrifuge = centrifuge] in
+                    centrifuge.syncQueue.async { [weak self, weak centrifuge = centrifuge] in
+                        // Not if the connection the subscribe was sent on is gone
+                        // meanwhile (its teardown starts a new attempt).
+                        guard let strongSelf = self, strongSelf.attempt == attempt else { return }
                         centrifuge?.reconnect(code: connectingCodeSubscribeTimeout, reason: "subscribe timeout")
                     }
                     return
@@ -408,8 +411,11 @@ public class CentrifugeSubscription: @unchecked Sendable {
     }
 
     private func scheduleResubscribe(zeroDelay: Bool = false) {
+        // For the attempt that failed: once another attempt started (or the state
+        // changed), this retry is not needed anymore.
+        let attempt = self.attempt
         self.centrifuge?.syncQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
+            guard let strongSelf = self, strongSelf.attempt == attempt else { return }
             guard strongSelf.state == .subscribing else { return }
             guard strongSelf.centrifuge != nil else { return }
             var delay = strongSelf.centrifuge!.getBackoffDelay(
@@ -425,10 +431,10 @@ public class CentrifugeSubscription: @unchecked Sendable {
             strongSelf.resubscribeAttempts += 1
             strongSelf.resubscribeTask?.cancel()
             strongSelf.resubscribeTask = DispatchWorkItem { [weak self] in
-                guard let strongSelf = self else { return }
+                guard let strongSelf = self, strongSelf.attempt == attempt else { return }
                 guard strongSelf.state == .subscribing else { return }
                 strongSelf.centrifuge?.syncQueue.async { [weak self] in
-                    guard let strongSelf = self else { return }
+                    guard let strongSelf = self, strongSelf.attempt == attempt else { return }
                     guard strongSelf.state == .subscribing else { return }
                     if strongSelf.centrifuge?.state == .connected {
                         strongSelf.log.debug("resubscribing on \(strongSelf.channel)")
