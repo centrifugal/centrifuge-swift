@@ -550,13 +550,12 @@ public class CentrifugeClient: @unchecked Sendable {
 
 internal extension CentrifugeClient {
     
-    func refreshWithToken(token: String) {
+    func refreshWithToken(token: String, transportId: UInt64) {
         self.syncQueue.async { [weak self] in
-            guard let strongSelf = self else { return }
+            guard let strongSelf = self, strongSelf.isCurrentConnection(transportId) else { return }
             strongSelf.token = token
             strongSelf.sendRefresh(token: token, completion: { [weak self] result, error in
-                guard let strongSelf = self else { return }
-                guard strongSelf.state == .connected else { return }
+                guard let strongSelf = self, strongSelf.isCurrentConnection(transportId) else { return }
                 if let err = error {
                     defer {
                         strongSelf.delegate?.onError(
@@ -587,6 +586,11 @@ internal extension CentrifugeClient {
         }
     }
     
+    /// Whether the client is still connected over the transport with this id.
+    func isCurrentConnection(_ transportId: UInt64) -> Bool {
+        return self.transportId == transportId && self.state == .connected
+    }
+
     func getBackoffDelay(step: Int, minDelay: Double, maxDelay: Double) -> Double {
         // Full jitter technique, details:
         // https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
@@ -633,8 +637,9 @@ internal extension CentrifugeClient {
     func getConnectionToken(completion: @escaping (Result<String, Error>)->()) {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
+            let once = CallOnce()
             strongSelf.config.tokenGetter?(CentrifugeConnectionTokenEvent()) { [weak self] result in
-                guard let strongSelf = self else { return }
+                guard once.claim(), let strongSelf = self else { return }
                 strongSelf.syncQueue.async { [weak self] in
                     guard self != nil else { return }
                     completion(result)
@@ -797,46 +802,46 @@ fileprivate extension CentrifugeClient {
 
         guard self.state == .connecting else { return }
 
-        if config.tokenGetter != nil && (refreshRequired || token == "") {
-            getConnectionToken(completion: { [weak self] result in
-                guard let strongSelf = self, strongSelf.state == .connecting else { return }
-                switch result {
-                    case .success(let token):
-                        strongSelf.syncQueue.async { [weak self] in
-                            guard let strongSelf = self, strongSelf.state == .connecting else { return }
-                            strongSelf.token = token
-                            strongSelf.refreshRequired = false
-                            strongSelf.sendConnect(completion: { [weak self] res, error in
-                                guard let strongSelf = self else { return }
-                                strongSelf.handleConnectResult(res: res, error: error)
-                            })
-                        }
-                    case .failure(let error):
-                        guard let strongSelf = self else { return }
-                        if let centrifugeError = error as? CentrifugeError {
-                            switch centrifugeError {
-                            case .unauthorized:
-                                strongSelf.failUnauthorized();
-                                return
-                            default:
-                                break
-                            }
-                        }
-                        strongSelf.delegate?.onError(
-                            strongSelf,
-                            CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
-                        )
-                        strongSelf.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
-                        return
-                }
-            })
-        } else {
-            sendConnect(completion: { [weak self] res, error in
-                guard let strongSelf = self else { return }
-                guard strongSelf.state == .connecting else { return }
-                strongSelf.handleConnectResult(res: res, error: error)
-            })
+        // Continuations below act only for the transport they were started for: after
+        // a disconnect() + connect() or a reconnect they belong to an attempt that is
+        // over, even though the client is connecting again.
+        let transportId = self.transportId
+
+        guard config.tokenGetter != nil && (refreshRequired || token == "") else {
+            sendConnect(transportId: transportId)
+            return
         }
+        getConnectionToken(completion: { [weak self] result in
+            guard let strongSelf = self, strongSelf.transportId == transportId, strongSelf.state == .connecting else { return }
+            switch result {
+                case .success(let token):
+                    strongSelf.token = token
+                    strongSelf.refreshRequired = false
+                    strongSelf.sendConnect(transportId: transportId)
+                case .failure(let error):
+                    if let centrifugeError = error as? CentrifugeError {
+                        switch centrifugeError {
+                        case .unauthorized:
+                            strongSelf.failUnauthorized();
+                            return
+                        default:
+                            break
+                        }
+                    }
+                    strongSelf.delegate?.onError(
+                        strongSelf,
+                        CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
+                    )
+                    strongSelf.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
+            }
+        })
+    }
+
+    func sendConnect(transportId: UInt64) {
+        sendConnect(completion: { [weak self] res, error in
+            guard let strongSelf = self, strongSelf.transportId == transportId, strongSelf.state == .connecting else { return }
+            strongSelf.handleConnectResult(res: res, error: error)
+        })
     }
     
     func handleConnectResult(res: Centrifugal_Centrifuge_Protocol_ConnectResult?, error: Error?) {
@@ -1203,8 +1208,14 @@ fileprivate extension CentrifugeClient {
     }
     
     private func startConnectionRefresh(ttl: UInt32) {
+        // One refresh chain per connection: a new step replaces the pending one, and
+        // the chain stops at its next step once the connection it was started for is
+        // gone - a token request or refresh command still in flight across a
+        // reconnect must not start a second chain on the new connection.
+        self.refreshTask?.cancel()
+        let transportId = self.transportId
         let refreshTask = DispatchWorkItem { [weak self] in
-            guard let strongSelf = self else { return }
+            guard let strongSelf = self, strongSelf.isCurrentConnection(transportId) else { return }
             guard strongSelf.config.tokenGetter != nil else { return }
             // Go through getConnectionToken rather than calling config.tokenGetter
             // directly: the app completes the getter on whatever thread it likes,
@@ -1212,15 +1223,14 @@ fileprivate extension CentrifugeClient {
             // asserted to be on syncQueue), the delegate callback, and rescheduling
             // the refresh - is only safe on syncQueue.
             strongSelf.getConnectionToken(completion: { [weak self] result in
-                guard let strongSelf = self else { return }
-                guard strongSelf.state == .connected else { return }
+                guard let strongSelf = self, strongSelf.isCurrentConnection(transportId) else { return }
                 switch result {
                 case .success(let token):
                     if token == "" {
                         strongSelf.failUnauthorized();
                         return
                     }
-                    strongSelf.refreshWithToken(token: token)
+                    strongSelf.refreshWithToken(token: token, transportId: transportId)
                 case .failure(let error):
                     if let centrifugeError = error as? CentrifugeError {
                         switch centrifugeError {

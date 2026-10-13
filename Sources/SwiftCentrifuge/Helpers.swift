@@ -116,3 +116,19 @@ func assertIsOnQueue(_ queue: DispatchQueue) {
     }
 #endif
 }
+
+/// Lets only the first of several calls through. The completion handlers given to
+/// app callbacks (token and state getters) may be called more than once, from any
+/// thread; only the first call counts.
+final class CallOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var called = false
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if called { return false }
+        called = true
+        return true
+    }
+}
