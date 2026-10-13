@@ -13,7 +13,11 @@ protocol WebSocketInterface: AnyObject {
     var onDisconnect: ((CentrifugeDisconnectOptions, Error?) -> Void)? { get set }
     var onData: ((Data) -> Void)? { get set }
 
+    /// Starts opening the connection. A transport object is used for one connection
+    /// attempt only: `connect()` is called once.
     func connect()
-    func disconnect()
+    /// Closes the connection, or aborts the attempt in progress. The transport calls
+    /// none of its callbacks afterwards.
+    func close()
     func write(data: Data)
 }

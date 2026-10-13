@@ -45,7 +45,7 @@ public struct CentrifugeClientConfig {
 
     /// Initializes the configuration with the provided parameters.
     /// - Parameters:
-    ///   - timeout: Timeout for server responses, in seconds
+    ///   - timeout: Timeout for server responses and for opening the connection (the WebSocket handshake), in seconds
     ///   - headers: Custom headers to include in requests
     ///   - tlsSkipVerify: Flag to skip TLS certificate verification
     ///   - minReconnectDelay: Minimum delay before attempting reconnection, in seconds
@@ -99,7 +99,8 @@ public struct CentrifugeClientConfig {
         self.tlsChallengeHandler = tlsChallengeHandler
     }
 
-    /// Timeout for server responses, in seconds.
+    /// Timeout for server responses and for opening the connection (the WebSocket
+    /// handshake), in seconds.
     public var timeout: Double
 
     /// Custom headers to include in requests.
@@ -173,11 +174,10 @@ public struct CentrifugeClientConfig {
     /// blocking this queue waiting for it.
     /// - Warning: Call the completion handler exactly once, on every code path, including
     /// error paths — e.g. `completionHandler(.cancelAuthenticationChallenge, nil)` to fail the
-    /// connection deliberately. There is no timeout: if it's never called, the connection
-    /// attempt hangs indefinitely, with no error, no disconnect event, and no other
-    /// diagnostic. If your decision logic depends on something that might stall (a network
-    /// call to check a pin set, etc.), guard it with your own timeout and call the completion
-    /// handler on expiry. Same behavior as `tokenGetter`.
+    /// connection deliberately. If it's not called within `timeout`, the connection attempt
+    /// fails with a transport timeout error and the client retries, so a handler that may
+    /// stall (a network call to check a pin set, etc.) should still call the completion
+    /// handler on every path.
     public var tlsChallengeHandler: CentrifugeTLSChallengeHandler?
 
 }
@@ -206,11 +206,10 @@ public typealias URLSessionConfigurationProvider = (() -> URLSessionConfiguratio
 /// work (e.g. a network call) elsewhere and call it once that resolves.
 /// - Warning: Call the completion handler exactly once, on every code path, including error
 /// paths — e.g. `completionHandler(.cancelAuthenticationChallenge, nil)` to fail the
-/// connection deliberately. There is no timeout: if it's never called, the connection attempt
-/// hangs indefinitely, with no error, no disconnect event, and no other diagnostic. If your
-/// decision logic depends on something that might stall (a network call to check a pin set,
-/// etc.), guard it with your own timeout and call the completion handler on expiry. Same
-/// behavior as `tokenGetter`.
+/// connection deliberately. If it's not called within `timeout`, the connection attempt fails
+/// with a transport timeout error and the client retries, so a handler that may stall (a
+/// network call to check a pin set, etc.) should still call the completion handler on every
+/// path.
 public typealias CentrifugeTLSChallengeHandler = (
     _ challenge: URLAuthenticationChallenge,
     _ completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
@@ -232,7 +231,13 @@ public class CentrifugeClient: @unchecked Sendable {
     
     //MARK -
     fileprivate(set) var internalState: CentrifugeClientState = .disconnected
+    fileprivate var request: URLRequest
+    // The transport of the current connection attempt, nil when there is none. Every
+    // attempt gets a new transport object; transportId identifies it, and callbacks of a
+    // transport that is no longer current are ignored.
     fileprivate var conn: WebSocketInterface?
+    fileprivate var transportId: UInt64 = 0
+    fileprivate var openTimeoutTask: DispatchWorkItem?
     fileprivate var client: String?
     fileprivate var token: String?
     fileprivate var data: Data?
@@ -295,17 +300,10 @@ public class CentrifugeClient: @unchecked Sendable {
             request.addValue(value, forHTTPHeaderField: key)
         }
 
-        let ws: WebSocketInterface
+        self.request = request
+
         if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *), config.useNativeWebSocket {
             log.info("Using NativeWebSocket")
-            ws = NativeWebSocket(
-                request: request,
-                urlSessionConfigurationProvider: config.urlSessionConfigurationProvider,
-                tlsSkipVerify: config.tlsSkipVerify,
-                tlsChallengeHandler: config.tlsChallengeHandler,
-                queue: syncQueue,
-                log: log
-            )
         } else {
             // Either useNativeWebSocket is off, or the OS is too old for
             // URLSessionWebSocketTask (iOS < 13.0 and equivalents).
@@ -313,42 +311,7 @@ public class CentrifugeClient: @unchecked Sendable {
             if config.tlsChallengeHandler != nil {
                 log.warning("tlsChallengeHandler is set but has no effect on the Starscream transport")
             }
-            ws = StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
         }
-
-        ws.onConnect = { [weak self] in
-            guard let strongSelf = self else { return }
-            strongSelf.log.trace("WebSocket connected")
-            strongSelf.onTransportOpen()
-        }
-        ws.onDisconnect = { [weak self] disconnect, error in
-            guard let strongSelf = self else { return }
-            strongSelf.log.trace("WebSocket disconnected")
-            assertIsOnQueue(strongSelf.syncQueue)
-
-            if strongSelf.state == .disconnected {
-                return
-            }
-
-            if strongSelf.state == .connecting, let error = error {
-                strongSelf.delegate?.onError(
-                    strongSelf,
-                    CentrifugeErrorEvent(error: CentrifugeError.transportError(error: error))
-                )
-            }
-
-            if strongSelf.state != .disconnected {
-                strongSelf.processDisconnect(code: disconnect.code, reason: disconnect.reason, reconnect: disconnect.reconnect)
-            }
-
-            if strongSelf.state == .connecting {
-                strongSelf.scheduleReconnect()
-            }
-        }
-        ws.onData = { [weak self] data in
-            self?.onData(data: data)
-        }
-        self.conn = ws
     }
     
     /**
@@ -363,7 +326,7 @@ public class CentrifugeClient: @unchecked Sendable {
             strongSelf.state = .connecting
             strongSelf.delegate?.onConnecting(strongSelf, CentrifugeConnectingEvent(code: connectingCodeConnectCalled, reason: "connect called"))
             strongSelf.reconnectAttempts = 0
-            strongSelf.conn?.connect()
+            strongSelf.openTransport()
         }
     }
     
@@ -746,6 +709,89 @@ internal extension CentrifugeClient {
 }
 
 fileprivate extension CentrifugeClient {
+    func makeTransport() -> WebSocketInterface {
+        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *), config.useNativeWebSocket {
+            return NativeWebSocket(
+                request: request,
+                urlSessionConfigurationProvider: config.urlSessionConfigurationProvider,
+                tlsSkipVerify: config.tlsSkipVerify,
+                tlsChallengeHandler: config.tlsChallengeHandler,
+                queue: syncQueue,
+                log: log
+            )
+        }
+        return StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
+    }
+
+    /// Starts a connection attempt on a new transport. Opening it is limited by
+    /// `config.timeout`, like the commands sent over it.
+    func openTransport() {
+        assertIsOnQueue(syncQueue)
+        closeTransport()
+
+        let ws = makeTransport()
+        let id = self.transportId
+        ws.onConnect = { [weak self] in
+            guard let strongSelf = self, strongSelf.transportId == id else { return }
+            strongSelf.log.trace("WebSocket connected")
+            strongSelf.openTimeoutTask?.cancel()
+            strongSelf.openTimeoutTask = nil
+            strongSelf.onTransportOpen()
+        }
+        ws.onDisconnect = { [weak self] disconnect, error in
+            guard let strongSelf = self, strongSelf.transportId == id else { return }
+            strongSelf.log.trace("WebSocket disconnected")
+            assertIsOnQueue(strongSelf.syncQueue)
+            strongSelf.closeTransport()
+
+            if strongSelf.state == .disconnected {
+                return
+            }
+
+            if strongSelf.state == .connecting, let error = error {
+                strongSelf.delegate?.onError(
+                    strongSelf,
+                    CentrifugeErrorEvent(error: CentrifugeError.transportError(error: error))
+                )
+            }
+
+            strongSelf.processDisconnect(code: disconnect.code, reason: disconnect.reason, reconnect: disconnect.reconnect)
+        }
+        ws.onData = { [weak self] data in
+            guard let strongSelf = self, strongSelf.transportId == id else { return }
+            strongSelf.onData(data: data)
+        }
+        self.conn = ws
+
+        let openTimeoutTask = DispatchWorkItem { [weak self] in
+            guard let strongSelf = self, strongSelf.transportId == id else { return }
+            strongSelf.log.debug("transport open timeout")
+            strongSelf.closeTransport()
+            guard strongSelf.state == .connecting else { return }
+            strongSelf.delegate?.onError(
+                strongSelf,
+                CentrifugeErrorEvent(error: CentrifugeError.transportError(error: CentrifugeError.timeout))
+            )
+            strongSelf.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
+        }
+        self.openTimeoutTask = openTimeoutTask
+        self.syncQueue.asyncAfter(deadline: .now() + self.config.timeout, execute: openTimeoutTask)
+
+        ws.connect()
+    }
+
+    /// Closes the current transport, if any. Nothing it delivers after this point
+    /// (frames already read, its close callback) reaches the client.
+    func closeTransport() {
+        assertIsOnQueue(syncQueue)
+        self.transportId &+= 1
+        self.openTimeoutTask?.cancel()
+        self.openTimeoutTask = nil
+        guard let conn = self.conn else { return }
+        self.conn = nil
+        conn.close()
+    }
+
     func onTransportOpen() {
         assertIsOnQueue(syncQueue)
 
@@ -780,7 +826,7 @@ fileprivate extension CentrifugeClient {
                             strongSelf,
                             CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
                         )
-                        strongSelf.conn?.disconnect()
+                        strongSelf.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
                         return
                 }
             })
@@ -805,17 +851,17 @@ fileprivate extension CentrifugeClient {
             case CentrifugeError.replyError(let code, let message, let temporary):
                 if code == 109 { // Token expired.
                     self.refreshRequired = true
-                    self.conn?.disconnect()
+                    self.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
                     return
                 } else if temporary {
-                    self.conn?.disconnect()
+                    self.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
                     return
                 } else {
                     self.processDisconnect(code: code, reason: message, reconnect: false)
                     return
                 }
             default:
-                self.conn?.disconnect()
+                self.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
                 return
             }
         }
@@ -969,9 +1015,10 @@ fileprivate extension CentrifugeClient {
         self.reconnectTask?.cancel()
         self.reconnectTask = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
+            strongSelf.reconnectTask = nil
             guard strongSelf.state == .connecting else { return }
             strongSelf.log.debug("start reconnecting")
-            strongSelf.conn?.connect()
+            strongSelf.openTransport()
         }
         self.log.debug("schedule reconnect in \(delay) seconds")
         self.syncQueue.asyncAfter(deadline: .now() + delay, execute: self.reconnectTask!)
@@ -1145,7 +1192,11 @@ fileprivate extension CentrifugeClient {
     private func handleData(data: Data) {
         do {
             let replies = try CentrifugeSerializer.deserializeCommands(data: data)
+            let transportId = self.transportId
             for reply in replies {
+                // A message earlier in this frame ended the connection (a disconnect
+                // push, an error reply): the rest of the frame belongs to it too.
+                guard self.transportId == transportId else { break }
                 if reply.id > 0 {
                     self.opCallbacks[reply.id]?(CentrifugeResolveData(error: nil, reply: reply))
                 } else {
@@ -1234,6 +1285,7 @@ fileprivate extension CentrifugeClient {
     
     private func stopReconnect() {
         self.reconnectTask?.cancel()
+        self.reconnectTask = nil
     }
     
     // Caller must synchronize access.
@@ -1244,7 +1296,11 @@ fileprivate extension CentrifugeClient {
         }
         
         let previousState = self.state
-        
+
+        // Close the transport before anything else, so that events emitted below
+        // never see it, and frames it already read are not delivered.
+        self.closeTransport()
+
         if reconnect {
             self.state = .connecting
         } else {
@@ -1327,7 +1383,9 @@ fileprivate extension CentrifugeClient {
             }
         }
 
-        self.conn?.disconnect()
+        if self.state == .connecting {
+            self.scheduleReconnect()
+        }
     }
     
     private func sendConnect(completion: @escaping (Centrifugal_Centrifuge_Protocol_ConnectResult?, Error?)->()) {

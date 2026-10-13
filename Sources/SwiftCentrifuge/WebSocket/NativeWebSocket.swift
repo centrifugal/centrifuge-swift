@@ -52,19 +52,30 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 
         log.debug("Connecting...")
 
-        task = getOrCreateSession().webSocketTask(with: request)
-        doRead()
-        task?.resume()
+        let task = getOrCreateSession().webSocketTask(with: request)
+        self.task = task
+        doRead(task: task)
+        task.resume()
     }
 
-    func disconnect() {
+    func close() {
         assertIsOnQueue(queue)
+        onConnect = nil
+        onDisconnect = nil
+        onData = nil
 
-        guard task != nil else { return }
+        guard let task = task else { return }
+        self.task = nil
 
-        log.debug("Disconnecting...")
-        // This will trigger "did close" delegate method invocation
-        task?.cancel(with: .goingAway, reason: nil)
+        log.debug("Closing...")
+        task.cancel(with: .normalClosure, reason: nil)
+        // Give the close frame a moment, then drop whatever is left: the peer may never
+        // answer it (a dead link), and nothing waits for this socket anymore.
+        if let session = session {
+            queue.asyncAfter(deadline: .now() + 1) {
+                session.invalidateAndCancel()
+            }
+        }
     }
 
     func write(data: Data) {
@@ -80,10 +91,12 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
         })
     }
 
-    private func doRead() {
-        task?.receive { [weak self] (result) in
+    private func doRead(task: URLSessionWebSocketTask) {
+        task.receive { [weak self] (result) in
             guard let self = self else { return }
             assertIsOnQueue(self.queue)
+            // Frames read for a task that was closed or replaced are not delivered.
+            guard task === self.task else { return }
 
             switch result {
                 case .success(let message):
@@ -99,9 +112,10 @@ final class NativeWebSocket: NSObject, WebSocketInterface, URLSessionWebSocketDe
 
                 case .failure(let error):
                     self.log.trace("Read error: \(error)")
+                    return
             }
 
-            self.doRead()
+            self.doRead(task: task)
         }
     }
 

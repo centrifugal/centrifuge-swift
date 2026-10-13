@@ -33,10 +33,13 @@ final class StarscreamWebSocket: WebSocketInterface {
         socket.connect()
     }
 
-    func disconnect() {
+    func close() {
         assertIsOnQueue(queue)
-        log.debug("Disconnecting...")
-        socket.disconnect()
+        log.debug("Closing...")
+        onConnect = nil
+        onDisconnect = nil
+        onData = nil
+        socket.close()
     }
 
     func write(data: Data) {
