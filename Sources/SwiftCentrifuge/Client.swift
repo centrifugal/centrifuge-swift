@@ -221,6 +221,10 @@ public enum CentrifugeClientState: Sendable {
     case connected
 }
 
+/// How long a timeout that fired late (after the process was suspended) waits for
+/// what arrived meanwhile. See `scheduleTimeout`.
+let lateTimerGrace: TimeInterval = 1
+
 public class CentrifugeClient: @unchecked Sendable {
     public weak var delegate: CentrifugeClientDelegate?
     
@@ -257,7 +261,7 @@ public class CentrifugeClient: @unchecked Sendable {
     fileprivate var disconnectOpts: CentrifugeDisconnectOptions?
     fileprivate var refreshTask: DispatchWorkItem?
     fileprivate var refreshRequired: Bool = false
-    fileprivate var pingTimer: DispatchSourceTimer?
+    fileprivate var pingTimer: DispatchWorkItem?
     fileprivate var pingInterval: UInt32 = 0
     fileprivate var sendPong: Bool = false
     fileprivate var reconnectTask: DispatchWorkItem?
@@ -598,6 +602,25 @@ internal extension CentrifugeClient {
         }
     }
     
+    /// Runs `item` on syncQueue once `delay` has passed, for timeouts. A timer that
+    /// fires much later than scheduled means the process was suspended (frozen in
+    /// the background, stopped in a debugger): replies and pings that arrived
+    /// meanwhile may still be waiting in the socket, so the item runs after a short
+    /// grace period instead, letting them be handled first.
+    func scheduleTimeout(after delay: TimeInterval, _ item: DispatchWorkItem) {
+        let deadline = DispatchTime.now() + delay
+        self.syncQueue.asyncAfter(deadline: deadline) { [weak self] in
+            guard let strongSelf = self, !item.isCancelled else { return }
+            let now = DispatchTime.now().uptimeNanoseconds
+            let late = now > deadline.uptimeNanoseconds ? Double(now - deadline.uptimeNanoseconds) / 1e9 : 0
+            if late > lateTimerGrace {
+                strongSelf.syncQueue.asyncAfter(deadline: .now() + lateTimerGrace, execute: item)
+            } else {
+                item.perform()
+            }
+        }
+    }
+
     /// Whether the client is still connected over the transport with this id.
     func isCurrentConnection(_ transportId: UInt64) -> Bool {
         return self.transportId == transportId && self.state == .connected
@@ -792,7 +815,7 @@ fileprivate extension CentrifugeClient {
             strongSelf.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
         }
         self.openTimeoutTask = openTimeoutTask
-        self.syncQueue.asyncAfter(deadline: .now() + self.config.timeout, execute: openTimeoutTask)
+        self.scheduleTimeout(after: self.config.timeout, openTimeoutTask)
 
         ws.connect()
     }
@@ -989,7 +1012,7 @@ fileprivate extension CentrifugeClient {
             strongSelf.opCallbacks[id] = nil
             completion(nil, CentrifugeError.timeout)
         }
-        self.syncQueue.asyncAfter(deadline: .now() + self.config.timeout, execute: timeoutTask)
+        self.scheduleTimeout(after: self.config.timeout, timeoutTask)
         
         self.opCallbacks[id] = { [weak self] rep in
             guard let strongSelf = self else { return }
@@ -1024,7 +1047,7 @@ fileprivate extension CentrifugeClient {
             strongSelf.connectCallbacks[uid] = nil
             completion(CentrifugeError.timeout)
         }
-        self.syncQueue.asyncAfter(deadline: .now() + self.config.timeout, execute: timeoutTask)
+        self.scheduleTimeout(after: self.config.timeout, timeoutTask)
         
         self.connectCallbacks[uid] = { error in
             timeoutTask.cancel()
@@ -1219,14 +1242,14 @@ fileprivate extension CentrifugeClient {
         if self.pingInterval == 0 {
             return
         }
-        self.pingTimer = DispatchSource.makeTimerSource(queue: syncQueue)
-        self.pingTimer?.setEventHandler { [weak self] in
+        self.pingTimer?.cancel()
+        let pingTimer = DispatchWorkItem { [weak self] in
             guard let strongSelf = self else { return }
             guard strongSelf.state == .connected else { return }
             strongSelf.processDisconnect(code: connectingCodeNoPing, reason: "no ping", reconnect: true)
         }
-        self.pingTimer?.schedule(deadline: .now() + Double(self.pingInterval) + self.config.maxServerPingDelay)
-        self.pingTimer?.resume()
+        self.pingTimer = pingTimer
+        self.scheduleTimeout(after: Double(self.pingInterval) + self.config.maxServerPingDelay, pingTimer)
     }
     
     private func stopWaitPing() {

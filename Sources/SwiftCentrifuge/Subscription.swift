@@ -656,7 +656,7 @@ public class CentrifugeSubscription: @unchecked Sendable {
                 completion(error)
             }
             
-            strongSelf.centrifuge?.syncQueue.asyncAfter(deadline: .now() + timeout, execute: timeoutTask)
+            strongSelf.centrifuge?.scheduleTimeout(after: timeout, timeoutTask)
         }
     }
     
