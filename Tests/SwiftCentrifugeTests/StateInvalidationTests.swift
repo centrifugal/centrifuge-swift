@@ -161,7 +161,9 @@ final class StateInvalidationTests: @unchecked Sendable {
         await fulfillment(of: [reconnected, resubscribed], within: 8)
         #expect(counter.count() >= 1, "3014 must trigger a fresh connection token fetch")
         #expect(lastConnectToken() == "c1", "reconnect must use the freshly fetched token")
-        #expect(lastSubscribeToken() == "", "3014 must invalidate subscription token")
+        // The subscription has a static token and no getter to replace it: it keeps
+        // the token (resubscribing without one would be denied by the server).
+        #expect(lastSubscribeToken() == "sub-token-0", "3014 keeps a static subscription token")
     }
 
     @Test func disconnect3014ResetsServerSubRecoveryPosition() async throws {

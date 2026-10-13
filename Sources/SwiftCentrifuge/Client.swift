@@ -362,6 +362,13 @@ public class CentrifugeClient: @unchecked Sendable {
         self.syncQueue.async { [weak self] in
             guard let strongSelf = self else { return }
             strongSelf.token = token;
+            if strongSelf.config.tokenGetter == nil {
+                // The token expired and the app set a new one: without a token getter
+                // there is no other way to get it, so the next attempt uses it. With a
+                // getter, the next attempt still fetches a new token (the one set
+                // meanwhile may be the expired one), as in centrifuge-js.
+                strongSelf.refreshRequired = false
+            }
         }
     }
 
@@ -807,6 +814,14 @@ fileprivate extension CentrifugeClient {
         // over, even though the client is connecting again.
         let transportId = self.transportId
 
+        if refreshRequired && config.tokenGetter == nil {
+            // The token expired and there is no getter to get a new one.
+            delegate?.onError(self, CentrifugeErrorEvent(error: CentrifugeError.configurationError(
+                message: "token expired but no tokenGetter set in the configuration")))
+            failUnauthorized()
+            return
+        }
+
         guard config.tokenGetter != nil && (refreshRequired || token == "") else {
             sendConnect(transportId: transportId)
             return
@@ -838,13 +853,15 @@ fileprivate extension CentrifugeClient {
     }
 
     func sendConnect(transportId: UInt64) {
+        let token = self.token
         sendConnect(completion: { [weak self] res, error in
             guard let strongSelf = self, strongSelf.transportId == transportId, strongSelf.state == .connecting else { return }
-            strongSelf.handleConnectResult(res: res, error: error)
+            strongSelf.handleConnectResult(res: res, error: error, token: token)
         })
     }
     
-    func handleConnectResult(res: Centrifugal_Centrifuge_Protocol_ConnectResult?, error: Error?) {
+    /// - Parameter token: the token the connect command carried.
+    func handleConnectResult(res: Centrifugal_Centrifuge_Protocol_ConnectResult?, error: Error?, token: String?) {
         if let err = error {
             defer {
                 self.delegate?.onError(
@@ -855,7 +872,11 @@ fileprivate extension CentrifugeClient {
             switch err {
             case CentrifugeError.replyError(let code, let message, let temporary):
                 if code == 109 { // Token expired.
-                    self.refreshRequired = true
+                    // The next attempt gets a new token, unless the app set a new one
+                    // meanwhile (see setToken).
+                    if token == self.token {
+                        self.refreshRequired = true
+                    }
                     self.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
                     return
                 } else if temporary {
@@ -1303,8 +1324,13 @@ fileprivate extension CentrifugeClient {
             // push — both funnel here): drop the connection token so the next connect
             // fetches a fresh one via the token getter, and invalidate every
             // subscription's cached state before they move to subscribing below.
-            self.token = ""
-            self.refreshRequired = true
+            // Without a getter there is no new token to get: keep the token the client
+            // has (or none) and reconnect with it - the server rejects it if it's no
+            // longer valid.
+            if self.config.tokenGetter != nil {
+                self.token = ""
+                self.refreshRequired = true
+            }
             for sub in snapshotSubscriptions() {
                 sub.invalidateState()
             }

@@ -283,6 +283,18 @@ public class CentrifugeSubscription: @unchecked Sendable {
                         strongSelf.scheduleResubscribe()
                         return
                     }
+                    if code == 109 && strongSelf.config.tokenGetter == nil {
+                        // The token expired and there is no getter to get another one:
+                        // unauthorized, like a connection (instead of subscribing again
+                        // without a token, which the server denies).
+                        strongSelf.delegate?.onError(
+                            strongSelf,
+                            CentrifugeSubscriptionErrorEvent(error: CentrifugeError.configurationError(
+                                message: "subscription token expired but no tokenGetter set"))
+                        )
+                        strongSelf.failUnauthorized(sendUnsubscribe: false)
+                        return
+                    }
                     if code == 109 { // Token expired.
                         strongSelf.token = nil
                         strongSelf.scheduleResubscribe(zeroDelay: true)
@@ -721,10 +733,13 @@ public class CentrifugeSubscription: @unchecked Sendable {
     // decoding of the first publication), and the channel-compaction ID mapping.
     // Runs on the client syncQueue.
     func invalidateState() {
-        // nil token routes the next resubscribe through the token getter when one
-        // is configured, and otherwise falls through to an empty-token subscribe
-        // (continueResubscribe handles both) — i.e. a fresh token, never the stale one.
-        self.token = nil
+        // nil token routes the next resubscribe through the token getter. Without a
+        // getter there is no new token to get: keep the one the subscription has (a
+        // static token) and resubscribe with it - the server rejects it if it's no
+        // longer valid.
+        if self.config.tokenGetter != nil {
+            self.token = nil
+        }
         // Reset the recovery position to a sentinel epoch ("_") the server can
         // never match (offset 0); leave the recover flag untouched. A recoverable
         // subscription then resubscribes with wasRecovering=true, recovered=false
