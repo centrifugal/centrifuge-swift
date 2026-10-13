@@ -1024,88 +1024,62 @@ fileprivate extension CentrifugeClient {
         self.syncQueue.asyncAfter(deadline: .now() + delay, execute: self.reconnectTask!)
     }
     
-    private func handlePub(channel: String, pub: Centrifugal_Centrifuge_Protocol_Publication, id: Int64 = 0) {
+    // The client-side subscription a push is for: only a subscribed one. A push for
+    // a subscription that is subscribing or unsubscribed belongs to a subscribe
+    // session that is over (or not established yet) and must not be applied - it
+    // would deliver events the app no longer expects and move the stream position.
+    // nil means the push goes to a server-side subscription of the channel, if any.
+    // Pushes with a numeric channel ID (channel compaction) are only ever for
+    // client-side subscriptions.
+    private func subscribedSub(channel: String, id: Int64) -> CentrifugeSubscription? {
         if id > 0 {
-            // Compacted push: route by numeric channel ID. Only client-side
-            // subscriptions negotiate compaction, so an unknown ID is dropped.
-            if let sub = self.subscriptionForPushId(id) {
-                sub.handlePublication(pub: pub)
-            }
-            return
+            guard let sub = self.subscriptionForPushId(id), sub.state == .subscribed else { return nil }
+            return sub
         }
         subscriptionsLock.lock()
-        let subs = self.subscriptions.filter({ $0.channel == channel })
-        if subs.count == 0 {
-            subscriptionsLock.unlock()
-            if let _ = self.serverSubs[channel] {
-                var info: CentrifugeClientInfo? = nil;
-                if pub.hasInfo {
-                    info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
-                }
-                let event = CentrifugeServerPublicationEvent(channel: channel, data: pub.data, offset: pub.offset, tags: pub.tags, info: info)
-                self.delegate?.onPublication(self, event)
-                if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
-                    self.serverSubs[channel]?.offset = pub.offset
-                }
-            }
+        defer { subscriptionsLock.unlock() }
+        return self.subscriptions.first(where: { $0.channel == channel && $0.state == .subscribed })
+    }
+
+    private func handlePub(channel: String, pub: Centrifugal_Centrifuge_Protocol_Publication, id: Int64 = 0) {
+        if let sub = self.subscribedSub(channel: channel, id: id) {
+            sub.handlePublication(pub: pub)
             return
         }
-        let sub = subs[0]
-        subscriptionsLock.unlock()
-        sub.handlePublication(pub: pub)
+        guard id == 0, self.serverSubs[channel] != nil else { return }
+        var info: CentrifugeClientInfo? = nil;
+        if pub.hasInfo {
+            info = CentrifugeClientInfo(client: pub.info.client, user: pub.info.user, connInfo: pub.info.connInfo, chanInfo: pub.info.chanInfo)
+        }
+        let event = CentrifugeServerPublicationEvent(channel: channel, data: pub.data, offset: pub.offset, tags: pub.tags, info: info)
+        self.delegate?.onPublication(self, event)
+        if self.serverSubs[channel]?.recoverable == true && pub.offset > 0 {
+            self.serverSubs[channel]?.offset = pub.offset
+        }
     }
     
     private func handleJoin(channel: String, join: Centrifugal_Centrifuge_Protocol_Join, id: Int64 = 0) {
-        if id > 0 {
-            // Compacted push: route by numeric channel ID; unknown ID dropped.
-            if let sub = self.subscriptionForPushId(id) {
-                sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
-            }
+        if let sub = self.subscribedSub(channel: channel, id: id) {
+            sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
             return
         }
-        subscriptionsLock.lock()
-        let subs = self.subscriptions.filter({ $0.channel == channel })
-        if subs.count == 0 {
-            subscriptionsLock.unlock()
-            if let _ = self.serverSubs[channel] {
-                let event = CentrifugeServerJoinEvent(channel: channel, client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo)
-                self.delegate?.onJoin(self, event)
-            }
-            return
-        }
-        let sub = subs[0]
-        subscriptionsLock.unlock()
-        sub.delegate?.onJoin(sub, CentrifugeJoinEvent(client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo))
+        guard id == 0, self.serverSubs[channel] != nil else { return }
+        let event = CentrifugeServerJoinEvent(channel: channel, client: join.info.client, user: join.info.user, connInfo: join.info.connInfo, chanInfo: join.info.chanInfo)
+        self.delegate?.onJoin(self, event)
     }
 
     private func handleLeave(channel: String, leave: Centrifugal_Centrifuge_Protocol_Leave, id: Int64 = 0) {
-        if id > 0 {
-            // Compacted push: route by numeric channel ID; unknown ID dropped.
-            if let sub = self.subscriptionForPushId(id) {
-                sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
-            }
+        if let sub = self.subscribedSub(channel: channel, id: id) {
+            sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
             return
         }
-        subscriptionsLock.lock()
-        let subs = self.subscriptions.filter({ $0.channel == channel })
-        if subs.count == 0 {
-            subscriptionsLock.unlock()
-            if let _ = self.serverSubs[channel] {
-                let event = CentrifugeServerLeaveEvent(channel: channel, client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo)
-                self.delegate?.onLeave(self, event)
-            }
-            return
-        }
-        let sub = subs[0]
-        subscriptionsLock.unlock()
-        sub.delegate?.onLeave(sub, CentrifugeLeaveEvent(client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo))
+        guard id == 0, self.serverSubs[channel] != nil else { return }
+        let event = CentrifugeServerLeaveEvent(channel: channel, client: leave.info.client, user: leave.info.user, connInfo: leave.info.connInfo, chanInfo: leave.info.chanInfo)
+        self.delegate?.onLeave(self, event)
     }
     
     private func handleUnsubscribe(channel: String, unsubscribe: Centrifugal_Centrifuge_Protocol_Unsubscribe) {
-        subscriptionsLock.lock()
-        let subs = self.subscriptions.filter({ $0.channel == channel })
-        if subs.count == 0 {
-            subscriptionsLock.unlock()
+        guard let sub = self.subscribedSub(channel: channel, id: 0) else {
             if let _ = self.serverSubs[channel] {
                 let event = CentrifugeServerUnsubscribedEvent(channel: channel)
                 self.delegate?.onUnsubscribed(self, event)
@@ -1113,8 +1087,6 @@ fileprivate extension CentrifugeClient {
             }
             return
         }
-        let sub = subs[0]
-        subscriptionsLock.unlock()
         
         if (unsubscribe.code < 2500) {
             sub.processUnsubscribe(sendUnsubscribe: false, code: unsubscribe.code, reason: unsubscribe.reason)
