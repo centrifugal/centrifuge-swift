@@ -37,44 +37,47 @@ public enum DeltaFossil {
 
     // Apply delta fossil algorithm
     public static func applyDelta(source: Data, delta: Data) throws -> Data {
-        var total: UInt32 = 0
+        // Sizes are summed as Int: UInt32 arithmetic would trap on overflow.
+        var total = 0
+        let sourceBytes = [UInt8](source)
         var deltaReader = Reader(array: [UInt8](delta)) // Convert Data to ByteArray for Reader
         var outputWriter = Writer()
 
         let sourceLength = source.count
         let deltaLength = delta.count
 
-        let limit = try deltaReader.getInt()
+        let limit = Int(try deltaReader.getInt())
 
         guard try deltaReader.getChar() == "\n" else {
             throw DeltaError.sizeIntegerNotTerminated
         }
 
         while deltaReader.haveBytes() {
-            let count = try deltaReader.getInt()
+            let rawCount = try deltaReader.getInt()
+            let count = Int(rawCount)
             let command = try deltaReader.getChar()
 
             switch command {
             case "@":
-                let offset = try deltaReader.getInt()
+                let offset = Int(try deltaReader.getInt())
                 guard try deltaReader.getChar() == "," else {
                     throw DeltaError.copyCommandNotTerminated
                 }
                 total += count
                 guard total <= limit else { throw DeltaError.copyExceedsOutputSize }
                 guard offset + count <= sourceLength else { throw DeltaError.copyExtendsPastEnd }
-                outputWriter.putArray([UInt8](source), start: Int(offset), end: Int(offset + count))
+                outputWriter.putArray(sourceBytes, start: offset, end: offset + count)
 
             case ":":
                 total += count
                 guard total <= limit else { throw DeltaError.insertExceedsOutputSize }
-                guard count <= deltaLength else { throw DeltaError.insertCountExceedsDelta }
-                outputWriter.putArray(deltaReader.array, start: deltaReader.position, end: deltaReader.position + Int(count))
-                deltaReader.position += Int(count)
+                guard deltaReader.position + count <= deltaLength else { throw DeltaError.insertCountExceedsDelta }
+                outputWriter.putArray(deltaReader.array, start: deltaReader.position, end: deltaReader.position + count)
+                deltaReader.position += count
 
             case ";":
                 let output = outputWriter.toByteArray()
-                guard count == checksum(array: output) else { throw DeltaError.badChecksum }
+                guard rawCount == checksum(array: output) else { throw DeltaError.badChecksum }
                 guard total == limit else { throw DeltaError.sizeMismatch }
                 return Data(output) // Convert ByteArray back to Data
 
