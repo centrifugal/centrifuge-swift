@@ -106,6 +106,37 @@ final class ConnectionTokenTests: @unchecked Sendable {
         #expect(delegate.connectedCount == 1)
     }
 
+    /// The token is requested before the transport is opened: no connection is open
+    /// while the getter runs. Opened first, it sent nothing until the getter returned,
+    /// so a server closing such connections (Centrifugo does after a while) failed
+    /// every attempt of a slow getter, and an attempt abandoned meanwhile opened one
+    /// for nothing.
+    @Test func noConnectionWhileTokenRequested() async throws {
+        let getter = Getter()
+        let delegate = ClientDelegate()
+        let connected = Expectation("connected")
+        delegate.onConn = { connected.fulfill() }
+        let client = makeClient(getter, delegate: delegate)
+        client.connect()
+        defer { client.disconnect() }
+        #expect(await waitUntil(3) { getter.calls == 1 })
+        try await Task.sleep(nanoseconds: 300_000_000)
+        #expect(server.accepted == 0)
+
+        // Abandoned while the token is requested: no connection either.
+        client.disconnect()
+        client.connect()
+        #expect(await waitUntil(3) { getter.calls == 2 })
+        getter.complete(0, .success("stale"))
+        try await Task.sleep(nanoseconds: 300_000_000)
+        #expect(server.accepted == 0)
+
+        getter.complete(1, .success("fresh"))
+        await fulfillment(of: connected, within: 5)
+        #expect(server.accepted == 1)
+        #expect(connectTokens() == ["fresh"])
+    }
+
     /// A getter that calls its completion twice: only the first call counts.
     @Test func getterCompletionCalledTwice() async throws {
         let delegate = ClientDelegate()
