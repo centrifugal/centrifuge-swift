@@ -330,7 +330,7 @@ public class CentrifugeClient: @unchecked Sendable {
             strongSelf.state = .connecting
             strongSelf.delegate?.onConnecting(strongSelf, CentrifugeConnectingEvent(code: connectingCodeConnectCalled, reason: "connect called"))
             strongSelf.reconnectAttempts = 0
-            strongSelf.openTransport()
+            strongSelf.startAttempt()
         }
     }
     
@@ -772,7 +772,59 @@ fileprivate extension CentrifugeClient {
         return StarscreamWebSocket(request: request, tlsSkipVerify: self.config.tlsSkipVerify, queue: syncQueue, log: log)
     }
 
-    /// Starts a connection attempt on a new transport. Opening it is limited by
+    /// Starts a connection attempt: gets a connection token when one is needed, then
+    /// opens a transport. The token comes first, as in centrifuge-js: no connection is
+    /// open while the token getter runs. Centrifugo closes a connection that sends no
+    /// connect command for a while, so with the transport opened first, a getter slower
+    /// than that failed every attempt, its token discarded with the attempt.
+    func startAttempt() {
+        assertIsOnQueue(syncQueue)
+        // Ends a previous attempt: its continuations, e.g. a token getter's, check the id.
+        closeTransport()
+        // Continuations below act only for the attempt they were started for: after a
+        // disconnect() + connect() or a reconnect they belong to an attempt that is
+        // over, even though the client is connecting again.
+        let attempt = self.transportId
+
+        if refreshRequired && config.tokenGetter == nil {
+            // The token expired and there is no getter to get a new one.
+            delegate?.onError(self, CentrifugeErrorEvent(error: CentrifugeError.configurationError(
+                message: "token expired but no tokenGetter set in the configuration")))
+            failUnauthorized()
+            return
+        }
+
+        guard config.tokenGetter != nil && (refreshRequired || token == "") else {
+            openTransport()
+            return
+        }
+        getConnectionToken(completion: { [weak self] result in
+            guard let strongSelf = self, strongSelf.transportId == attempt, strongSelf.state == .connecting else { return }
+            switch result {
+                case .success(let token):
+                    strongSelf.token = token
+                    strongSelf.refreshRequired = false
+                    strongSelf.openTransport()
+                case .failure(let error):
+                    if let centrifugeError = error as? CentrifugeError {
+                        switch centrifugeError {
+                        case .unauthorized:
+                            strongSelf.failUnauthorized();
+                            return
+                        default:
+                            break
+                        }
+                    }
+                    strongSelf.delegate?.onError(
+                        strongSelf,
+                        CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
+                    )
+                    strongSelf.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
+            }
+        })
+    }
+
+    /// Opens a new transport for the attempt in progress. Opening it is limited by
     /// `config.timeout`, like the commands sent over it.
     func openTransport() {
         assertIsOnQueue(syncQueue)
@@ -843,50 +895,9 @@ fileprivate extension CentrifugeClient {
 
     func onTransportOpen() {
         assertIsOnQueue(syncQueue)
-
         guard self.state == .connecting else { return }
-
-        // Continuations below act only for the transport they were started for: after
-        // a disconnect() + connect() or a reconnect they belong to an attempt that is
-        // over, even though the client is connecting again.
-        let transportId = self.transportId
-
-        if refreshRequired && config.tokenGetter == nil {
-            // The token expired and there is no getter to get a new one.
-            delegate?.onError(self, CentrifugeErrorEvent(error: CentrifugeError.configurationError(
-                message: "token expired but no tokenGetter set in the configuration")))
-            failUnauthorized()
-            return
-        }
-
-        guard config.tokenGetter != nil && (refreshRequired || token == "") else {
-            sendConnect(transportId: transportId)
-            return
-        }
-        getConnectionToken(completion: { [weak self] result in
-            guard let strongSelf = self, strongSelf.transportId == transportId, strongSelf.state == .connecting else { return }
-            switch result {
-                case .success(let token):
-                    strongSelf.token = token
-                    strongSelf.refreshRequired = false
-                    strongSelf.sendConnect(transportId: transportId)
-                case .failure(let error):
-                    if let centrifugeError = error as? CentrifugeError {
-                        switch centrifugeError {
-                        case .unauthorized:
-                            strongSelf.failUnauthorized();
-                            return
-                        default:
-                            break
-                        }
-                    }
-                    strongSelf.delegate?.onError(
-                        strongSelf,
-                        CentrifugeErrorEvent(error: CentrifugeError.tokenError(error: error))
-                    )
-                    strongSelf.processDisconnect(code: connectingCodeTransportClosed, reason: "transport closed", reconnect: true)
-            }
-        })
+        // The token was obtained before the transport was opened (see startAttempt).
+        sendConnect(transportId: self.transportId)
     }
 
     func sendConnect(transportId: UInt64) {
@@ -1081,7 +1092,7 @@ fileprivate extension CentrifugeClient {
             strongSelf.reconnectTask = nil
             guard strongSelf.state == .connecting else { return }
             strongSelf.log.debug("start reconnecting")
-            strongSelf.openTransport()
+            strongSelf.startAttempt()
         }
         self.log.debug("schedule reconnect in \(delay) seconds")
         self.syncQueue.asyncAfter(deadline: .now() + delay, execute: self.reconnectTask!)

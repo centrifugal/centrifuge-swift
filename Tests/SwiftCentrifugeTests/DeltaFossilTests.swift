@@ -83,4 +83,19 @@ import Testing
         // Ends after a valid copy command without the closing ";checksum" command.
         assertThrows("5\n5@0,", .unterminatedDelta)
     }
+
+    @Test func malformedDeltaInsertPastEnd() throws {
+        // The insert count fits in the delta's length but not in what is left of it.
+        assertThrows("5\n5:ab", .insertCountExceedsDelta)
+    }
+
+    @Test func malformedDeltaCopyOffsetOverflow() throws {
+        // offset + count overflows 32 bits.
+        assertThrows("1\n1@3~~~~~,0;", .copyExtendsPastEnd)
+    }
+
+    @Test func malformedDeltaTotalOverflow() throws {
+        // The running total overflows 32 bits before it is compared to the size.
+        assertThrows("3~~~~~\n1:a3~~~~~:", .insertExceedsOutputSize)
+    }
 }
