@@ -86,4 +86,45 @@ final class DeltaPublicationTests: @unchecked Sendable {
 
         #expect(payloads == [origin, target], "delta publication must be applied to the previous value")
     }
+
+    /// A delta publication with no previous value to apply it to (a broken stream)
+    /// is not delivered and doesn't crash the app: as in centrifuge-js, the client
+    /// disconnects with "bad protocol" (code 2) and doesn't reconnect.
+    @Test func deltaWithoutBaseDisconnectsBadProtocol() async throws {
+        let deltaPayload = try fossilCase(1, "delta")
+
+        let disconnected = Expectation("disconnected")
+        let code = Locked<UInt32>(0)
+        let clientDelegate = ClientDelegate()
+        clientDelegate.onDisc = { e in code.set(e.code); disconnected.fulfill() }
+        let client = CentrifugeClient(endpoint: server.url, config: CentrifugeClientConfig(), delegate: clientDelegate)
+        client.connect()
+        defer { client.disconnect() }
+
+        let delegate = SubDelegate()
+        _ = try await subscribe(client, delegate)
+
+        let published = Expectation("publication delivered")
+        published.isInverted = true
+        delegate.onPub = { _ in published.fulfill() }
+
+        server.publishChannel("ch", deltaPayload, delta: true)
+        await fulfillment(of: [disconnected, published], within: 1)
+        #expect(code.get == 2)
+        #expect(client.state == .disconnected)
+        #expect(server.received().filter(\.hasConnect).count == 1)
+    }
+
+    private final class ClientDelegate: CentrifugeClientDelegate, @unchecked Sendable {
+        var onDisc: ((CentrifugeDisconnectedEvent) -> Void)?
+        func onDisconnected(_ c: CentrifugeClient, _ e: CentrifugeDisconnectedEvent) { onDisc?(e) }
+    }
+
+    private final class Locked<T>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: T
+        init(_ value: T) { self.value = value }
+        var get: T { lock.lock(); defer { lock.unlock() }; return value }
+        func set(_ v: T) { lock.lock(); value = v; lock.unlock() }
+    }
 }

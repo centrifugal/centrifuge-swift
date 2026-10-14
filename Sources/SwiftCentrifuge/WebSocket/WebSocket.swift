@@ -136,8 +136,25 @@ protocol WSStream {
 
 class FoundationStream : NSObject, WSStream, StreamDelegate, @unchecked Sendable  {
     private let workQueue = DispatchQueue(label: "com.vluxe.starscream.websocket", attributes: [])
+    // Set on connect and cleared by cleanup(), which callers run on other threads
+    // than the stream queues that read them: access them through `streams`.
     private var inputStream: InputStream?
     private var outputStream: OutputStream?
+    private let streamsLock = NSLock()
+    // Set by cleanup(): stops the wait for a writable socket in connect(), which
+    // otherwise keeps polling (and the stream queue busy, delaying the cleanup
+    // itself) for the whole request timeout when the host never answers.
+    private var cancelled = false
+    private var isCancelled: Bool {
+        streamsLock.lock()
+        defer { streamsLock.unlock() }
+        return cancelled
+    }
+    private var streams: (input: InputStream?, output: OutputStream?) {
+        streamsLock.lock()
+        defer { streamsLock.unlock() }
+        return (inputStream, outputStream)
+    }
     weak var delegate: WSStreamDelegate?
     let BUFFER_MAX = 4096
 	
@@ -153,8 +170,13 @@ class FoundationStream : NSObject, WSStream, StreamDelegate, @unchecked Sendable
         var writeStream: Unmanaged<CFWriteStream>?
         let h = url.host! as NSString
         CFStreamCreatePairWithSocketToHost(nil, h, UInt32(port), &readStream, &writeStream)
+        streamsLock.lock()
+        cancelled = false
         inputStream = readStream!.takeRetainedValue()
         outputStream = writeStream!.takeRetainedValue()
+        let inputStream = self.inputStream
+        let outputStream = self.outputStream
+        streamsLock.unlock()
 
         #if os(watchOS) //watchOS us unfortunately is missing the kCFStream properties to make this work
         #else
@@ -234,6 +256,8 @@ class FoundationStream : NSObject, WSStream, StreamDelegate, @unchecked Sendable
                 } else if self == nil {
                     completion(WSError(type: .closeError, message: "socket object has been dereferenced", code: 0))
                     return
+                } else if self?.isCancelled == true {
+                    return
                 }
             }
             completion(nil) //success!
@@ -241,13 +265,13 @@ class FoundationStream : NSObject, WSStream, StreamDelegate, @unchecked Sendable
     }
     
     func write(data: Data) -> Int {
-        guard let outStream = outputStream else {return -1}
+        guard let outStream = streams.output else {return -1}
         let buffer = UnsafeRawPointer((data as NSData).bytes).assumingMemoryBound(to: UInt8.self)
         return outStream.write(buffer, maxLength: data.count)
     }
     
     func read() -> Data? {
-        guard let stream = inputStream else {return nil}
+        guard let stream = streams.input else {return nil}
         let buf = NSMutableData(capacity: BUFFER_MAX)
         let buffer = UnsafeMutableRawPointer(mutating: buf!.bytes).assumingMemoryBound(to: UInt8.self)
         let length = stream.read(buffer, maxLength: BUFFER_MAX)
@@ -258,24 +282,39 @@ class FoundationStream : NSObject, WSStream, StreamDelegate, @unchecked Sendable
     }
     
     func cleanup() {
-        if let stream = inputStream {
-            stream.delegate = nil
-            CFReadStreamSetDispatchQueue(stream, nil)
-            stream.close()
-        }
-        if let stream = outputStream {
-            stream.delegate = nil
-            CFWriteStreamSetDispatchQueue(stream, nil)
-            stream.close()
-        }
+        streamsLock.lock()
+        cancelled = true
+        let input = inputStream
+        let output = outputStream
         outputStream = nil
         inputStream = nil
+        streamsLock.unlock()
+        guard input != nil || output != nil else { return }
+        // Unschedule and close the streams on the queue their events are delivered on,
+        // and keep them (and this object, their delegate) alive until the events queued
+        // before that have run: an event delivered to a released stream crashes. Callers
+        // run on other threads, and the socket may be released right after closing.
+        workQueue.async { [self] in
+            if let stream = input {
+                stream.delegate = nil
+                CFReadStreamSetDispatchQueue(stream, nil)
+                stream.close()
+            }
+            if let stream = output {
+                stream.delegate = nil
+                CFWriteStreamSetDispatchQueue(stream, nil)
+                stream.close()
+            }
+            self.workQueue.async {
+                withExtendedLifetime((self, input, output)) {}
+            }
+        }
     }
     
     #if os(Linux) || os(watchOS)
     #else
     func sslTrust() -> (trust: SecTrust?, domain: String?) {
-        guard let outputStream = outputStream else { return (nil, nil) }
+        guard let outputStream = streams.output else { return (nil, nil) }
 
         let trust = outputStream.property(forKey: kCFStreamPropertySSLPeerTrust as Stream.PropertyKey) as! SecTrust?
         var domain = outputStream.property(forKey: kCFStreamSSLPeerName as Stream.PropertyKey) as! String?
@@ -301,7 +340,7 @@ class FoundationStream : NSObject, WSStream, StreamDelegate, @unchecked Sendable
      */
     func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         if eventCode == .hasBytesAvailable {
-            if aStream == inputStream {
+            if aStream == streams.input {
                 delegate?.newBytesInStream()
             }
         } else if eventCode == .errorOccurred {
@@ -448,6 +487,8 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
     }
     
     private var stream: WSStream
+    // connected, isConnecting, didDisconnect and readyToWrite are read and written
+    // from the caller's queue, the stream queue and the write queue: guarded by mutex.
     private var connected = false
     private var isConnecting = false
     private let mutex = NSLock()
@@ -456,6 +497,9 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
     private var readStack = [WSResponse]()
     private var inputQueue = [Data]()
     private var fragBuffer: Data?
+    // Size of the frame fragBuffer holds the start of, when known: until that many
+    // bytes are collected, new input is only appended to it, not parsed again.
+    private var fragNeeded = 0
     private var certValidated = false
     private var didDisconnect = false
     private var readyToWrite = false
@@ -493,9 +537,11 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
      Connect to the WebSocket server on a background thread.
      */
     func connect() {
-        guard !isConnecting else { return }
+        mutex.lock()
+        guard !isConnecting else { mutex.unlock(); return }
         didDisconnect = false
         isConnecting = true
+        mutex.unlock()
         createHTTPRequest()
     }
 
@@ -524,6 +570,53 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
             disconnectStream(nil)
             break
         }
+    }
+
+    /**
+     Close the socket for good, without notifying the delegate or the callbacks. Unlike `disconnect`, this also aborts
+     a connection attempt or an opening handshake in progress.
+
+     When the connection is open, a Close frame is sent first; the streams are closed once it is written, or after
+     `closeTimeout` seconds at the latest (the peer may never read it, e.g. on a dead link). The socket keeps itself
+     alive until then.
+     */
+    func close(closeTimeout: TimeInterval = 1) {
+        onConnect = nil
+        onDisconnect = nil
+        onText = nil
+        onData = nil
+        onPong = nil
+        onHttpResponseHeaders = nil
+        delegate = nil
+        advancedDelegate = nil
+        pongDelegate = nil
+        mutex.lock()
+        isConnecting = false
+        didDisconnect = true
+        mutex.unlock()
+        guard isConnected else {
+            dropStreams()
+            return
+        }
+        writeError(CloseCode.normal.rawValue)
+        writeQueue.addOperation { [self] in
+            self.dropStreams()
+        }
+        callbackQueue.asyncAfter(deadline: .now() + closeTimeout) { [self] in
+            self.dropStreams()
+        }
+    }
+
+    // Runs on the caller's queue, the write queue or the callback queue, while the
+    // stream queue may still be processing input: it must not touch the input state
+    // (fragBuffer etc.) - only the streams, which are safe to close from any thread.
+    private func dropStreams() {
+        writeQueue.cancelAllOperations()
+        mutex.lock()
+        readyToWrite = false
+        connected = false
+        stream.cleanup()
+        mutex.unlock()
     }
 
     /**
@@ -764,22 +857,29 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
     private func dequeueInput() {
         while !inputQueue.isEmpty {
             autoreleasepool {
-                let data = inputQueue[0]
+                let data = inputQueue.removeFirst()
                 var work = data
-                if let buffer = fragBuffer {
-                    var combine = NSData(data: buffer) as Data
-                    combine.append(data)
-                    work = combine
+                if var buffer = fragBuffer {
+                    // Released first, so that the append below doesn't copy it.
                     fragBuffer = nil
+                    buffer.append(data)
+                    if buffer.count < fragNeeded {
+                        // Still not a whole frame: keep collecting. Parsing (and
+                        // copying) the collected bytes on every read made receiving a
+                        // large message quadratic in its size.
+                        fragBuffer = buffer
+                        return
+                    }
+                    work = buffer
                 }
+                fragNeeded = 0
                 let buffer = UnsafeRawPointer((work as NSData).bytes).assumingMemoryBound(to: UInt8.self)
                 let length = work.count
-                if !connected {
+                if !isConnected {
                     processTCPHandshake(buffer, bufferLen: length)
                 } else {
                     processRawMessagesInBuffer(buffer, bufferLen: length)
                 }
-                inputQueue = inputQueue.filter{ $0 != data }
             }
         }
     }
@@ -823,11 +923,15 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
             if code != 0 {
                 return code
             }
-            isConnecting = false
             mutex.lock()
+            if didDisconnect {
+                // Closed (or failed) while the handshake response was on its way.
+                mutex.unlock()
+                return 0
+            }
+            isConnecting = false
             connected = true
             mutex.unlock()
-            didDisconnect = false
             if canDispatch {
                 callbackQueue.async { [weak self] in
                     guard let self = self else { return }
@@ -1034,6 +1138,14 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
                 return emptyBuffer()
             }
             var dataLength = UInt64(payloadLen)
+            let extendedLengthSize = dataLength == 127 ? MemoryLayout<UInt64>.size : (dataLength == 126 ? MemoryLayout<UInt16>.size : 0)
+            if bufferLen < offset + extendedLengthSize {
+                // The frame's length is not all here yet (a header split across
+                // reads): wait for more input before reading it.
+                fragBuffer = Data(bytes: baseAddress, count: bufferLen)
+                fragNeeded = 0
+                return emptyBuffer()
+            }
             if dataLength == 127 {
                 dataLength = WebSocket.readUint64(baseAddress, offset: offset)
                 offset += MemoryLayout<UInt64>.size
@@ -1041,8 +1153,9 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
                 dataLength = UInt64(WebSocket.readUint16(baseAddress, offset: offset))
                 offset += MemoryLayout<UInt16>.size
             }
-            if bufferLen < offset || UInt64(bufferLen - offset) < dataLength {
+            if UInt64(bufferLen - offset) < dataLength {
                 fragBuffer = Data(bytes: baseAddress, count: bufferLen)
+                fragNeeded = dataLength < UInt64(Int.max - offset) ? offset + Int(dataLength) : Int.max
                 return emptyBuffer()
             }
             var len = dataLength
@@ -1255,7 +1368,7 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
             }
             var total = 0
             while !sOperation.isCancelled {
-                if !self.readyToWrite {
+                if !self.canDispatch {
                     self.doDisconnect(WSError(type: .outputStreamWriteError, message: "output stream had an error during write", code: 0))
                     break
                 }
@@ -1286,10 +1399,10 @@ class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelegate, @
      Used to preform the disconnect delegate
      */
     private func doDisconnect(_ error: Error?) {
-        guard !didDisconnect else { return }
+        mutex.lock()
+        guard !didDisconnect else { mutex.unlock(); return }
         didDisconnect = true
         isConnecting = false
-        mutex.lock()
         connected = false
         mutex.unlock()
         guard canDispatch else {return}

@@ -53,6 +53,8 @@ final class FakeCentrifugoServer: @unchecked Sendable {
     private let lock = NSLock()
     private var current: NWConnection?
     private var _received: [PCommand] = []
+    private var _accepted = 0
+    private var open = Set<ObjectIdentifier>()
 
     /// connect reply fields. Override to set expires/ttl/data/etc.
     var connectResult: PConnectResult = {
@@ -79,6 +81,12 @@ final class FakeCentrifugoServer: @unchecked Sendable {
     /// A copy of all commands received from the client, in order.
     func received() -> [PCommand] { lock.lock(); defer { lock.unlock() }; return _received }
 
+    /// Number of connections accepted so far.
+    var accepted: Int { lock.lock(); defer { lock.unlock() }; return _accepted }
+
+    /// Number of accepted connections the client has not closed yet.
+    var openConnections: Int { lock.lock(); defer { lock.unlock() }; return open.count }
+
     /// The most recent subscribe request the client sent, or nil.
     func lastSubscribe() -> PSubscribeRequest? {
         lock.lock(); defer { lock.unlock() }
@@ -93,7 +101,11 @@ final class FakeCentrifugoServer: @unchecked Sendable {
         listener = try NWListener(using: params, on: .any)
         listener.newConnectionHandler = { [weak self] conn in
             guard let self = self else { return }
-            self.lock.lock(); self.current = conn; self.lock.unlock()
+            self.lock.lock()
+            self.current = conn
+            self._accepted += 1
+            self.open.insert(ObjectIdentifier(conn))
+            self.lock.unlock()
             conn.start(queue: self.queue)
             self.receive(conn)
         }
@@ -110,10 +122,16 @@ final class FakeCentrifugoServer: @unchecked Sendable {
     func closeConnection() { lock.lock(); let c = current; lock.unlock(); c?.cancel() }
 
     private func receive(_ conn: NWConnection) {
-        conn.receiveMessage { [weak self] data, _, _, error in
+        conn.receiveMessage { [weak self] data, context, _, error in
             guard let self = self else { return }
+            // An error, or the final context without data: the client closed the socket.
+            let closed = error != nil || (context?.isFinal == true && (data?.isEmpty ?? true))
+            if closed || conn.state == .cancelled {
+                self.lock.lock(); self.open.remove(ObjectIdentifier(conn)); self.lock.unlock()
+                return
+            }
             if let data = data, !data.isEmpty { self.handleFrame(conn, data) }
-            if error == nil { self.receive(conn) }
+            self.receive(conn)
         }
     }
 
@@ -156,7 +174,9 @@ final class FakeCentrifugoServer: @unchecked Sendable {
 
     // --- raw escape hatches ---------------------------------------------------
 
-    private func send(_ conn: NWConnection?, _ reply: PReply) {
+    private func send(_ conn: NWConnection?, _ reply: PReply) { send(conn, [reply]) }
+
+    private func send(_ conn: NWConnection?, _ replies: [PReply]) {
         // No live connection: drop the send rather than trap. A test that needed
         // it then fails on its own wait with a description of what did not
         // arrive, instead of a force-unwrap taking down the whole test process
@@ -164,7 +184,9 @@ final class FakeCentrifugoServer: @unchecked Sendable {
         guard let conn else { return }
         let out = OutputStream.toMemory()
         out.open()
-        try? BinaryDelimited.serialize(message: reply, to: out)
+        for reply in replies {
+            try? BinaryDelimited.serialize(message: reply, to: out)
+        }
         out.close()
         let data = out.property(forKey: .dataWrittenToMemoryStreamKey) as! Data
         let meta = NWProtocolWebSocket.Metadata(opcode: .binary)
@@ -176,6 +198,9 @@ final class FakeCentrifugoServer: @unchecked Sendable {
 
     /// Send a raw reply to the active connection.
     func sendReply(_ reply: PReply) { send(currentConn(), reply) }
+
+    /// Send several raw replies to the active connection in one WebSocket frame.
+    func sendFrame(_ replies: [PReply]) { send(currentConn(), replies) }
 
     /// Send a raw push (wrapped in a reply) to the active connection.
     func sendPush(_ push: PPush) { var r = PReply(); r.push = push; sendReply(r) }
