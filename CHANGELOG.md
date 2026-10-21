@@ -1,3 +1,33 @@
+0.11.0
+=====
+
+This release fixes many connection lifecycle, token and delivery issues found during SDK validation, aligning behaviour with centrifuge-js. There are no public API signature changes, but some behaviour changes are worth checking – see the list below.
+
+**Behaviour changes**
+
+* `removeSubscription(sub)` now removes only the given subscription (it used to remove and unsubscribe every subscription of the channel), and does nothing for one already removed. Calling `subscribe()` on a removed subscription reports a `configurationError` through `onError` and does nothing [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* Publications, joins and leaves are delivered to a client-side subscription only while it is subscribed; otherwise they go to a server-side subscription of the same channel, if any [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* Without a token getter, a static connection or subscription token is kept on state invalidation, and a token expired error ends the connection or subscription as unauthorized with a `configurationError` instead of retrying forever [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* Calls made while the client is connecting (publish, rpc, history, ...) now keep waiting across a reconnect (within their timeout) instead of failing with `clientDisconnected` [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* A delta publication that can't be applied, or a malformed fossil delta, now disconnects with "bad protocol" (code 2) instead of crashing the app [#145](https://github.com/centrifugal/centrifuge-swift/pull/145), [#146](https://github.com/centrifugal/centrifuge-swift/pull/146)
+* Subscription token refresh failures are now reported through `onError` with `subscriptionRefreshError` [#144](https://github.com/centrifugal/centrifuge-swift/pull/144)
+
+**Fixes**
+
+* Connection token is requested before the transport is opened, so a slow token getter no longer causes the server to close an idle connection [#146](https://github.com/centrifugal/centrifuge-swift/pull/146)
+* A new transport is created for every connection attempt and closed on teardown; the WebSocket handshake is limited by `timeout`. Fixes the client staying in connecting state forever on dead or half-open links [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* Connection and subscription tokens, replies and refreshes are tied to the attempt they were requested for – fixes using a previous user's token after `disconnect()` + `connect()`, and duplicate refresh chains [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* Native transport accepts messages larger than 1 MiB [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* Starscream transport receives large messages in linear time [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* Replies and pings that arrived while the app was frozen in background now win over late timeouts [#145](https://github.com/centrifugal/centrifuge-swift/pull/145)
+* Connection token refresh is retried with backoff when the token getter fails, and its completion no longer runs off the client queue [#142](https://github.com/centrifugal/centrifuge-swift/pull/142)
+* Pending reply callbacks are resolved exactly once when a disconnect re-enters itself [#143](https://github.com/centrifugal/centrifuge-swift/pull/143)
+* Fix deadlocks when calling `setTagsFilter` or `getSubscription` from delegate callbacks; the threading contract is now documented on `CentrifugeClientDelegate` [#140](https://github.com/centrifugal/centrifuge-swift/pull/140)
+
+**Misc**
+
+* Test suite migrated to swift-testing and runnable without Xcode via `make test` [#140](https://github.com/centrifugal/centrifuge-swift/pull/140), [#141](https://github.com/centrifugal/centrifuge-swift/pull/141)
+
 0.7.1
 =====
 
